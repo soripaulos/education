@@ -1,54 +1,56 @@
 <template>
-  <nav class="bg-white shadow-sm border-b">
-    <div class="flex items-center justify-between px-4 h-16">
-      <!-- Logo and Brand -->
-      <div class="flex items-center">
-        <UserDropdown
-          class="mr-4"
-          :isCollapsed="false"
-          :educationSettings="!educationSettings.loading && educationSettings.data"
-        />
+  <nav class="fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center justify-between px-4 h-16">
+        <!-- Logo and Brand -->
+        <div class="flex items-center">
+          <UserDropdown
+            class="mr-4"
+            :isCollapsed="false"
+            :educationSettings="!educationSettings.loading && educationSettings.data"
+          />
+        </div>
+
+        <!-- Desktop Navigation -->
+        <div class="hidden md:flex items-center space-x-1">
+          <SidebarLink
+            v-for="link in links"
+            :key="link.to"
+            :label="link.label"
+            :to="link.to"
+            :isCollapsed="false"
+            :icon="link.icon"
+            class="h-10"
+          />
+        </div>
+
+        <!-- Mobile menu button -->
+        <button 
+          @click="mobileMenuOpen = !mobileMenuOpen"
+          class="md:hidden p-2 rounded-md hover:bg-gray-100"
+        >
+          <Menu v-if="!mobileMenuOpen" class="h-6 w-6 text-gray-700" />
+          <X v-else class="h-6 w-6 text-gray-700" />
+        </button>
       </div>
 
-      <!-- Desktop Navigation -->
-      <div class="hidden md:flex items-center space-x-2">
-        <SidebarLink
-          v-for="link in links"
-          :key="link.to"
-          :label="link.label"
-          :to="link.to"
-          :isCollapsed="false"
-          :icon="link.icon"
-          class="h-10"
-        />
-      </div>
-
-      <!-- Mobile menu button -->
-      <button 
-        @click="mobileMenuOpen = !mobileMenuOpen"
-        class="md:hidden p-2 rounded-md hover:bg-gray-100"
+      <!-- Mobile menu -->
+      <div 
+        v-show="mobileMenuOpen" 
+        class="md:hidden border-t bg-white absolute w-full left-0"
       >
-        <Menu v-if="!mobileMenuOpen" class="h-6 w-6 text-gray-700" />
-        <X v-else class="h-6 w-6 text-gray-700" />
-      </button>
-    </div>
-
-    <!-- Mobile menu -->
-    <div 
-      v-show="mobileMenuOpen" 
-      class="md:hidden border-t"
-    >
-      <div class="px-2 pt-2 pb-3 space-y-1">
-        <SidebarLink
-          v-for="link in links"
-          :key="link.to"
-          :label="link.label"
-          :to="link.to"
-          :isCollapsed="false"
-          :icon="link.icon"
-          class="w-full"
-          @click="mobileMenuOpen = false"
-        />
+        <div class="px-2 pt-2 pb-3 space-y-1">
+          <SidebarLink
+            v-for="link in links"
+            :key="link.to"
+            :label="link.label"
+            :to="link.to"
+            :isCollapsed="false"
+            :icon="link.icon"
+            class="w-full"
+            @click="mobileMenuOpen = false"
+          />
+        </div>
       </div>
     </div>
   </nav>
@@ -109,4 +111,10 @@ const educationSettings = createResource({
   url: 'education.education.api.get_school_abbr_logo',
   auto: true,
 })
-</script> 
+</script>
+
+<style scoped>
+.router-link-active {
+  @apply text-indigo-600 bg-indigo-50;
+}
+</style> 

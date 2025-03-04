@@ -1,7 +1,7 @@
 <template>
   <router-link
     :to="to"
-    class="flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-150"
+    class="flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-150 whitespace-nowrap"
     :class="[
       $route.path === to
         ? 'text-indigo-600 bg-indigo-50'
@@ -41,4 +41,10 @@ defineProps({
     default: false,
   },
 })
-</script> 
+</script>
+
+<style scoped>
+.router-link-active {
+  @apply text-indigo-600 bg-indigo-50;
+}
+</style> 
