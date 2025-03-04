@@ -47,92 +47,73 @@
           </div>
   
           <!-- Performance Chart Card -->
-          <Card class="overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-300">
+          <Card class="overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-300 sacred-hover">
             <div class="p-6">
               <h3 class="text-lg font-semibold mb-6 flex items-center">
                 <div class="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded mr-3"></div>
                 Performance Metrics
               </h3>
-              
-              <!-- Modern Performance Chart -->
-              <div class="relative chart-container">
-                <div v-if="hasData" class="space-y-8">
-                  <!-- Chart Container with Grid Layout -->
-                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div v-for="(metric, index) in metrics" :key="metric.key"
-                         class="metric-card relative p-4 rounded-xl bg-gradient-to-br from-white to-gray-50 border border-gray-100 
-                                shadow-sm hover:shadow-md transition-all duration-300 group">
-                      <!-- Metric Header -->
-                      <div class="flex items-center justify-between mb-3">
-                        <h4 class="text-sm font-medium text-gray-700">{{ metric.label }}</h4>
-                        <div class="w-2 h-2 rounded-full" 
-                             :class="getMetricDotColor(chartData.values[index])"></div>
-                      </div>
-                      
-                      <!-- Vertical Bar Chart -->
-                      <div class="relative h-32 flex items-end justify-center">
-                        <div class="relative w-full max-w-[80px]">
-                          <!-- Background Bar -->
-                          <div class="absolute inset-0 bg-gray-100 rounded-full"></div>
-                          
-                          <!-- Progress Bar with Gradient -->
-                          <div class="metric-bar absolute bottom-0 w-full rounded-full transition-all duration-700 ease-out"
-                               :class="getMetricGradient(index)"
-                               :style="{
-                                 height: `${chartData.values[index] * 100}%`,
-                                 transform: 'translateY(2px)'
-                               }">
-                            <!-- Animated Glow Effect -->
-                            <div class="absolute inset-0 rounded-full opacity-0 group-hover:opacity-20
-                                      bg-gradient-to-t from-white via-transparent to-transparent
-                                      transition-opacity duration-300"></div>
-                          </div>
-                        </div>
-                        
-                        <!-- Value Label -->
-                        <div class="value-label absolute -top-1 left-1/2 transform -translate-x-1/2
-                                  px-2 py-1 rounded-full text-xs font-semibold
-                                  bg-white shadow-sm border border-gray-100
-                                  transition-all duration-300 group-hover:scale-110">
-                          {{ formatPercentage(chartData.values[index]) }}
-                        </div>
-                      </div>
-                      
-                      <!-- Target Line -->
-                      <div class="target-line absolute left-4 right-4 h-px bg-gray-200"
-                           style="bottom: calc(32px * 0.75)">
-                        <div class="absolute -top-4 right-0 text-xs text-gray-400">Target 75%</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Interactive Legend -->
-                  <div class="flex flex-wrap gap-4 justify-center">
-                    <div v-for="(metric, index) in metrics" :key="metric.key"
-                         class="flex items-center gap-2 px-3 py-1.5 rounded-full
-                                bg-gradient-to-r from-gray-50 to-white
-                                border border-gray-100 shadow-sm
-                                hover:shadow-md transition-all duration-300
-                                cursor-pointer group">
-                      <div class="w-2 h-2 rounded-full transition-transform duration-300 group-hover:scale-125"
-                           :class="getMetricDotColor(chartData.values[index])"></div>
-                      <span class="text-sm text-gray-600">{{ metric.label }}</span>
-                      <span class="text-xs font-medium ml-1">
-                        {{ formatPercentage(chartData.values[index]) }}
-                      </span>
-                    </div>
+              <div class="relative">
+                <div 
+                  ref="chartContainer" 
+                  class="w-full h-[300px] md:h-[400px] transition-all duration-300"
+                >
+                  <v-frappe-chart
+                    v-if="hasData"
+                    type="bar"
+                    :labels="chartData.labels"
+                    :data="[
+                      {
+                        name: 'Performance',
+                        values: evaluation.data.values,
+                        chartType: 'bar'
+                      }
+                    ]"
+                    :colors="['#FF9B7B', '#4ECDC4', '#FF6B6B', '#556FB5']"
+                    :tooltipOptions="{
+                      formatTooltipX: d => evaluation.data.labels[chartData.labels.indexOf(d)],
+                      formatTooltipY: d => `${(d * 100).toFixed(0)}%`,
+                      valuesOverPoints: true,
+                      showTooltipTitle: true
+                    }"
+                    :axisOptions="{
+                      xAxisMode: 'span',
+                      yAxisMode: 'span',
+                      xIsSeries: true,
+                      yAxis: {
+                        min: 0,
+                        max: 100,
+                        stepSize: 20,
+                        labels: ['0', '20', '40', '60', '80', '100']
+                      }
+                    }"
+                    :barOptions="{
+                      spaceRatio: 0.6,
+                      height: 35,
+                      depth: 2,
+                      borderRadius: 2,
+                      stacked: 0
+                    }"
+                    :height="300"
+                    :animate="true"
+                  />
+                  <div v-else class="text-center text-gray-500 py-8">
+                    No evaluation data available
                   </div>
                 </div>
-                
-                <!-- No Data State -->
-                <div v-else class="flex flex-col items-center justify-center py-12 px-4">
-                  <div class="w-16 h-16 mb-4 text-gray-300">
-                    <svg class="w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
+  
+                <!-- Legend (only show if hasData) -->
+                <div v-if="hasData" class="mt-4 flex flex-wrap gap-4 justify-center text-sm">
+                  <div v-for="(label, index) in evaluation.data?.labels" 
+                       :key="label"
+                       class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full"
+                         :style="{ backgroundColor: ['#FF9B7B', '#4ECDC4', '#FF6B6B', '#556FB5'][index] }">
+                    </div>
+                    <span class="text-gray-600">
+                      {{ chartData.labels[index] }} - {{ label }}
+                    </span>
                   </div>
-                  <p class="text-gray-500 text-center">No evaluation data available</p>
                 </div>
               </div>
             </div>
@@ -827,30 +808,14 @@
     return 'bg-red-500'
   }
   
-  // Add this computed property before the template
+  // Update the chartData computed property to use dynamic data
   const chartData = computed(() => {
     if (!evaluation.data?.labels) return null;
     
-    // Define label mappings (abbreviation -> full name)
-    const labelMappings = {
-      'HW': 'Homework',
-      'Part': 'Participation',
-      'Test': 'Test Scores',
-      'Prof': 'Proficiency'
-    };
-
-    // Create abbreviated labels
-    const abbreviatedLabels = evaluation.data.labels.map(label => {
-      // Find matching abbreviation or use first 3 chars + '.'
-      const abbr = Object.entries(labelMappings).find(([_, full]) => full === label)?.[0] 
-        || `${label.slice(0, 3)}.`;
-      return abbr;
-    });
-
     return {
-      labels: abbreviatedLabels,
-      values: evaluation.data.values,
-      mappings: labelMappings
+      labels: evaluation.data.labels,
+      values: evaluation.data.values.map(v => v * 100), // Convert decimals to percentages for display
+      mappings: {}
     };
   });
   
@@ -1009,9 +974,9 @@
   }
   
   .v-frappe-chart {
-    background: linear-gradient(to bottom, rgba(249, 250, 251, 0.5), white);
+    background: white;
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.5rem;
   }
   
   .v-frappe-chart .bar {
@@ -1051,145 +1016,37 @@
     }
   }
   
-  /* Chart Animations */
-  @keyframes slideUp {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-  
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-  
-  @keyframes pulse {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.05);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-  
-  /* Chart Container Styles */
+  /* Responsive chart container */
   .chart-container {
-    animation: slideUp 0.6s ease-out;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
   }
   
-  /* Bar Animation */
-  .metric-bar {
-    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  /* Value Label Animation */
-  .value-label {
-    animation: fadeIn 0.3s ease-out;
-  }
-  
-  /* Hover Effects */
-  .metric-card:hover .metric-bar {
-    filter: brightness(1.1);
-  }
-  
-  .metric-card:hover .value-label {
-    animation: pulse 1s infinite;
-  }
-  
-  /* Mobile Optimizations */
-  @media (max-width: 640px) {
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .v-frappe-chart {
+      height: 250px !important;
+      padding: 1rem;
+    }
+    
     .chart-container {
-      margin: 0 -1rem;
       padding: 0 1rem;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scroll-snap-type: x mandatory;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .v-frappe-chart {
+      height: 200px !important;
+      padding: 0.75rem;
     }
     
-    .metric-card {
-      scroll-snap-align: start;
-      min-width: 200px;
+    :deep(.chart-container .axis-line) {
+      stroke-width: 0.5;
     }
     
-    .value-label {
-      font-size: 0.75rem;
-    }
-  }
-  
-  /* Accessibility Improvements */
-  @media (prefers-reduced-motion: reduce) {
-    .chart-container,
-    .metric-bar,
-    .value-label {
-      animation: none;
-      transition: none;
-    }
-  }
-  
-  /* High Contrast Mode */
-  @media (prefers-contrast: more) {
-    .metric-bar {
-      border: 1px solid currentColor;
-    }
-    
-    .target-line {
-      border-width: 2px;
-    }
-  }
-  
-  /* Dark Mode Support */
-  @media (prefers-color-scheme: dark) {
-    .metric-card {
-      background: linear-gradient(to bottom right, rgba(255, 255, 255, 0.05), transparent);
-      border-color: rgba(255, 255, 255, 0.1);
-    }
-    
-    .value-label {
-      background-color: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-  }
-  
-  /* Touch Interaction Styles */
-  @media (hover: none) {
-    .metric-card {
-      touch-action: pan-y pinch-zoom;
-    }
-    
-    .chart-container {
-      user-select: none;
-      -webkit-user-select: none;
-    }
-  }
-  
-  /* Smooth Scrolling */
-  .chart-container {
-    scroll-behavior: smooth;
-  }
-  
-  /* Loading State Animation */
-  .loading-spinner {
-    animation: rotate 1s linear infinite;
-  }
-  
-  @keyframes rotate {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
+    :deep(.chart-container .chart-label) {
+      font-size: 10px;
     }
   }
   </style> 
@@ -1197,5 +1054,4 @@
   
 
 </``rewritten_file
-```
-</>`rewritten_file>
+```</>`
