@@ -1,21 +1,18 @@
 <template>
-  <div>
-    <div class="flex h-screen w-screen">
-      <div class="h-full border-r bg-gray-50">
-        <Sidebar />
-      </div>
-      <div class="flex-1 flex flex-col h-full overflow-auto">
-        <Navbar />
-        <router-view class="flex-1 overflow-auto" />
-      </div>
-    </div>
+  <div class="min-h-screen bg-gray-50">
+    <TopNavigation />
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <router-view></router-view>
+    </main>
   </div>
-  <Toasts />
 </template>
 
 <script setup>
-import Sidebar from '@/components/Sidebar.vue'
-import Navbar from '@/components/Navbar.vue'
-import { RouterView } from 'vue-router'
-import { Toasts } from 'frappe-ui'
+import TopNavigation from '@/components/TopNavigation.vue'
 </script>
+
+<style>
+#app {
+  @apply antialiased text-gray-900;
+}
+</style>
