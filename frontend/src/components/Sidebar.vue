@@ -93,7 +93,7 @@ const links = [
 
 // Create a reactive ref for immediate UI updates
 const sidebarState = ref(false)
-const isSidebarCollapsed = useStorage('sidebar_is_collapsed', false)
+const isSidebarCollapsed = useStorage('sidebar_is_collapsed', true)
 
 // Sync the storage value with our reactive ref
 watch(isSidebarCollapsed, (newValue) => {
