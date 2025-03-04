@@ -55,12 +55,12 @@
               </h3>
               
               <!-- Modern Performance Chart -->
-              <div class="relative">
+              <div class="relative chart-container">
                 <div v-if="hasData" class="space-y-8">
                   <!-- Chart Container with Grid Layout -->
                   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div v-for="(metric, index) in metrics" :key="metric.key"
-                         class="relative p-4 rounded-xl bg-gradient-to-br from-white to-gray-50 border border-gray-100 
+                         class="metric-card relative p-4 rounded-xl bg-gradient-to-br from-white to-gray-50 border border-gray-100 
                                 shadow-sm hover:shadow-md transition-all duration-300 group">
                       <!-- Metric Header -->
                       <div class="flex items-center justify-between mb-3">
@@ -76,7 +76,7 @@
                           <div class="absolute inset-0 bg-gray-100 rounded-full"></div>
                           
                           <!-- Progress Bar with Gradient -->
-                          <div class="absolute bottom-0 w-full rounded-full transition-all duration-700 ease-out"
+                          <div class="metric-bar absolute bottom-0 w-full rounded-full transition-all duration-700 ease-out"
                                :class="getMetricGradient(index)"
                                :style="{
                                  height: `${chartData.values[index] * 100}%`,
@@ -90,7 +90,7 @@
                         </div>
                         
                         <!-- Value Label -->
-                        <div class="absolute -top-1 left-1/2 transform -translate-x-1/2
+                        <div class="value-label absolute -top-1 left-1/2 transform -translate-x-1/2
                                   px-2 py-1 rounded-full text-xs font-semibold
                                   bg-white shadow-sm border border-gray-100
                                   transition-all duration-300 group-hover:scale-110">
@@ -99,7 +99,7 @@
                       </div>
                       
                       <!-- Target Line -->
-                      <div class="absolute left-4 right-4 h-px bg-gray-200"
+                      <div class="target-line absolute left-4 right-4 h-px bg-gray-200"
                            style="bottom: calc(32px * 0.75)">
                         <div class="absolute -top-4 right-0 text-xs text-gray-400">Target 75%</div>
                       </div>
@@ -534,10 +534,10 @@
   
   // Constants
   const metrics = [
-    { key: 'homework', label: 'Homework', color: '#4F46E5' },
-    { key: 'participation', label: 'Class Participation', color: '#EC4899' },
-    { key: 'tests', label: 'Test Scores', color: '#06B6D4' },
-    { key: 'proficiency', label: 'Subject Proficiency', color: '#F59E0B' }
+    { key: 'homework', label: 'Homework', color: '#36A2EB' },
+    { key: 'participation', label: 'Class Participation', color: '#FF6384' },
+    { key: 'tests', label: 'Test Scores', color: '#4BC0C0' },
+    { key: 'proficiency', label: 'Subject Proficiency', color: '#FF9F40' }
   ]
   
   const academicMetrics = [
@@ -905,78 +905,6 @@
     },
     { immediate: true, deep: true }
   )
-  
-  const getMetricDotColor = (value) => {
-    if (value >= 0.75) return 'bg-emerald-500'
-    if (value >= 0.5) return 'bg-blue-500'
-    if (value >= 0.25) return 'bg-amber-500'
-    return 'bg-red-500'
-  }
-  
-  const getMetricGradient = (index) => {
-    const gradients = [
-      'bg-gradient-to-t from-indigo-600 to-blue-400',   // Homework
-      'bg-gradient-to-t from-pink-600 to-rose-400',     // Participation
-      'bg-gradient-to-t from-cyan-600 to-sky-400',      // Test Scores
-      'bg-gradient-to-t from-amber-600 to-yellow-400'   // Proficiency
-    ]
-    return gradients[index]
-  }
-  
-  // Add touch interaction helpers
-  const handleTouchStart = (event) => {
-    const touch = event.touches[0]
-    touchStartX.value = touch.clientX
-    touchStartY.value = touch.clientY
-  }
-  
-  const handleTouchMove = (event) => {
-    if (!touchStartX.value || !touchStartY.value) return
-    
-    const touch = event.touches[0]
-    const deltaX = touch.clientX - touchStartX.value
-    const deltaY = touch.clientY - touchStartY.value
-    
-    // If horizontal scroll is greater than vertical, prevent default
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      event.preventDefault()
-    }
-  }
-  
-  const handleTouchEnd = () => {
-    touchStartX.value = null
-    touchStartY.value = null
-  }
-  
-  // Add refs for touch interaction
-  const touchStartX = ref(null)
-  const touchStartY = ref(null)
-  
-  // Add to onMounted
-  onMounted(() => {
-    // ... existing mounted code ...
-    
-    // Add touch event listeners
-    const chartElement = document.querySelector('.chart-container')
-    if (chartElement) {
-      chartElement.addEventListener('touchstart', handleTouchStart, { passive: false })
-      chartElement.addEventListener('touchmove', handleTouchMove, { passive: false })
-      chartElement.addEventListener('touchend', handleTouchEnd)
-    }
-  })
-  
-  // Add to onUnmounted
-  onUnmounted(() => {
-    // ... existing unmounted code ...
-    
-    // Remove touch event listeners
-    const chartElement = document.querySelector('.chart-container')
-    if (chartElement) {
-      chartElement.removeEventListener('touchstart', handleTouchStart)
-      chartElement.removeEventListener('touchmove', handleTouchMove)
-      chartElement.removeEventListener('touchend', handleTouchEnd)
-    }
-  })
   </script>
   
   <style scoped>
@@ -1134,7 +1062,7 @@
       opacity: 1;
     }
   }
-
+  
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -1143,7 +1071,7 @@
       opacity: 1;
     }
   }
-
+  
   @keyframes pulse {
     0% {
       transform: scale(1);
@@ -1155,31 +1083,31 @@
       transform: scale(1);
     }
   }
-
+  
   /* Chart Container Styles */
   .chart-container {
     animation: slideUp 0.6s ease-out;
   }
-
+  
   /* Bar Animation */
   .metric-bar {
     transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
-
+  
   /* Value Label Animation */
   .value-label {
     animation: fadeIn 0.3s ease-out;
   }
-
+  
   /* Hover Effects */
   .metric-card:hover .metric-bar {
     filter: brightness(1.1);
   }
-
+  
   .metric-card:hover .value-label {
     animation: pulse 1s infinite;
   }
-
+  
   /* Mobile Optimizations */
   @media (max-width: 640px) {
     .chart-container {
@@ -1199,7 +1127,7 @@
       font-size: 0.75rem;
     }
   }
-
+  
   /* Accessibility Improvements */
   @media (prefers-reduced-motion: reduce) {
     .chart-container,
@@ -1209,7 +1137,7 @@
       transition: none;
     }
   }
-
+  
   /* High Contrast Mode */
   @media (prefers-contrast: more) {
     .metric-bar {
@@ -1220,7 +1148,7 @@
       border-width: 2px;
     }
   }
-
+  
   /* Dark Mode Support */
   @media (prefers-color-scheme: dark) {
     .metric-card {
@@ -1233,7 +1161,7 @@
       border-color: rgba(255, 255, 255, 0.2);
     }
   }
-
+  
   /* Touch Interaction Styles */
   @media (hover: none) {
     .metric-card {
@@ -1245,17 +1173,17 @@
       -webkit-user-select: none;
     }
   }
-
+  
   /* Smooth Scrolling */
   .chart-container {
     scroll-behavior: smooth;
   }
-
+  
   /* Loading State Animation */
   .loading-spinner {
     animation: rotate 1s linear infinite;
   }
-
+  
   @keyframes rotate {
     from {
       transform: rotate(0deg);
