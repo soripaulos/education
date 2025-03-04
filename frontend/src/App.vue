@@ -1,8 +1,8 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <Sidebar />
-    <main class="pt-16">
-      <router-view class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"></router-view>
+    <main class="pt-16 px-4">
+      <router-view></router-view>
     </main>
     <Toasts />
   </div>
