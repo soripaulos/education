@@ -56,7 +56,7 @@
               <div class="relative">
                 <div 
                   ref="chartContainer" 
-                  class="w-full transition-all duration-300"
+                  class="w-full h-[300px] md:h-[400px] transition-all duration-300"
                 >
                   <v-frappe-chart
                     v-if="hasData"
@@ -90,14 +90,15 @@
                       formatTooltipY: d => `${(d * 100).toFixed(1)}%`,
                       valuesOverPoints: true,
                       showTooltipTitle: true,
-                      showAllTooltips: true
+                      showAllTooltips: true,
+                      tooltipClass: 'custom-tooltip'
                     }"
                     :axisOptions="{
                       xAxisMode: 'tick',
                       yAxisMode: 'tick',
                       xIsSeries: true,
-                      rotateXLabels: 0,
-                      xAxisHeight: 40,
+                      rotateXLabels: 45,
+                      xAxisHeight: 60,
                       shortenYAxisNumbers: 1,
                       centerLine: 0,
                       xAxisLabelDistance: -15,
@@ -106,14 +107,21 @@
                       yMarkers: [{ 
                         label: 'Target',
                         value: 0.75,
-                        type: 'solid',
-                        options: { labelPos: 'right' }
+                        type: 'dashed',
+                        options: { 
+                          labelPos: 'right',
+                          strokeWidth: 2,
+                          strokeDasharray: '4,4'
+                        }
                       }],
                       yRegions: [{
                         label: 'Good',
                         start: 0.7,
                         end: 1,
-                        options: { labelPos: 'right' }
+                        options: { 
+                          labelPos: 'right',
+                          fillOpacity: 0.1
+                        }
                       }],
                       yAxis: {
                         min: 0,
@@ -123,29 +131,28 @@
                       }
                     }"
                     :barOptions="{
-                      spaceRatio: 0.05,
+                      spaceRatio: 0.1,
                       height: 40,
                       depth: 3,
-                      borderRadius: 4,
+                      borderRadius: 6,
                       stacked: 0,
-                      minWidth: 60,
-                      maxWidth: 100,
-                      width: 80
+                      minWidth: 40,
+                      maxWidth: 80,
+                      width: 60,
+                      barPadding: 0.2
                     }"
-                    :chartOptions="{
-                      responsiveView: true,
-                      maxSlices: 8,
-                      minWidth: chartDimensions.width * 0.95,
-                      isNavigable: true,
-                      animate: 1,
-                      valuesOverPoints: 1,
-                      showLegend: 1,
-                      showTooltip: 1,
-                      regionFill: 1,
-                      barSpacing: 20
+                    :height="300"
+                    :animate="true"
+                    :lineOptions="{
+                      hideLine: true,
+                      hideDots: true
                     }"
-                    class="w-full p-4 hover:shadow-lg transition-all duration-300"
-                    :height="chartDimensions.height"
+                    :legendOptions="{
+                      showLegend: true,
+                      position: 'top',
+                      fontSize: 12,
+                      padding: 20
+                    }"
                   />
                   <div v-else class="text-center text-gray-500 py-8">
                     No evaluation data available
@@ -1061,6 +1068,25 @@
   
   .v-frappe-chart svg {
     transition: all 0.3s ease-in-out;
+  }
+  
+  .custom-tooltip {
+    @apply bg-white shadow-lg rounded-lg p-3 border border-gray-100;
+    font-size: 0.875rem;
+  }
+  
+  @media (max-width: 768px) {
+    .custom-tooltip {
+      font-size: 0.75rem;
+      padding: 0.5rem;
+    }
+  }
+  
+  /* Improve touch interactions on mobile */
+  @media (max-width: 768px) {
+    .v-frappe-chart {
+      touch-action: pan-y pinch-zoom;
+    }
   }
   </style> 
   
