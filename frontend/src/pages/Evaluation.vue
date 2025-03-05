@@ -83,12 +83,12 @@
                       yAxis: {
                         min: 0,
                         max: 100,
-                        stepSize: 20,
-                        labels: ['0', '20', '40', '60', '80', '100']
+                        stepSize: 10,
+                        labels: ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%']
                       }
                     }"
                     :barOptions="{
-                      spaceRatio: 0.6,
+                      spaceRatio: 0.3,
                       height: 35,
                       depth: 2,
                       borderRadius: 2,
@@ -104,15 +104,13 @@
   
                 <!-- Legend (only show if hasData) -->
                 <div v-if="hasData" class="mt-4 flex flex-wrap gap-4 justify-center text-sm">
-                  <div v-for="(label, index) in evaluation.data?.labels" 
+                  <div v-for="(label, index) in chartData.labels" 
                        :key="label"
                        class="flex items-center gap-2">
                     <div class="w-3 h-3 rounded-full"
                          :style="{ backgroundColor: ['#FF9B7B', '#4ECDC4', '#FF6B6B', '#556FB5'][index] }">
                     </div>
-                    <span class="text-gray-600">
-                      {{ chartData.labels[index] }} - {{ label }}
-                    </span>
+                    <span class="text-gray-600">{{ label }}</span>
                   </div>
                 </div>
               </div>
