@@ -48,7 +48,7 @@
   
           <!-- Performance Chart Card -->
           <Card class="overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-300 sacred-hover">
-            <div class="p-6">
+            <div class="p-1">
               <h3 class="text-lg font-semibold mb-6 flex items-center">
                 <div class="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded mr-3"></div>
                 Performance Metrics
@@ -64,14 +64,29 @@
                     :labels="chartData.labels"
                     :data="[
                       {
-                        name: 'Performance',
-                        values: evaluation.data.values,
+                        name: 'Homework',
+                        values: [evaluation.data.values[0]],
+                        chartType: 'bar'
+                      },
+                      {
+                        name: 'Class Participation',
+                        values: [evaluation.data.values[1]],
+                        chartType: 'bar'
+                      },
+                      {
+                        name: 'Test Scores',
+                        values: [evaluation.data.values[2]],
+                        chartType: 'bar'
+                      },
+                      {
+                        name: 'Subject Proficiency',
+                        values: [evaluation.data.values[3]],
                         chartType: 'bar'
                       }
                     ]"
                     :colors="['#FF9B7B', '#4ECDC4', '#FF6B6B', '#556FB5']"
                     :tooltipOptions="{
-                      formatTooltipX: d => evaluation.data.labels[chartData.labels.indexOf(d)],
+                      formatTooltipX: d => d,
                       formatTooltipY: d => `${(d * 100).toFixed(0)}%`,
                       valuesOverPoints: true,
                       showTooltipTitle: true
@@ -82,8 +97,8 @@
                       xIsSeries: true,
                       yAxis: {
                         min: 0,
-                        max: 100,
-                        stepSize: 10,
+                        max: 1,
+                        stepSize: 0.1,
                         labels: ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%']
                       }
                     }"
