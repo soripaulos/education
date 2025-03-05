@@ -49,19 +49,20 @@
           <!-- Performance Chart Card -->
           <Card class="overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-300 sacred-hover">
             <div class="p-1">
-              <h3 class="text-lg font-semibold mb-4 flex items-center">
+              <h3 class="text-lg font-semibold mb-2 flex items-center">
                 <div class="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded mr-3"></div>
                 Performance Metrics
               </h3>
               <div class="relative">
                 <div 
                   ref="chartContainer" 
-                  class="w-full h-[300px] md:h-[400px] transition-all duration-300"
+                  class="w-full h-[280px] transition-all duration-300"
                 >
                   <!-- New Chart Implementation -->
                   <div v-if="hasData" class="w-full h-full flex flex-col">
-                    <div class="flex-1 flex items-end gap-4 px-2">
-                      <div class="flex flex-col justify-end text-xs text-gray-600 space-y-6">
+                    <div class="flex-1 flex items-end gap-2 px-2">
+                      <!-- Y-axis labels -->
+                      <div class="flex flex-col justify-between text-xs text-gray-600 h-full py-1">
                         <span>100%</span>
                         <span>90%</span>
                         <span>80%</span>
@@ -74,7 +75,8 @@
                         <span>10%</span>
                         <span>0%</span>
                       </div>
-                      <div class="flex-1 relative">
+                      <!-- Chart area -->
+                      <div class="flex-1 relative h-full">
                         <!-- Grid Lines -->
                         <div class="absolute inset-0 flex flex-col justify-between">
                           <template v-for="i in 11" :key="i">
@@ -83,32 +85,33 @@
                         </div>
                         <!-- Bars -->
                         <div class="relative h-full flex items-end justify-around">
-                          <div v-for="(value, index) in evaluation.data.values" :key="index" 
-                               class="w-16 transition-all duration-500 ease-out hover:opacity-90 cursor-pointer group"
-                               :style="{ height: `${value * 100}%` }"
-                          >
-                            <div class="h-full rounded-t-lg shadow-lg transform transition-transform group-hover:translate-y-[-4px]"
-                                 :style="{ backgroundColor: ['#FF9B7B', '#4ECDC4', '#FF6B6B', '#556FB5'][index] }"
+                          <template v-for="(value, index) in chartData.values" :key="index">
+                            <div class="w-12 md:w-16 transition-all duration-500 ease-out hover:opacity-90 cursor-pointer group"
+                                 :style="{ height: `${value}%` }"
                             >
-                              <!-- Tooltip -->
-                              <div class="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap transition-opacity">
-                                {{ `${(value * 100).toFixed(1)}%` }}
+                              <div class="h-full rounded-t-lg shadow-lg transform transition-transform group-hover:translate-y-[-4px]"
+                                   :style="{ backgroundColor: ['#FF9B7B', '#4ECDC4', '#FF6B6B', '#556FB5'][index] }"
+                              >
+                                <!-- Tooltip -->
+                                <div class="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap transition-opacity z-10">
+                                  {{ `${value.toFixed(1)}%` }}
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          </template>
                         </div>
                       </div>
                     </div>
                     <!-- X-axis labels and Legend -->
-                    <div class="mt-6 px-2">
-                      <div class="flex justify-around mb-6">
+                    <div class="mt-4 px-2">
+                      <div class="flex justify-around mb-4">
                         <span v-for="(label, index) in chartData.labels" :key="index" 
-                              class="text-sm text-gray-600 text-center max-w-[120px] truncate">
+                              class="text-xs md:text-sm text-gray-600 text-center max-w-[80px] md:max-w-[120px] truncate">
                           {{ label }}
                         </span>
                       </div>
                       <!-- Legend -->
-                      <div class="flex flex-wrap justify-center gap-6 text-sm border-t border-gray-100 pt-4">
+                      <div class="flex flex-wrap justify-center gap-4 text-xs md:text-sm border-t border-gray-100 pt-3">
                         <div v-for="(label, index) in chartData.labels" :key="index"
                              class="flex items-center gap-2">
                           <div class="w-3 h-3 rounded-full"
@@ -822,7 +825,7 @@
     
     return {
       labels: evaluation.data.labels,
-      values: evaluation.data.values.map(v => v * 100), // Convert decimals to percentages for display
+      values: evaluation.data.values.map(v => v * 100), // Convert decimals to percentages
       mappings: {}
     };
   });
