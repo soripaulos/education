@@ -15,7 +15,7 @@
         </template>
       </Dropdown>
     </div>
-    <div class="flex-1 min-h-0 overflow-auto">
+    <div class="flex-1 min-h-0 overflow-auto pb-8">
       <Calendar
         v-if="!attendanceResource.loading && attendanceResource.data"
         :events="attendanceResource.data"

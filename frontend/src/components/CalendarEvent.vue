@@ -72,11 +72,16 @@
     :class="event.background_color || 'bg-green-100'"
     @click="togglePopover"
   >
-    <div class="flex gap-1 md:gap-2 relative px-1 items-start">
+    <div class="flex items-start gap-1">
       <FeatherIcon name="circle" class="h-3 flex-shrink-0 text-black" />
 
-      <div class="flex flex-col w-full overflow-hidden">
-        <p class="font-medium text-xs md:text-sm text-gray-800 truncate">
+      <div class="flex-1 min-w-0">
+        <!-- For short status texts like "Present", "Absent", etc. -->
+        <p v-if="isShortStatus" class="font-medium text-xs md:text-sm text-gray-800 text-center">
+          {{ event.title }}
+        </p>
+        <!-- For longer text titles -->
+        <p v-else class="font-medium text-xs md:text-sm text-gray-800 truncate">
           {{ event.title }}
         </p>
         <p
@@ -92,6 +97,7 @@
 
 <script setup>
 import { FeatherIcon, Popover } from 'frappe-ui'
+import { computed } from 'vue'
 
 const props = defineProps({
   event: {
@@ -150,6 +156,12 @@ let colorMap = {
     border_color: 'border-amber-600',
   },
 }
+
+// Check if the title is a short status like "Present", "Absent", etc.
+const isShortStatus = computed(() => {
+  const shortStatuses = ['Present', 'Absent', 'Leave'];
+  return props.event.status && shortStatuses.includes(props.event.title);
+})
 
 function parseDate() {
   let date = props.date.toDateString().split(' ').slice(0, 3)

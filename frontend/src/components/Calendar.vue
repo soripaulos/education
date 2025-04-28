@@ -180,7 +180,14 @@ function currentMonthDate(date) {
 /* Add responsive styles */
 @media (max-width: 640px) {
   .grid-cols-7 > div {
-    min-width: 2.5rem;
+    min-width: 3rem;
+  }
+}
+
+/* Additional style for small screens */
+@media (max-width: 480px) {
+  .grid-cols-7 {
+    min-width: 350px; /* Ensure minimum total width */
   }
 }
 
