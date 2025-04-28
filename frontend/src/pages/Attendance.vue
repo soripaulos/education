@@ -1,7 +1,7 @@
 <template>
-  <div class="py-4 flex flex-col">
-    <div class="px-5 flex items-center gap-2">
-      <h2 class="font-semibold text-2xl">{{ programName }}</h2>
+  <div class="py-4 flex flex-col h-full">
+    <div class="px-5 flex flex-wrap items-center gap-2 mb-2">
+      <h2 class="font-semibold text-xl md:text-2xl">{{ programName }}</h2>
       <Dropdown :options="allStudentGroups">
         <template #default="{ open }">
           <Button :label="selectedGroup">
@@ -15,7 +15,7 @@
         </template>
       </Dropdown>
     </div>
-    <div class="h-full">
+    <div class="flex-1 min-h-0 overflow-auto">
       <Calendar
         v-if="!attendanceResource.loading && attendanceResource.data"
         :events="attendanceResource.data"

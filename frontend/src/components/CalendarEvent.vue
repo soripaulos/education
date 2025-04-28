@@ -70,19 +70,19 @@
   </Popover>
   <div
     v-else
-    class="w-full p-2 rounded-md"
+    class="w-full p-1 md:p-2 rounded-md"
     :class="event.background_color || 'bg-green-100'"
     @click="togglePopover"
   >
-    <div class="flex gap-3 relative px-2 items-start">
-      <FeatherIcon name="circle" class="h-4 text-black" />
+    <div class="flex gap-1 md:gap-3 relative px-1 md:px-2 items-start">
+      <FeatherIcon name="circle" class="h-3 md:h-4 text-black" />
 
       <div class="flex flex-col whitespace-nowrap w-fit overflow-hidden">
-        <p class="font-medium text-sm text-gray-800 text-ellipsis">
+        <p class="font-medium text-xs md:text-sm text-gray-800 text-ellipsis">
           {{ event.title }}
         </p>
         <p
-          class="font-normal text-xs text-gray-800 text-ellipsis"
+          class="font-normal text-xxs md:text-xs text-gray-800 text-ellipsis"
           v-if="event.from_time"
         >
           {{ event.from_time }} - {{ event.to_time }}
@@ -161,4 +161,8 @@ function parseDate() {
 }
 </script>
 
-<style></style>
+<style>
+.text-xxs {
+  font-size: 0.65rem;
+}
+</style>
