@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <div class="h-full">
+    <div class="h-[92%] min-h-[600px] min-w-[600px]">
       <!-- Day List -->
       <div class="grid grid-cols-7 w-full pb-2">
         <span
