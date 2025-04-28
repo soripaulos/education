@@ -2,12 +2,12 @@
   <Popover placement="right" v-if="!event.status">
     <template #target="{ togglePopover }">
       <div
-        class="w-full p-2 rounded-lg"
+        class="w-full p-1 md:p-2 rounded-lg"
         :class="colorMap[event?.color]?.background_color || 'bg-green-100'"
         @click="togglePopover"
       >
         <div
-          class="flex gap-3 relative px-2 items-start"
+          class="flex gap-1 md:gap-2 relative px-1 items-start"
           :class="
             event.from_time && [
               'border-l-2',
@@ -15,14 +15,14 @@
             ]
           "
         >
-          <FeatherIcon name="circle" class="h-4 text-black" />
+          <FeatherIcon name="circle" class="h-3 flex-shrink-0 text-black" />
 
-          <div class="flex flex-col whitespace-nowrap w-fit overflow-hidden">
-            <p class="font-medium text-sm text-gray-800 text-ellipsis">
+          <div class="flex flex-col w-full overflow-hidden">
+            <p class="font-medium text-xs md:text-sm text-gray-800 truncate">
               {{ event.title }}
             </p>
             <p
-              class="font-normal text-xs text-gray-800 text-ellipsis"
+              class="font-normal text-xxs md:text-xs text-gray-800 truncate"
               v-if="event.from_time"
             >
               {{ event.from_time }} - {{ event.to_time }}
@@ -32,8 +32,6 @@
       </div>
     </template>
     <template #body-main>
-      <!-- <div class="p-2">Popover content {{ event.color }}</div> -->
-
       <!-- container div -->
       <div class="flex flex-col gap-5 pt-5 px-6 pb-6">
         <!-- heading  -->
@@ -74,15 +72,15 @@
     :class="event.background_color || 'bg-green-100'"
     @click="togglePopover"
   >
-    <div class="flex gap-1 md:gap-3 relative px-1 md:px-2 items-start">
-      <FeatherIcon name="circle" class="h-3 md:h-4 text-black" />
+    <div class="flex gap-1 md:gap-2 relative px-1 items-start">
+      <FeatherIcon name="circle" class="h-3 flex-shrink-0 text-black" />
 
-      <div class="flex flex-col whitespace-nowrap w-fit overflow-hidden">
-        <p class="font-medium text-xs md:text-sm text-gray-800 text-ellipsis">
+      <div class="flex flex-col w-full overflow-hidden">
+        <p class="font-medium text-xs md:text-sm text-gray-800 truncate">
           {{ event.title }}
         </p>
         <p
-          class="font-normal text-xxs md:text-xs text-gray-800 text-ellipsis"
+          class="font-normal text-xxs md:text-xs text-gray-800 truncate"
           v-if="event.from_time"
         >
           {{ event.from_time }} - {{ event.to_time }}
@@ -164,5 +162,13 @@ function parseDate() {
 <style>
 .text-xxs {
   font-size: 0.65rem;
+}
+
+/* Add custom styles for better text handling */
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 </style>

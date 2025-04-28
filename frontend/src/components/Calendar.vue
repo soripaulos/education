@@ -44,7 +44,7 @@
       >
         <div
           v-for="date in currentMonthDates"
-          class="border-r-[1px] border-b-[1px] border-gray-200 min-h-[3rem]"
+          class="border-r-[1px] border-b-[1px] border-gray-200 min-h-[3.5rem]"
         >
           <div
             class="flex justify-center h-full font-normal mx-1 md:mx-2"
@@ -52,10 +52,10 @@
           >
             <div
               v-if="currentMonthDate(date)"
-              class="relative flex flex-col items-center w-full overflow-y-auto"
+              class="relative flex flex-col items-center w-full overflow-hidden"
             >
               <span
-                class="py-1 sticky top-0 bg-white w-full text-center z-10 text-xs md:text-sm"
+                class="py-1 sticky top-0 bg-white w-full text-center z-10 text-xs md:text-sm mb-1"
                 :class="
                   date.toDateString() === new Date().toDateString() &&
                   'font-bold'
@@ -64,12 +64,12 @@
                 {{ date.getDate() }}
               </span>
 
-              <div class="w-full">
+              <div class="w-full px-1 space-y-1 overflow-y-auto">
                 <CalendarEvent
                   v-for="calendarEvent in parsedData[parseDate(date)]"
                   :event="calendarEvent"
                   :date="date"
-                  class="mb-2 cursor-pointer w-full"
+                  class="cursor-pointer w-full"
                   :draggable="false"
                   :key="calendarEvent.name"
                 />
@@ -182,5 +182,29 @@ function currentMonthDate(date) {
   .grid-cols-7 > div {
     min-width: 2.5rem;
   }
+}
+
+/* To better handle calendar cell content */
+.grid-cols-7 > div {
+  position: relative;
+  max-height: 10rem;
+}
+
+.overflow-y-auto {
+  max-height: calc(100% - 1.5rem);
+  scrollbar-width: thin;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent; 
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 3px;
 }
 </style>
