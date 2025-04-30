@@ -1,3 +1,8 @@
+import { precacheAndRoute } from 'workbox-precaching'
+
+// Use with workbox-build or workbox-webpack-plugin
+precacheAndRoute(self.__WB_MANIFEST || [])
+
 // Service worker for PWA
 self.addEventListener('fetch', (event) => {
   // Intercept navigation requests
@@ -52,5 +57,90 @@ self.addEventListener('message', (event) => {
         client.navigate('/student-portal')
       })
     })
+  }
+})
+
+// Handle push notifications
+self.addEventListener('push', (event) => {
+  let payload = {}
+  try {
+    payload = event.data.json()
+  } catch (error) {
+    console.error('Error parsing push notification payload:', error)
+    payload = {
+      title: 'New Notification',
+      body: event.data ? event.data.text() : 'No details available',
+    }
+  }
+
+  const options = {
+    body: payload.body || '',
+    icon: payload.icon || '/apple-touch-icon.png',
+    badge: '/badge-icon.png',
+    data: payload.data || {},
+    actions: payload.actions || [],
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || 'Education Portal', options)
+  )
+})
+
+// Handle notification click
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  // Handle click on notification body
+  if (event.action === '') {
+    const urlToOpen = event.notification.data.url || '/'
+    
+    event.waitUntil(
+      clients.matchAll({ type: 'window' }).then((clientList) => {
+        // If a window client is already open, use it
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.postMessage({ 
+              type: 'NOTIFICATION_CLICK', 
+              url: urlToOpen 
+            })
+            return client.focus()
+          }
+        }
+        
+        // Otherwise open a new window
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen)
+        }
+      })
+    )
+  } else {
+    // Handle click on notification action
+    const action = event.action
+    if (action) {
+      event.waitUntil(
+        clients.matchAll({ type: 'window' }).then((clientList) => {
+          for (const client of clientList) {
+            if (client.url.includes(self.location.origin) && 'focus' in client) {
+              client.postMessage({ 
+                type: 'NOTIFICATION_ACTION', 
+                action: action 
+              })
+              return client.focus()
+            }
+          }
+          
+          if (clients.openWindow) {
+            return clients.openWindow(action)
+          }
+        })
+      )
+    }
+  }
+})
+
+// Skip waiting and become active service worker
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
   }
 }) 

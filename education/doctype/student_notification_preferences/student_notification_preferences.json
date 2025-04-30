@@ -1,0 +1,132 @@
+{
+  "autoname": "field:student",
+  "creation": "2023-07-18 11:30:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "student",
+    "student_name",
+    "notifications_section",
+    "email_notifications",
+    "push_notifications",
+    "preferences_section",
+    "course_updates",
+    "assignment_notifications",
+    "fee_reminders",
+    "exam_notifications",
+    "attendance_notifications"
+  ],
+  "fields": [
+    {
+      "fieldname": "student",
+      "fieldtype": "Link",
+      "label": "Student",
+      "options": "Student",
+      "reqd": 1,
+      "unique": 1,
+      "in_list_view": 1
+    },
+    {
+      "fetch_from": "student.title",
+      "fieldname": "student_name",
+      "fieldtype": "Data",
+      "label": "Student Name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "notifications_section",
+      "fieldtype": "Section Break",
+      "label": "Notification Channels"
+    },
+    {
+      "default": "1",
+      "fieldname": "email_notifications",
+      "fieldtype": "Check",
+      "label": "Email Notifications"
+    },
+    {
+      "default": "1",
+      "fieldname": "push_notifications",
+      "fieldtype": "Check",
+      "label": "Push Notifications"
+    },
+    {
+      "fieldname": "preferences_section",
+      "fieldtype": "Section Break",
+      "label": "Notification Preferences"
+    },
+    {
+      "default": "1",
+      "fieldname": "course_updates",
+      "fieldtype": "Check",
+      "label": "Course Updates"
+    },
+    {
+      "default": "1",
+      "fieldname": "assignment_notifications",
+      "fieldtype": "Check",
+      "label": "Assignment Notifications"
+    },
+    {
+      "default": "1",
+      "fieldname": "fee_reminders",
+      "fieldtype": "Check",
+      "label": "Fee Reminders"
+    },
+    {
+      "default": "1",
+      "fieldname": "exam_notifications",
+      "fieldtype": "Check",
+      "label": "Exam Notifications"
+    },
+    {
+      "default": "1",
+      "fieldname": "attendance_notifications",
+      "fieldtype": "Check",
+      "label": "Attendance Notifications"
+    }
+  ],
+  "modified": "2023-07-18 11:30:00.000000",
+  "modified_by": "Administrator",
+  "module": "Education",
+  "name": "Student Notification Preferences",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 0,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Education Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Student",
+      "select": 1,
+      "write": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+} 

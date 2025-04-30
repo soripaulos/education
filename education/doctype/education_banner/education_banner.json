@@ -1,0 +1,137 @@
+{
+  "autoname": "format:BANNER-{YYYY}-{MM}-{####}",
+  "creation": "2023-07-18 10:30:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "active",
+    "title",
+    "message",
+    "details_section",
+    "banner_type",
+    "icon",
+    "action_text",
+    "action_url",
+    "timing_section",
+    "start_date",
+    "end_date",
+    "dismissable",
+    "auto_dismiss"
+  ],
+  "fields": [
+    {
+      "default": "1",
+      "fieldname": "active",
+      "fieldtype": "Check",
+      "label": "Active"
+    },
+    {
+      "fieldname": "title",
+      "fieldtype": "Data",
+      "label": "Title",
+      "reqd": 1
+    },
+    {
+      "fieldname": "message",
+      "fieldtype": "Text Editor",
+      "label": "Message",
+      "reqd": 1
+    },
+    {
+      "fieldname": "details_section",
+      "fieldtype": "Section Break",
+      "label": "Details"
+    },
+    {
+      "fieldname": "banner_type",
+      "fieldtype": "Select",
+      "label": "Banner Type",
+      "options": "info\nsuccess\nwarning\nerror",
+      "default": "info"
+    },
+    {
+      "fieldname": "icon",
+      "fieldtype": "Data",
+      "label": "Icon",
+      "description": "Feather icon name (e.g., info, alert-circle)"
+    },
+    {
+      "fieldname": "action_text",
+      "fieldtype": "Data",
+      "label": "Action Button Text"
+    },
+    {
+      "fieldname": "action_url",
+      "fieldtype": "Data",
+      "label": "Action URL",
+      "description": "Can be internal route (e.g., /settings) or external URL"
+    },
+    {
+      "fieldname": "timing_section",
+      "fieldtype": "Section Break",
+      "label": "Timing & Behavior"
+    },
+    {
+      "fieldname": "start_date",
+      "fieldtype": "Date",
+      "label": "Start Date",
+      "reqd": 1
+    },
+    {
+      "fieldname": "end_date",
+      "fieldtype": "Date",
+      "label": "End Date",
+      "reqd": 1
+    },
+    {
+      "default": "1",
+      "fieldname": "dismissable",
+      "fieldtype": "Check",
+      "label": "User Can Dismiss"
+    },
+    {
+      "fieldname": "auto_dismiss",
+      "fieldtype": "Int",
+      "label": "Auto Dismiss (seconds)",
+      "description": "Banner will automatically dismiss after this many seconds. 0 means no auto-dismiss."
+    }
+  ],
+  "modified": "2023-07-18 10:30:00.000000",
+  "modified_by": "Administrator",
+  "module": "Education",
+  "name": "Education Banner",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Education Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "read": 1,
+      "role": "Academics User"
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+} 

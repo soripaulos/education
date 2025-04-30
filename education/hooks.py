@@ -190,13 +190,46 @@ after_install = "education.install.after_install"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Course Enrollment": {
+		"after_insert": "education.education.handlers.course_enrollment_handler",
+		"on_update": "education.education.handlers.course_enrollment_handler"
+	},
+	"Program Enrollment": {
+		"after_insert": "education.education.handlers.course_enrollment_handler",
+		"on_update": "education.education.handlers.course_enrollment_handler"
+	},
+	"Assignment": {
+		"on_update": "education.education.handlers.assignment_handler",
+		"on_submit": "education.education.handlers.assignment_handler"
+	},
+	"Student Assignment": {
+		"on_update": "education.education.handlers.assignment_handler",
+		"on_submit": "education.education.handlers.assignment_handler"
+	},
+	"Fees": {
+		"after_insert": "education.education.handlers.fee_handler",
+		"on_update": "education.education.handlers.fee_handler"
+	},
+	"Fee": {
+		"after_insert": "education.education.handlers.fee_handler",
+		"on_update": "education.education.handlers.fee_handler"
+	},
+	"Examination": {
+		"after_insert": "education.education.handlers.exam_handler",
+		"on_update": "education.education.handlers.exam_handler"
+	},
+	"Exam": {
+		"after_insert": "education.education.handlers.exam_handler",
+		"on_update": "education.education.handlers.exam_handler"
+	},
+	"Student Attendance": {
+		"on_update": "education.education.handlers.attendance_handler"
+	},
+	"Attendance": {
+		"on_update": "education.education.handlers.attendance_handler"
+	}
+}
 
 # Scheduled Tasks
 # ---------------

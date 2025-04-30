@@ -36,6 +36,22 @@ const routes = [
     component: () => import('@/pages/TeacherEvaluation.vue'),
   },
   {
+    path: '/notifications',
+    name: 'Notifications',
+    component: () => import('./pages/Notifications.vue'),
+    meta: {
+      requiresAuth: true,
+    }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('./pages/Settings.vue'),
+    meta: {
+      requiresAuth: true,
+    }
+  },
+  {
     path: '/:catchAll(.*)',
     redirect: '/schedule',
   },
