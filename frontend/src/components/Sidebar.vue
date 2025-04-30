@@ -21,6 +21,7 @@
           :icon="link.icon"
           class="h-10"
         />
+        <NotificationBell class="ml-2" />
       </div>
 
       <!-- Mobile menu button -->
@@ -49,6 +50,10 @@
           class="w-full"
           @click="mobileMenuOpen = false"
         />
+        <router-link to="/notifications" class="flex items-center px-2 py-2 text-base font-medium text-gray-600 rounded-md hover:bg-gray-100 hover:text-gray-900" @click="mobileMenuOpen = false">
+          <BellIcon class="mr-3 h-6 w-6 text-gray-500" />
+          Notifications
+        </router-link>
       </div>
     </div>
   </nav>
@@ -58,6 +63,7 @@
 import { ref } from 'vue'
 import SidebarLink from '@/components/SidebarLink.vue'
 import UserDropdown from './UserDropdown.vue'
+import NotificationBell from './NotificationBell.vue'
 import { createResource } from 'frappe-ui'
 import {
   CalendarCheck,
@@ -68,6 +74,7 @@ import {
   Star,
   Menu,
   X,
+  Bell as BellIcon,
 } from 'lucide-vue-next'
 
 const mobileMenuOpen = ref(false)
