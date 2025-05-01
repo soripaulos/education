@@ -161,7 +161,7 @@ const processGradesData = (data) => {
   const details = data.map(curr => ({
     id: curr.name,
     course: curr.course,
-    academic_term: curr.academic_term || 'Unknown Term',
+    academic_term: curr.assessment_group || curr.academic_term || 'Unknown Term',
     assessment_criteria: curr.assessment_criteria,
     score: curr.score,
     maximum_score: curr.detail_maximum_score,
