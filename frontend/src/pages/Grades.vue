@@ -7,7 +7,7 @@
           <p class="text-lg">Total Score: <span class="font-semibold">{{ overallPerformance.totalScore }}</span>/<span class="font-semibold">{{ overallPerformance.maximumScore }}</span></p>
           <p class="text-lg">Grade: <span class="font-semibold">{{ overallPerformance.grade }}</span></p>
         </div>
-        <div class="text-5xl font-extrabold">{{ overallPerformance.percentage }}%</div>
+        <div class="text-5xl font-extrabold">{{ formatPercentage(overallPerformance.percentage) }}</div>
       </div>
     </div>
 
@@ -19,7 +19,7 @@
         <h3 class="text-xl font-semibold text-gray-800">{{ course }}</h3>
         <div class="flex items-center gap-3 text-lg">
           Course Average: 
-          <span class="font-semibold">{{ calculateCourseAverage(courseData) }}%</span>
+          <span class="font-semibold">{{ formatPercentage(calculateCourseAverage(courseData)) }}</span>
           <FeatherIcon 
             :name="expandedCourses[course] ? 'chevron-up' : 'chevron-down'"
             class="h-5 w-5 text-gray-500"
@@ -54,7 +54,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
-              <tr v-for="detail in termData" 
+              <tr v-for="detail in sortAssessmentCriteria(termData)" 
                   :key="detail.id" 
                   class="hover:bg-gray-50">
                 <td class="px-6 py-4 text-sm text-gray-900">{{ detail.assessment_criteria }}</td>
@@ -68,14 +68,17 @@
                   </span>
                 </td>
               </tr>
-              <!-- Term summary row -->
+              <!-- Term total row -->
               <tr class="bg-gray-50">
-                <td class="px-6 py-4 text-sm font-semibold text-gray-900">Term Average</td>
+                <td class="px-6 py-4 text-sm font-semibold text-gray-900">Term Total</td>
                 <td class="px-6 py-4 text-sm font-semibold text-gray-900">
                   {{ calculateTermTotal(termData) }}/{{ calculateTermMaximum(termData) }}
                 </td>
                 <td class="px-6 py-4 text-sm font-semibold text-gray-900 text-right">
-                  {{ calculateTermPercentage(termData) }}%
+                  <span class="px-2 py-1 rounded-full" 
+                       :class="getGradeColor(calculateTermGrade(termData))">
+                    {{ calculateTermGrade(termData) }}
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -84,9 +87,27 @@
       </div>
     </div>
 
+    <!-- Term Averages Component -->
+    <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
+      <h3 class="text-xl font-semibold mb-4 text-gray-800">Term Averages</h3>
+      <div v-for="(termAvg, term) in calculateAllTermAverages()" :key="term" class="mb-2">
+        <div class="flex justify-between items-center p-2 border-b">
+          <div class="text-lg text-gray-800">{{ term }}</div>
+          <div class="flex items-center gap-4">
+            <span class="text-lg">{{ termAvg.score }}/{{ termAvg.maximum }}</span>
+            <span class="px-2 py-1 rounded-full font-semibold" 
+                  :class="getGradeColor(termAvg.grade)">
+              {{ termAvg.grade }}
+            </span>
+            <span class="text-lg font-semibold">{{ formatPercentage(termAvg.percentage) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
       <h3 class="text-xl font-semibold mb-4 text-gray-800">Yearly Average</h3>
-      <p class="text-lg">Year Average Score: <span class="font-semibold">{{ yearAverageScore }}</span></p>
+      <p class="text-lg">Year Average Score: <span class="font-semibold">{{ formatPercentage(yearAverageScore) }}</span></p>
     </div>
   </div>
   <div v-else>
@@ -177,7 +198,7 @@ const processGradesData = (data) => {
     totalScore,
     maximumScore,
     grade: '', // Grade calculation logic can be added here
-    percentage: ((totalScore / maximumScore) * 100).toFixed(1),
+    percentage: ((totalScore / maximumScore) * 100),
   }
 
   // Set assessment details for display
@@ -210,6 +231,22 @@ const groupedByTerm = (courseData) => {
   }, {});
 };
 
+// Sort assessment criteria in specific order
+const sortAssessmentCriteria = (termData) => {
+  const order = {
+    'First Test': 1,
+    'Second Test': 2,
+    'Mid Exam': 3,
+    'Final Exam': 4
+  };
+  
+  return [...termData].sort((a, b) => {
+    const orderA = order[a.assessment_criteria] || 999;
+    const orderB = order[b.assessment_criteria] || 999;
+    return orderA - orderB;
+  });
+};
+
 // Calculate term-specific totals
 const calculateTermTotal = (termData) => {
   return termData.reduce((sum, detail) => sum + detail.score, 0);
@@ -222,13 +259,102 @@ const calculateTermMaximum = (termData) => {
 const calculateTermPercentage = (termData) => {
   const total = calculateTermTotal(termData);
   const maximum = calculateTermMaximum(termData);
-  return maximum > 0 ? ((total / maximum) * 100).toFixed(1) : 0;
+  return maximum > 0 ? ((total / maximum) * 100) : 0;
+};
+
+// Calculate grade for term total
+const calculateTermGrade = (termData) => {
+  const percentage = calculateTermPercentage(termData);
+  
+  if (percentage >= 90) return 'A+';
+  if (percentage >= 85) return 'A';
+  if (percentage >= 80) return 'A-';
+  if (percentage >= 75) return 'B+';
+  if (percentage >= 70) return 'B';
+  if (percentage >= 65) return 'B-';
+  if (percentage >= 60) return 'C+';
+  if (percentage >= 55) return 'C';
+  if (percentage >= 50) return 'C-';
+  if (percentage >= 45) return 'D+';
+  if (percentage >= 40) return 'D';
+  return 'F';
+};
+
+// Calculate averages for all terms across all courses
+const calculateAllTermAverages = () => {
+  const termTotals = {};
+  
+  // Iterate through each course and its terms
+  for (const course in groupedAssessments.value) {
+    const courseData = groupedAssessments.value[course];
+    const termGroups = groupedByTerm(courseData);
+    
+    for (const term in termGroups) {
+      if (!termTotals[term]) {
+        termTotals[term] = { 
+          score: 0, 
+          maximum: 0,
+          count: 0 
+        };
+      }
+      
+      const termData = termGroups[term];
+      termTotals[term].score += calculateTermTotal(termData);
+      termTotals[term].maximum += calculateTermMaximum(termData);
+      termTotals[term].count += 1;
+    }
+  }
+  
+  // Calculate percentages and grades for each term
+  const termAverages = {};
+  for (const term in termTotals) {
+    const data = termTotals[term];
+    const percentage = data.maximum > 0 ? (data.score / data.maximum) * 100 : 0;
+    
+    termAverages[term] = {
+      score: data.score,
+      maximum: data.maximum,
+      percentage: percentage,
+      grade: calculateGradeFromPercentage(percentage)
+    };
+  }
+  
+  return termAverages;
+};
+
+// Helper function to calculate grade from percentage
+const calculateGradeFromPercentage = (percentage) => {
+  if (percentage >= 90) return 'A+';
+  if (percentage >= 85) return 'A';
+  if (percentage >= 80) return 'A-';
+  if (percentage >= 75) return 'B+';
+  if (percentage >= 70) return 'B';
+  if (percentage >= 65) return 'B-';
+  if (percentage >= 60) return 'C+';
+  if (percentage >= 55) return 'C';
+  if (percentage >= 50) return 'C-';
+  if (percentage >= 45) return 'D+';
+  if (percentage >= 40) return 'D';
+  return 'F';
 };
 
 const calculateCourseAverage = (courseData) => {
   const totalScore = courseData.reduce((sum, detail) => sum + detail.score, 0);
   const maxScore = courseData.reduce((sum, detail) => sum + detail.maximum_score, 0);
-  return ((totalScore / maxScore) * 100).toFixed(1);
+  return maxScore > 0 ? ((totalScore / maxScore) * 100) : 0;
+};
+
+// Format percentage with two decimal places
+const formatPercentage = (value) => {
+  if (typeof value !== 'number') return value;
+  
+  // If the value has no decimal places, don't show any
+  if (Math.floor(value) === value) {
+    return Math.floor(value) + '%';
+  }
+  
+  // Otherwise format with two decimal places
+  return value.toFixed(2) + '%';
 };
 
 const getGradeColor = (grade) => {
