@@ -29,41 +29,58 @@
       
       <div v-show="expandedCourses[course]" 
            class="overflow-x-auto transition-all duration-300 ease-in-out">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-100">
-            <tr>
-              <!-- <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Term
-              </th> -->
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Assessment Criteria
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Score
-              </th>
-              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                Grade
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-            <tr v-for="detail in courseData" 
-                :key="detail.id" 
-                class="hover:bg-gray-50">
-              <!-- <td class="px-6 py-4 text-sm text-gray-900">{{ detail.academic_term }}</td> -->
-              <td class="px-6 py-4 text-sm text-gray-900">{{ detail.assessment_criteria }}</td>
-              <td class="px-6 py-4 text-sm text-gray-900">
-                {{ detail.score }}/{{ detail.maximum_score }}
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-900 text-right">
-                <span class="px-2 py-1 rounded-full" 
-                      :class="getGradeColor(detail.grade)">
-                  {{ detail.grade }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        
+        <!-- Loop through each academic term for this course -->
+        <div v-for="(termData, term) in groupedByTerm(courseData)" 
+             :key="`${course}-${term}`"
+             class="mb-4">
+          
+          <h4 class="text-lg font-medium text-gray-700 mb-2 pl-2 border-l-4 border-indigo-500">
+            {{ term }}
+          </h4>
+          
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-100">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Assessment Criteria
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Score
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Grade
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr v-for="detail in termData" 
+                  :key="detail.id" 
+                  class="hover:bg-gray-50">
+                <td class="px-6 py-4 text-sm text-gray-900">{{ detail.assessment_criteria }}</td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                  {{ detail.score }}/{{ detail.maximum_score }}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900 text-right">
+                  <span class="px-2 py-1 rounded-full" 
+                        :class="getGradeColor(detail.grade)">
+                    {{ detail.grade }}
+                  </span>
+                </td>
+              </tr>
+              <!-- Term summary row -->
+              <tr class="bg-gray-50">
+                <td class="px-6 py-4 text-sm font-semibold text-gray-900">Term Average</td>
+                <td class="px-6 py-4 text-sm font-semibold text-gray-900">
+                  {{ calculateTermTotal(termData) }}/{{ calculateTermMaximum(termData) }}
+                </td>
+                <td class="px-6 py-4 text-sm font-semibold text-gray-900 text-right">
+                  {{ calculateTermPercentage(termData) }}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -144,7 +161,7 @@ const processGradesData = (data) => {
   const details = data.map(curr => ({
     id: curr.name,
     course: curr.course,
-    academic_term: curr.academic_term,
+    academic_term: curr.academic_term || 'Unknown Term',
     assessment_criteria: curr.assessment_criteria,
     score: curr.score,
     maximum_score: curr.detail_maximum_score,
@@ -181,6 +198,32 @@ const groupedAssessments = computed(() => {
     return acc;
   }, {});
 });
+
+// Function to group course data by academic term
+const groupedByTerm = (courseData) => {
+  return courseData.reduce((acc, curr) => {
+    if (!acc[curr.academic_term]) {
+      acc[curr.academic_term] = [];
+    }
+    acc[curr.academic_term].push(curr);
+    return acc;
+  }, {});
+};
+
+// Calculate term-specific totals
+const calculateTermTotal = (termData) => {
+  return termData.reduce((sum, detail) => sum + detail.score, 0);
+};
+
+const calculateTermMaximum = (termData) => {
+  return termData.reduce((sum, detail) => sum + detail.maximum_score, 0);
+};
+
+const calculateTermPercentage = (termData) => {
+  const total = calculateTermTotal(termData);
+  const maximum = calculateTermMaximum(termData);
+  return maximum > 0 ? ((total / maximum) * 100).toFixed(1) : 0;
+};
 
 const calculateCourseAverage = (courseData) => {
   const totalScore = courseData.reduce((sum, detail) => sum + detail.score, 0);
