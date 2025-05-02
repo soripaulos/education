@@ -307,7 +307,7 @@ def get_assessment_students(assessment_plan, student_group):
 			student_result.update(
 				{"total_score": [cstr(result.total_score), result.grade], "comment": result.comment}
 			)
-			student.update(
+			student_result.update(
 				{
 					"assessment_details": student_result,
 					"docstatus": result.docstatus,
@@ -901,23 +901,37 @@ def _get_empty_response(error=None):
 
 @frappe.whitelist()
 def get_assessment_results(student, program):
-    """Fetches assessment results for a given student and program."""
+    """Fetches assessment log entries for a student for portal display."""
     try:
-        results = frappe.db.sql("""
-            SELECT 
-                ar.name, ar.total_score, ar.maximum_score, ar.grade,
-                ard.assessment_criteria, ard.score, ard.maximum_score AS detail_maximum_score, ard.grade AS detail_grade,
-                ar.course, ar.academic_term
-            FROM 
-                `tabAssessment Result` ar
-            JOIN 
-                `tabAssessment Result Detail` ard ON ard.parent = ar.name
-            WHERE 
-                ar.student = %s AND ar.program = %s
-        """, (student, program), as_dict=True)
+        # Decide filtering context - e.g., current academic year/term?
+        # For now, fetching all logs for the student, ordered by date.
+        # Add filters for academic_year, academic_term, program if needed.
 
-        frappe.logger().info(f"Fetched assessment results for student {student} in program {program}: {results}")
-        return results
+        logged_entries = frappe.get_all(
+            "Assessment Log Entry",
+            filters={
+                "student": student,
+                # Add other relevant filters like:
+                # "academic_year": get_current_academic_year(), # Need helper function
+                # "academic_term": get_current_academic_term(), # Need helper function
+                # You might need to infer relevant plans/courses based on the 'program' argument
+            },
+            fields=[
+                "name", # Log entry ID
+                "course",
+                "assessment_plan",
+                "assessment_criteria",
+                "score",
+                "maximum_score",
+                "entry_datetime"
+            ],
+            order_by="entry_datetime desc" # Show most recent first, or sort differently?
+        )
+
+        # The original function might have done more processing or formatting.
+        # We are returning the raw log entries for now.
+        # The portal template might need adjustments to display this new format.
+        return logged_entries
 
     except Exception as e:
         frappe.log_error(f"Error fetching assessment results for student {student} in program {program}: {str(e)}")
