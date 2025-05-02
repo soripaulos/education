@@ -36,7 +36,8 @@
 					data-max-score="{{c.maximum_score}}"
 					data-criteria="{{c.assessment_criteria}}"
 					data-student="{{s.student}}"
-					{% if(s.assessment_details && s.docstatus && s.docstatus == 1) { %} disabled {% } %}
+					<!-- Removed disabled attribute check -->
+					<!-- {% if(s.assessment_details && s.docstatus && s.docstatus == 1) { %} disabled {% } %} -->
 					{% if(s.assessment_details) { %}
 						value="{{s.assessment_details[c.assessment_criteria][0]}}"
 					{% } %}/>
@@ -44,7 +45,8 @@
 			{% endfor %}
 			<td>
 				<input type="text" class="result-comment" data-student="{{s.student}}"
-				{% if(s.assessment_details && s.docstatus && s.docstatus == 1) { %} disabled {% } %}
+				<!-- Removed disabled attribute check -->
+				<!-- {% if(s.assessment_details && s.docstatus && s.docstatus == 1) { %} disabled {% } %} -->
 				{% if(s.assessment_details) { %}
 					value="{{s.assessment_details.comment}}"
 				{% } %}

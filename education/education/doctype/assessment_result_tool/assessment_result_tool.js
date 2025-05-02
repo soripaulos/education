@@ -19,7 +19,6 @@ frappe.ui.form.on('Assessment Result Tool', {
   },
 
   assessment_plan: function (frm) {
-    frm.doc.show_submit = false
     if (frm.doc.assessment_plan) {
       if (!frm.doc.student_group) return
       frappe.call({
@@ -32,13 +31,6 @@ frappe.ui.form.on('Assessment Result Tool', {
           if (r.message) {
             frm.doc.students = r.message
             frm.events.render_table(frm)
-            for (let value of r.message) {
-              if (!value.docstatus) {
-                frm.doc.show_submit = true
-                break
-              }
-            }
-            frm.events.submit_result(frm)
           }
         },
       })
@@ -150,10 +142,6 @@ frappe.ui.form.on('Assessment Result Tool', {
           },
           callback: function (r) {
             let assessment_result = r.message
-            if (!frm.doc.show_submit) {
-              frm.doc.show_submit = true
-              frm.events.submit_result
-            }
             for (var criteria of Object.keys(assessment_result.details)) {
               result_table
                 .find(
@@ -179,29 +167,5 @@ frappe.ui.form.on('Assessment Result Tool', {
         })
       }
     })
-  },
-
-  submit_result: function (frm) {
-    if (frm.doc.show_submit) {
-      frm.page.set_primary_action(__('Submit'), function () {
-        frappe.call({
-          method: 'education.education.api.submit_assessment_results',
-          args: {
-            assessment_plan: frm.doc.assessment_plan,
-            student_group: frm.doc.student_group,
-          },
-          callback: function (r) {
-            if (r.message) {
-              frappe.msgprint(__('{0} Result submittted', [r.message]))
-            } else {
-              frappe.msgprint(__('No Result to submit'))
-            }
-            frm.events.assessment_plan(frm)
-          },
-        })
-      })
-    } else {
-      frm.page.clear_primary_action()
-    }
   },
 })

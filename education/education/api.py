@@ -392,27 +392,67 @@ def mark_assessment_result(assessment_plan, scores):
 				"score": flt(student_score["assessment_details"][criteria]),
 			}
 		)
-	assessment_result = get_assessment_result_doc(
+
+	# Try to get an existing doc (draft or submitted)
+	assessment_result_doc = get_assessment_result_doc(
 		student_score["student"], assessment_plan
 	)
-	assessment_result.update(
+
+	is_new = False
+	if not assessment_result_doc:
+		is_new = True
+		assessment_result_doc = frappe.new_doc("Assessment Result")
+		# Set fields that are typically set only on creation
+		# You might need to fetch these from Assessment Plan or elsewhere
+		# Example: assessment_result_doc.grading_scale = frappe.db.get_value("Assessment Plan", assessment_plan, "grading_scale")
+		# Ensure all necessary fields are populated before the first save/submit
+
+	# Store original status if doc existed
+	original_docstatus = assessment_result_doc.docstatus if not is_new else 0
+
+	# Update the document (existing or new)
+	assessment_result_doc.update(
 		{
 			"student": student_score.get("student"),
 			"assessment_plan": assessment_plan,
 			"comment": student_score.get("comment"),
-			"total_score": student_score.get("total_score"),
+			# total_score is usually calculated in validate, but ensure details are updated first
+			# "total_score": student_score.get("total_score"),
 			"details": assessment_details,
 		}
 	)
-	assessment_result.save()
+
+	# Clear and rebuild the details table for existing docs too
+	# This handles removed criteria implicitly. Alternatively, update row by row.
+	assessment_result_doc.set("details", [])
+	for detail in assessment_details:
+		assessment_result_doc.append("details", detail)
+
+	try:
+		if original_docstatus == 1:
+			# Save submitted doc, bypassing permissions
+			assessment_result_doc.flags.ignore_validate = True # Skip validation if needed, as it might recalculate grades based on old scale if scale changes
+			assessment_result_doc.save(ignore_permissions=True)
+		else: # Original status 0 or is new
+			assessment_result_doc.save() # Save draft or new doc
+			if is_new:
+				assessment_result_doc.submit() # Submit the new doc immediately
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Error in mark_assessment_result")
+		frappe.throw(f"Error processing assessment result: {e}")
+
+	# Reload to get potentially updated fields after save/submit (like calculated grades)
+	final_doc = frappe.get_doc("Assessment Result", assessment_result_doc.name)
+
 	details = {}
-	for d in assessment_result.details:
+	for d in final_doc.details:
 		details.update({d.assessment_criteria: d.grade})
+
 	assessment_result_dict = {
-		"name": assessment_result.name,
-		"student": assessment_result.student,
-		"total_score": assessment_result.total_score,
-		"grade": assessment_result.grade,
+		"name": final_doc.name,
+		"student": final_doc.student,
+		"total_score": final_doc.total_score,
+		"grade": final_doc.grade,
 		"details": details,
 	}
 	return assessment_result_dict
@@ -420,14 +460,18 @@ def mark_assessment_result(assessment_plan, scores):
 
 @frappe.whitelist()
 def submit_assessment_results(assessment_plan, student_group):
-	total_result = 0
-	student_list = get_student_group_students(student_group)
-	for i, student in enumerate(student_list):
-		doc = get_result(student.student, assessment_plan)
-		if doc and doc.docstatus == 0:
-			total_result += 1
-			doc.submit()
-	return total_result
+	# This function is now likely redundant, as results are submitted immediately.
+	# Consider removing or commenting it out.
+	frappe.msgprint(_("Assessment results are now submitted automatically as they are entered."))
+	return 0 # Indicate no results were submitted by this function
+	# total_result = 0
+	# student_list = get_student_group_students(student_group)
+	# for i, student in enumerate(student_list):
+	# \tdoc = get_result(student.student, assessment_plan)
+	# \tif doc and doc.docstatus == 0:
+	# \t\ttotal_result += 1
+	# \t\tdoc.submit()
+	# return total_result
 
 
 def get_assessment_result_doc(student, assessment_plan):
@@ -440,14 +484,10 @@ def get_assessment_result_doc(student, assessment_plan):
 		},
 	)
 	if assessment_result:
-		doc = frappe.get_doc("Assessment Result", assessment_result[0])
-		if doc.docstatus == 0:
-			return doc
-		elif doc.docstatus == 1:
-			frappe.msgprint(_("Result already Submitted"))
-			return None
+		doc = frappe.get_doc("Assessment Result", assessment_result[0].name)
+		return doc
 	else:
-		return frappe.new_doc("Assessment Result")
+		return None
 
 
 @frappe.whitelist()
