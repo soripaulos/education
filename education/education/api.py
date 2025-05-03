@@ -382,6 +382,111 @@ def get_grade(grading_scale, percentage):
 
 
 @frappe.whitelist()
+def log_single_assessment_score(student, assessment_plan, assessment_criteria, score):
+	"""Logs or updates a single score for an assessment criterion and submits the result."""
+	score = flt(score) # Ensure score is a float
+
+	# Fetch Assessment Plan details (needed for new doc or recalculations)
+	plan_details = frappe.get_doc("Assessment Plan", assessment_plan)
+	grading_scale = plan_details.grading_scale
+	plan_criteria_details = {crit.assessment_criteria: crit.maximum_score for crit in plan_details.details}
+
+	if not grading_scale:
+		frappe.throw(_("Grading Scale not defined in Assessment Plan {0}").format(assessment_plan))
+
+	# Find existing Assessment Result (submitted or draft)
+	result_name = frappe.db.exists("Assessment Result", {"student": student, "assessment_plan": assessment_plan, "docstatus": ["!=", 2]})
+
+	doc = None
+	is_new = False
+
+	if result_name:
+		doc = frappe.get_doc("Assessment Result", result_name)
+	else:
+		is_new = True
+		doc = frappe.new_doc("Assessment Result")
+		doc.student = student
+		doc.assessment_plan = assessment_plan
+		doc.grading_scale = grading_scale
+		# Fetch other header fields from plan if necessary
+		doc.student_name = frappe.db.get_value("Student", student, "student_name")
+		doc.program = plan_details.program
+		doc.course = plan_details.course
+		doc.academic_year = plan_details.academic_year
+		doc.academic_term = plan_details.academic_term
+		doc.student_group = plan_details.student_group
+		doc.assessment_group = plan_details.assessment_group
+		doc.maximum_score = plan_details.maximum_assessment_score # Total max score
+
+		# Populate details table with all criteria from the plan
+		for criteria_name, max_score in plan_criteria_details.items():
+			doc.append("details", {
+				"assessment_criteria": criteria_name,
+				"maximum_score": max_score,
+				"score": 0, # Default score
+				"grade": ""
+			})
+
+	# Find the specific detail row and update score/grade
+	updated_detail_grade = ""
+	found_detail = False
+	for detail in doc.details:
+		if detail.assessment_criteria == assessment_criteria:
+			if score > detail.maximum_score:
+				frappe.throw(_("Score {0} cannot be greater than Maximum Score {1} for {2}").format(
+					score, detail.maximum_score, assessment_criteria))
+			detail.score = score
+			detail.grade = get_grade(grading_scale, (flt(detail.score) / detail.maximum_score) * 100 if detail.maximum_score else 0)
+			updated_detail_grade = detail.grade
+			found_detail = True
+			break
+
+	if not found_detail and not is_new:
+		# Criteria might have been added to the plan after the result was created
+		# Add the new criteria row
+		max_score = plan_criteria_details.get(assessment_criteria)
+		if max_score is not None:
+			grade = get_grade(grading_scale, (flt(score) / max_score) * 100 if max_score else 0)
+			doc.append("details", {
+				"assessment_criteria": assessment_criteria,
+				"maximum_score": max_score,
+				"score": score,
+				"grade": grade
+			})
+			updated_detail_grade = grade
+		else:
+			frappe.log_error(f"Assessment Criteria '{assessment_criteria}' not found in plan '{assessment_plan}' details.", "log_single_assessment_score")
+			# Decide how to handle - maybe throw error or just log
+
+	# Recalculate total score and overall grade for the parent document
+	total_score = sum(flt(d.score) for d in doc.details)
+	doc.total_score = total_score
+	doc.grade = get_grade(grading_scale, (total_score / doc.maximum_score) * 100 if doc.maximum_score else 0)
+
+	# Save and Submit
+	try:
+		if doc.docstatus == 1:
+			# Use ignore_permissions to save submitted doc
+			doc.save(ignore_permissions=True)
+		else:
+			# Save draft or new doc
+			doc.save()
+			# Submit if it was new or draft
+			doc.submit()
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Error in log_single_assessment_score")
+		frappe.throw(_("Error saving Assessment Result: {0}").format(str(e)))
+
+	return {
+		"name": doc.name,
+		"overall_score": doc.total_score,
+		"overall_grade": doc.grade,
+		"detail_grade": updated_detail_grade # Grade for the specific criteria updated
+	}
+
+
+@frappe.whitelist()
 def mark_assessment_result(assessment_plan, scores):
 	student_score = json.loads(scores)
 	assessment_details = []

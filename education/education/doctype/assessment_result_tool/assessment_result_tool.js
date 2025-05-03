@@ -19,7 +19,6 @@ frappe.ui.form.on('Assessment Result Tool', {
   },
 
   assessment_plan: function (frm) {
-    frm.doc.show_submit = false
     if (frm.doc.assessment_plan) {
       if (!frm.doc.student_group) return
       frappe.call({
@@ -32,13 +31,6 @@ frappe.ui.form.on('Assessment Result Tool', {
           if (r.message) {
             frm.doc.students = r.message
             frm.events.render_table(frm)
-            for (let value of r.message) {
-              if (!value.docstatus) {
-                frm.doc.show_submit = true
-                break
-              }
-            }
-            frm.events.submit_result(frm)
           }
         },
       })
@@ -102,106 +94,66 @@ frappe.ui.form.on('Assessment Result Tool', {
       }
     }
 
-    result_table.on('change', 'input', function (e) {
+    result_table.on('change', 'input.student-result-data', function (e) {
       let $input = $(e.target)
       let student = $input.data().student
+      let assessment_criteria = $input.data().criteria
       let max_score = $input.data().maxScore
-      let value = $input.val()
-      if (value < 0) {
-        $input.val(0)
-      } else if (value > max_score) {
-        $input.val(max_score)
-      }
-      let total_score = 0
-      let student_scores = {}
-      student_scores['assessment_details'] = {}
-      result_table
-        .find(`input[data-student=${student}].student-result-data`)
-        .each(function (el, input) {
-          let $input = $(input)
-          let criteria = $input.data().criteria
-          let value = parseFloat($input.val())
-          if (!Number.isNaN(value)) {
-            student_scores['assessment_details'][criteria] = value
-          }
-          total_score += value
-        })
-      if (!Number.isNaN(total_score)) {
-        result_table
-          .find(`span[data-student=${student}].total-score`)
-          .html(total_score)
-      }
-      if (
-        Object.keys(student_scores['assessment_details']).length ===
-        criteria_list.length
-      ) {
-        student_scores['student'] = student
-        student_scores['total_score'] = total_score
-        result_table
-          .find(`[data-student=${student}].result-comment`)
-          .each(function (el, input) {
-            student_scores['comment'] = $(input).val()
-          })
-        frappe.call({
-          method: 'education.education.api.mark_assessment_result',
-          args: {
-            assessment_plan: frm.doc.assessment_plan,
-            scores: student_scores,
-          },
-          callback: function (r) {
-            let assessment_result = r.message
-            if (!frm.doc.show_submit) {
-              frm.doc.show_submit = true
-              frm.events.submit_result
-            }
-            for (var criteria of Object.keys(assessment_result.details)) {
-              result_table
-                .find(
-                  `[data-criteria=${criteria}][data-student=${assessment_result.student}].student-result-grade`
-                )
-                .each(function (e1, input) {
-                  $(input).html(assessment_result.details[criteria])
-                })
-            }
-            result_table
-              .find(
-                `span[data-student=${assessment_result.student}].total-score-grade`
-              )
-              .html(assessment_result.grade)
-            let link_span = result_table.find(
-              `span[data-student=${assessment_result.student}].total-result-link`
-            )
-            $(link_span).css('display', 'block')
-            $(link_span)
-              .find('a')
-              .attr('href', '/app/assessment-result/' + assessment_result.name)
-          },
-        })
-      }
-    })
-  },
+      let score = parseFloat($input.val()) || 0; // Use 0 if NaN
 
-  submit_result: function (frm) {
-    if (frm.doc.show_submit) {
-      frm.page.set_primary_action(__('Submit'), function () {
-        frappe.call({
-          method: 'education.education.api.submit_assessment_results',
-          args: {
-            assessment_plan: frm.doc.assessment_plan,
-            student_group: frm.doc.student_group,
-          },
-          callback: function (r) {
-            if (r.message) {
-              frappe.msgprint(__('{0} Result submittted', [r.message]))
-            } else {
-              frappe.msgprint(__('No Result to submit'))
-            }
-            frm.events.assessment_plan(frm)
-          },
-        })
-      })
-    } else {
-      frm.page.clear_primary_action()
-    }
+      // Client-side validation
+      if (score < 0) {
+        $input.val(0)
+        score = 0;
+      } else if (score > max_score) {
+        $input.val(max_score)
+        score = max_score;
+        frappe.show_alert({ message: __("Score cannot exceed Maximum Score ({0})", [max_score]), indicator: 'orange' })
+      }
+
+      // Call the new backend function for this single score change
+      frappe.call({
+        method: 'education.education.api.log_single_assessment_score',
+        args: {
+          student: student,
+          assessment_plan: frm.doc.assessment_plan,
+          assessment_criteria: assessment_criteria,
+          score: score,
+        },
+        callback: function (r) {
+          if (r.message) {
+            let result = r.message;
+            // Update the specific grade badge
+            $input.siblings('.student-result-grade') // Find the badge next to the input
+              .html(result.detail_grade);
+
+            // Update total score and grade for the student's row
+            let student_row = $input.closest('tr'); // Find the parent table row
+            student_row.find('.total-score').html(result.overall_score);
+            student_row.find('.total-score-grade').html(result.overall_grade);
+
+            // Update link if it exists or show it if new
+            let link_span = student_row.find('.total-result-link');
+            link_span.css('display', 'block');
+            link_span.find('a').attr('href', '/app/assessment-result/' + result.name);
+          }
+        },
+        error: function(r) {
+            // Optional: Add better error handling on the frontend
+            console.error("Error saving assessment score:", r);
+            frappe.show_alert({ message: __("Error saving score. Check console."), indicator: 'red' });
+        }
+      });
+    })
+
+    result_table.on('change', 'input.result-comment', function (e) {
+        // Placeholder: Decide how/when to save comments
+        console.log("Comment changed, but auto-save not implemented for comments yet.");
+        // You could potentially call log_single_assessment_score or a new function here
+        // let $input = $(e.target);
+        // let student = $input.data().student;
+        // let comment = $input.val();
+        // // ... call backend to save comment ...
+    });
   },
 })
