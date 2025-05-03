@@ -1,0 +1,6 @@
+app:
+  name: education
+  repository_name: lms
+  deployment:
+    app_name: education
+    target_dir: lms 
