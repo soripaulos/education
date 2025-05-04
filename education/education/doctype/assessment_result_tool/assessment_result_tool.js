@@ -12,44 +12,16 @@ frappe.ui.form.on('Assessment Result Tool', {
       frm.set_value('assessment_plan', frappe.route_options.assessment_plan)
       frappe.route_options = null
     } else {
-      if (frm.doc.assessment_plan) {
-          frm.trigger('assessment_plan');
-      }
+      frm.trigger('assessment_plan')
     }
     frm.disable_save()
     frm.page.clear_indicator()
-    frm.page.clear_primary_action(); 
-
-    // Add a test button in the UI to directly test API
-    frm.add_custom_button(__('Test API'), function() {
-      console.log("Test API button clicked");
-      frappe.call({
-        method: 'education.education.api.hello_world',
-        callback: function(r) {
-          frappe.msgprint("API Response: " + r.message);
-        },
-        error: function(r) {
-          frappe.msgprint({
-            title: __('API Error'),
-            indicator: 'red',
-            message: __('Error testing API: ') + JSON.stringify(r)
-          });
-        }
-      });
-    });
   },
 
   assessment_plan: function (frm) {
-    $(frm.fields_dict.result_html.wrapper).empty();
-    frm.page.clear_primary_action(); 
-
+    frm.doc.show_submit = false
     if (frm.doc.assessment_plan) {
-      if (!frm.doc.student_group) {
-          frappe.msgprint(__("Please select a Student Group first."));
-          return;
-      }
-      frm.page.set_indicator(__("Loading Students..."), "blue");
-
+      if (!frm.doc.student_group) return
       frappe.call({
         method: 'education.education.api.get_assessment_students',
         args: {
@@ -57,19 +29,18 @@ frappe.ui.form.on('Assessment Result Tool', {
           student_group: frm.doc.student_group,
         },
         callback: function (r) {
-          frm.page.clear_indicator();
           if (r.message) {
             frm.doc.students = r.message
-            frm.events.render_table(frm) 
-          } else {
-            frappe.msgprint(__("No students found for the selected group or assessment plan."));
+            frm.events.render_table(frm)
+            for (let value of r.message) {
+              if (!value.docstatus) {
+                frm.doc.show_submit = true
+                break
+              }
+            }
+            frm.events.submit_result(frm)
           }
         },
-        error: function(r) {
-            frm.page.clear_indicator();
-            console.error("Error fetching assessment students:", r);
-            frappe.show_alert({ message: __("Error fetching student data."), indicator: 'red' });
-        }
       })
     }
   },
@@ -77,36 +48,23 @@ frappe.ui.form.on('Assessment Result Tool', {
   render_table: function (frm) {
     $(frm.fields_dict.result_html.wrapper).empty()
     let assessment_plan = frm.doc.assessment_plan
-    frm.page.set_indicator(__("Loading Assessment Details..."), "blue");
     frappe.call({
       method: 'education.education.api.get_assessment_details',
       args: {
         assessment_plan: assessment_plan,
       },
       callback: function (r) {
-        frm.page.clear_indicator();
-        if (r.message && r.message.length > 0) {
-          frm.events.get_marks(frm, r.message)
-        } else {
-           frappe.msgprint(__("No assessment criteria found for the selected Assessment Plan."));
-           $(frm.fields_dict.result_html.wrapper).html(`<div class="text-muted text-center" style="padding: 20px;">${__("No assessment criteria defined for this plan.")}</div>`);
-        }
+        frm.events.get_marks(frm, r.message)
       },
-       error: function(r) {
-            frm.page.clear_indicator();
-            console.error("Error fetching assessment details:", r);
-            frappe.show_alert({ message: __("Error fetching assessment details."), indicator: 'red' });
-        }
     })
   },
 
   get_marks: function (frm, criteria_list) {
     let max_total_score = 0
-    criteria_list.forEach(function (c, index) { 
-      c._index = index; 
-      max_total_score += flt(c.maximum_score)
+    criteria_list.forEach(function (c, index) { // Added index for criteria
+      c._index = index; // Store index in the criteria object
+      max_total_score += c.maximum_score
     })
-    
     var result_table = $(
       frappe.render_template('assessment_result_tool', {
         frm: frm,
@@ -115,177 +73,173 @@ frappe.ui.form.on('Assessment Result Tool', {
         max_total_score: max_total_score,
       })
     )
-    $(frm.fields_dict.result_html.wrapper).empty().append(result_table);
+    result_table.appendTo(frm.fields_dict.result_html.wrapper)
 
-    console.log("Setting up event handlers for the table...");
+    $('.assessment-criteria').on('keydown', function (e) {
+      // get data-criteria attribute
+      let criteriaIndex = cint(
+        e.target.parentElement.getAttribute('data-criteria-index')
+      )
+      changeFocusToNextCell(e, 2 + criteriaIndex)
+    })
 
-    // --- Event Handlers for Input Changes --- 
+    $('.result-comment').on('keydown', function (e) {
+      changeFocusToNextCell(e, 5)
+    })
 
-    // Handle SCORE changes
-    result_table.on('change', 'input.student-result-data', function (e) {
-      console.log("--- Score input changed --- Triggered by:", e.target); // Log handler start
-      let $input = $(e.target);
-      let student = $input.data().student;
-      let assessment_criteria = $input.data().criteria;
-      let max_score = flt($input.data().maxScore);
-      let score = parseFloat($input.val()); // Allow NaN initially
+    function changeFocusToNextCell(e, cellIndex) {
+      if (e.keyCode === 13 && !e.shiftKey) {
+        let nextRow = e.target.parentElement.parentElement.nextElementSibling
+        if (nextRow) {
+          nextRow.cells[cellIndex].lastElementChild.focus()
+        }
+      }
+      if (e.keyCode === 13 && e.shiftKey) {
+        let prevRow =
+          e.target.parentElement.parentElement.previousElementSibling
+        if (prevRow) {
+          prevRow.cells[cellIndex].lastElementChild.focus()
+        }
+      }
+    }
 
-      console.log(`Score Input Context: student=${student}, criteria=${assessment_criteria}, max_score=${max_score}`);
-      console.log(`Initial score value: ${$input.val()}, Parsed score: ${score}`);
-
-      // --- Client-side validation --- 
+    result_table.on('change', 'input', function (e) {
+      let $input = $(e.target)
+      let student = $input.data().student
+      let max_score = $input.data().maxScore
+      let value = $input.val()
+      
+      // Validate input value
+      let score = parseFloat(value);
       if (isNaN(score) || score < 0) {
-        console.log("Validation: Score invalid or negative. Setting to 0.");
         score = 0;
-        $input.val(0); // Update input visually
+        $input.val(0); // Update input visually if invalid
       } else if (score > max_score) {
-        console.log(`Validation: Score ${score} exceeds max ${max_score}. Clamping to max_score.`);
         score = max_score;
         $input.val(max_score);
         frappe.show_alert({ message: __("Score cannot exceed Maximum Score ({0})", [max_score]), indicator: 'orange' })
-      } else {
-         console.log("Validation: Score is valid.");
-         // If valid, ensure input shows the parsed float value
-         $input.val(score); 
       }
       
-      // --- Recalculate and display total score client-side --- 
-      let current_total_score = 0;
-      result_table.find(`input[data-student="${student}"].student-result-data`).each(function() {
-          let current_val = parseFloat($(this).val());
-          if (!isNaN(current_val)) {
-              current_total_score += current_val;
-          }
-      });
-      console.log(`Client-side total score for ${student} recalculated to: ${current_total_score}`);
-      result_table.find(`span[data-student="${student}"].total-score`).html(current_total_score);
-
-      // ***** TEMPORARY DEBUGGING: Call hello_world instead *****
-      console.log("Attempting API call: education.education.api.hello_world (DEBUG)");
-      frappe.call({
-        method: 'education.education.api.hello_world', 
-        // args: {}, // No args needed for hello_world
-        callback: function (r) {
-          console.log(`API Callback received for hello_world:`, r);
-          frappe.show_alert({ message: `Hello World Response: ${r.message}`, indicator: 'green' });
-        },
-        error: function(r) {
-            console.error(`API Error during call to hello_world:`, r);
-            frappe.show_alert({ message: __("API Error calling hello_world"), indicator: 'red' });
-        }
-      });
-      // ***** END TEMPORARY DEBUGGING *****
-
-      /* --- Original API call to log_assessment_entry (Commented Out) ---
-      const args = {
-        student: student,
-        assessment_plan: frm.doc.assessment_plan,
-        assessment_criteria: assessment_criteria,
-        score: score,
-        // Comments are handled by a separate handler
-      };
-      console.log(`Preparing API call to log_assessment_entry with args:`, args);
-      // ... validation ...
-      console.log(`Attempting API call: education.education.api.log_assessment_entry`);
-      frappe.call({
-        method: 'education.education.api.log_assessment_entry', 
-        args: args,
-        callback: function (r) {
-          console.log(`API Callback received for score log (${student} - ${assessment_criteria}):`, r);
-          if (r.message && r.message.status === 'success') {
-             console.log(`Score logged successfully via API: ${r.message.log_entry_name}, Logged Score: ${r.message.logged_score}`);
-             // Optional: Add a visual cue like a temporary background color
-             $input.addClass('highlight-success');
-             setTimeout(() => { $input.removeClass('highlight-success'); }, 1000);
-             
-             // Note: Grade badge update is removed as API doesn't return it directly anymore.
-             // Grade calculation would need to happen client-side or be added to API response.
+      // Recalculate total score for the specific student
+      let total_score = 0
+      let student_scores = {}
+      student_scores['assessment_details'] = {}
+      let all_criteria_filled = true; // Flag to check if all inputs have values
+      
+      result_table
+        .find(`input[data-student=${student}].student-result-data`)
+        .each(function (el, input) {
+          let $current_input = $(input);
+          let criteria = $current_input.data().criteria;
+          let criteria_value = parseFloat($current_input.val());
+          
+          if (!isNaN(criteria_value)) {
+            student_scores['assessment_details'][criteria] = criteria_value;
+            total_score += criteria_value; // Accumulate total score only for valid numbers
           } else {
-             console.error("Failed to log score (API callback indicated failure or missing success status):", r);
-             frappe.show_alert({ message: __("Failed to log score for {0}", [assessment_criteria]), indicator: 'red' });
-             $input.addClass('highlight-error');
-             setTimeout(() => { $input.removeClass('highlight-error'); }, 1500);
+            // Still add the key, but with 0, to ensure length check is accurate
+            student_scores['assessment_details'][criteria] = 0;
+            all_criteria_filled = false; // Mark as not all filled if any NaN is found
           }
-        },
-        error: function(r) {
-            console.error(`API Error during call to log_assessment_entry for score:`, r);
-            frappe.show_alert({ message: __("API Error logging score for {0}", [assessment_criteria]), indicator: 'red' });
-             $input.addClass('highlight-error');
-             setTimeout(() => { $input.removeClass('highlight-error'); }, 1500);
-        }
-      });
-      */
-      console.log("--- Score change handler finished ---");
-    });
-
-    // Handle COMMENT changes
-    result_table.on('change', 'input.result-comment', function (e) {
-        console.log("--- Comment input changed --- Triggered by:", e.target); // Log handler start
-        let $input = $(e.target);
-        let student = $input.data().student;
-        let comments = $input.val();
-
-        console.log(`Comment Input Context: student=${student}, comments=${comments}`);
-
-        // Find the *first* score input in the same row to get an associated assessment_criteria
-        let first_criteria_input = result_table.find(`input[data-student="${student}"].student-result-data`).first();
-        if (!first_criteria_input.length) {
-            console.error("Error: Could not find a score input field for student {0} to associate comment with.", [student]);
-            frappe.show_alert({ message: __("Cannot save comment: No criteria input found for this student."), indicator: 'red' });
-            return; // Cannot log comment without an associated criterion
-        }
-        let assessment_criteria_for_comment = first_criteria_input.data().criteria;
-        let score_for_comment = parseFloat(first_criteria_input.val()) || 0; // Need to send a score
-
-        console.log(`Associating comment with criterion: ${assessment_criteria_for_comment}, score: ${score_for_comment}`);
-
-        const args = {
-          student: student,
-          assessment_plan: frm.doc.assessment_plan,
-          assessment_criteria: assessment_criteria_for_comment, 
-          score: score_for_comment, // Send the score associated with the chosen criterion
-          comments: comments
-        };
-        console.log(`Preparing API call to log_assessment_entry (for comment) with args:`, args);
-
-        // Basic check for essential arguments before calling API
-        if (!args.student || !args.assessment_plan || !args.assessment_criteria) {
-            console.error("Error: Missing critical data for API call (comment). Aborting save.", args);
-            frappe.show_alert({ message: __("Cannot save comment: Missing student, plan, or criteria data."), indicator: 'red' });
-            return; // Stop if data is missing
-        }
-        
-        console.log(`Attempting API call: education.education.api.log_assessment_entry`);
-        frappe.call({
-            method: 'education.education.api.log_assessment_entry', 
-            args: args,
-            callback: function (r) {
-              console.log(`API Callback received for comment log (${student} - ${assessment_criteria_for_comment}):`, r);
-              if (r.message && r.message.status === 'success') {
-                 console.log(`Comment logged successfully via API: ${r.message.log_entry_name}`);
-                 $input.addClass('highlight-success');
-                 setTimeout(() => { $input.removeClass('highlight-success'); }, 1000);
-              } else {
-                 console.error("Failed to log comment (API callback indicated failure or missing success status):", r);
-                 frappe.show_alert({ message: __("Failed to log comment for {0}", [student]), indicator: 'red' });
-                 $input.addClass('highlight-error');
-                 setTimeout(() => { $input.removeClass('highlight-error'); }, 1500);
-              }
-            },
-            error: function(r) {
-                console.error(`API Error during call to log_assessment_entry for comment:`, r);
-                frappe.show_alert({ message: __("API Error logging comment for {0}", [student]), indicator: 'red' });
-                 $input.addClass('highlight-error');
-                 setTimeout(() => { $input.removeClass('highlight-error'); }, 1500);
-            }
         });
-        console.log("--- Comment change handler finished ---");
-    });
-    
-    if (!$('#assessment-tool-styles').length) {
-        $('<style id="assessment-tool-styles">')
-            .html('.highlight-success { background-color: #d4edda !important; transition: background-color 0.5s ease; } .highlight-error { background-color: #f8d7da !important; transition: background-color 0.5s ease; }')
-            .appendTo('head');
+        
+      // Update the total score display immediately
+      result_table
+        .find(`span[data-student=${student}].total-score`)
+        .html(total_score);
+        
+      // Log the check for saving
+      let criteria_count = Object.keys(student_scores['assessment_details']).length;
+      console.log(`Checking save condition for student ${student}: Filled criteria = ${criteria_count}, Total criteria = ${criteria_list.length}, All filled flag = ${all_criteria_filled}`);
+
+      // Check if all criteria have been filled (using the flag now)
+      // if (all_criteria_filled && criteria_count === criteria_list.length) { // Original condition might be too strict
+      // Let's try saving whenever *any* valid score is entered for now, 
+      // but ensure all criteria keys exist in the payload (even if 0).
+      if (criteria_count === criteria_list.length) { // Simplified check: ensure all keys are present
+        student_scores['student'] = student
+        student_scores['total_score'] = total_score
+        result_table
+          .find(`[data-student=${student}].result-comment`)
+          .each(function (el, input) {
+            student_scores['comment'] = $(input).val() || ""; // Ensure comment is always a string
+          })
+          
+        console.log(`Attempting to save draft for student ${student} with scores:`, student_scores);
+          
+        frappe.call({
+          method: 'education.education.api.mark_assessment_result',
+          args: {
+            assessment_plan: frm.doc.assessment_plan,
+            scores: student_scores,
+          },
+          callback: function (r) {
+            if (r.message) {
+                let assessment_result = r.message
+                console.log(`Draft saved successfully for student ${student}:`, assessment_result);
+                if (!frm.doc.show_submit) {
+                  frm.doc.show_submit = true
+                  frm.events.submit_result(frm) // Call submit_result to potentially show the button
+                }
+                // Update grades and link after successful save
+                for (var criteria_key of Object.keys(assessment_result.details)) {
+                  result_table
+                    .find(
+                      `[data-criteria=${criteria_key}][data-student=${assessment_result.student}].student-result-grade`
+                    )
+                    .each(function (e1, input_el) {
+                      $(input_el).html(assessment_result.details[criteria_key])
+                    })
+                }
+                result_table
+                  .find(
+                    `span[data-student=${assessment_result.student}].total-score-grade`
+                  )
+                  .html(assessment_result.grade)
+                let link_span = result_table.find(
+                  `span[data-student=${assessment_result.student}].total-result-link`
+                )
+                $(link_span).css('display', 'block')
+                $(link_span)
+                  .find('a')
+                  .attr('href', '/app/assessment-result/' + assessment_result.name)
+            } else {
+                console.error(`Failed to save draft for student ${student}. Response:`, r);
+                frappe.show_alert({ message: __("Failed to save draft result for {0}", [student]), indicator: 'red' });
+            }
+          },
+          error: function(r) {
+             console.error(`API Error saving draft for student ${student}:`, r);
+             frappe.show_alert({ message: __("API Error saving draft for {0}", [student]), indicator: 'red' });
+          }
+        })
+      } else {
+          console.log(`Save condition not met for student ${student}. Filled: ${criteria_count}/${criteria_list.length}`);
+      }
+    })
+  },
+
+  submit_result: function (frm) {
+    if (frm.doc.show_submit) {
+      frm.page.set_primary_action(__('Submit'), function () {
+        frappe.call({
+          method: 'education.education.api.submit_assessment_results',
+          args: {
+            assessment_plan: frm.doc.assessment_plan,
+            student_group: frm.doc.student_group,
+          },
+          callback: function (r) {
+            if (r.message) {
+              frappe.msgprint(__('{0} Result submittted', [r.message]))
+            } else {
+              frappe.msgprint(__('No Result to submit'))
+            }
+            frm.events.assessment_plan(frm)
+          },
+        })
+      })
+    } else {
+      frm.page.clear_primary_action()
     }
-  }
+  },
 })
