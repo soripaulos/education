@@ -315,7 +315,9 @@ def get_assessment_students(assessment_plan, student_group):
 				}
 			)
 		else:
-			student.update({"assessment_details": None})
+			# Explicitly set docstatus to 0 when there's no result
+			# This helps the front-end know this is a draft that can be submitted
+			student.update({"assessment_details": None, "docstatus": 0})
 	return student_list
 
 

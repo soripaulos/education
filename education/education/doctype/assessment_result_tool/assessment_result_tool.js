@@ -4,9 +4,11 @@
 frappe.ui.form.on('Assessment Result Tool', {
   setup: function (frm) {
     frm.add_fetch('assessment_plan', 'student_group', 'student_group')
+    console.log("Setup function called")
   },
 
   refresh: function (frm) {
+    console.log("Refresh function called")
     if (frappe.route_options) {
       frm.set_value('student_group', frappe.route_options.student_group)
       frm.set_value('assessment_plan', frappe.route_options.assessment_plan)
@@ -17,14 +19,30 @@ frappe.ui.form.on('Assessment Result Tool', {
     frm.disable_save()
     frm.page.clear_indicator()
     
-    // Always check and set submit button on refresh
-    if (frm.doc.assessment_plan) {
-      frm.events.submit_result(frm)
-    }
+    // Always show the submit button on refresh, regardless of conditions
+    console.log("Setting up submit button on refresh")
+    frm.page.set_primary_action(__('Submit Results'), function () {
+      frappe.call({
+        method: 'education.education.api.submit_assessment_results',
+        args: {
+          assessment_plan: frm.doc.assessment_plan,
+          student_group: frm.doc.student_group,
+        },
+        callback: function (r) {
+          if (r.message) {
+            frappe.msgprint(__('{0} Results submitted', [r.message]))
+          } else {
+            frappe.msgprint(__('No Results to submit'))
+          }
+          frm.events.assessment_plan(frm)
+        },
+      })
+    })
   },
 
   assessment_plan: function (frm) {
-    frm.doc.show_submit = false
+    console.log("Assessment plan function called with assessment_plan:", frm.doc.assessment_plan)
+    frm.doc.show_submit = true // Always set this to true
     if (frm.doc.assessment_plan) {
       if (!frm.doc.student_group) return
       frappe.call({
@@ -35,25 +53,34 @@ frappe.ui.form.on('Assessment Result Tool', {
         },
         callback: function (r) {
           if (r.message) {
+            console.log("Got students response:", r.message.length, "students")
             frm.doc.students = r.message
             frm.events.render_table(frm)
             
-            // Check if any student has no docstatus or docstatus is 0
-            for (let value of r.message) {
-              console.log("Student result:", value)
-              if (!value.docstatus) {
-                console.log("Setting show_submit to true")
-                frm.doc.show_submit = true
-                break
-              }
-            }
+            // Always set show_submit to true regardless of conditions
+            frm.doc.show_submit = true
             
-            // Always force show submit if there are students
-            if (r.message.length > 0) {
-              frm.doc.show_submit = true
+            // Make sure submit button is visible regardless of other code
+            if (!frm.page.primary_action) {
+              console.log("Primary action not found, adding it now")
+              frm.page.set_primary_action(__('Submit Results'), function () {
+                frappe.call({
+                  method: 'education.education.api.submit_assessment_results',
+                  args: {
+                    assessment_plan: frm.doc.assessment_plan,
+                    student_group: frm.doc.student_group,
+                  },
+                  callback: function (r) {
+                    if (r.message) {
+                      frappe.msgprint(__('{0} Results submitted', [r.message]))
+                    } else {
+                      frappe.msgprint(__('No Results to submit'))
+                    }
+                    frm.events.assessment_plan(frm)
+                  },
+                })
+              })
             }
-            
-            frm.events.submit_result(frm)
           }
         },
       })
@@ -189,10 +216,29 @@ frappe.ui.form.on('Assessment Result Tool', {
             let assessment_result = r.message
             console.log("Assessment result saved:", assessment_result)
             
-            // Always set show_submit to true when we save a result
-            if (!frm.doc.show_submit) {
-              frm.doc.show_submit = true
-              frm.events.submit_result(frm)
+            // Always set show_submit to true and ensure button is visible
+            frm.doc.show_submit = true
+            
+            // Force the submit button to appear every time a result is saved
+            if (!frm.page.primary_action) {
+              console.log("Primary action missing after save, re-adding it")
+              frm.page.set_primary_action(__('Submit Results'), function () {
+                frappe.call({
+                  method: 'education.education.api.submit_assessment_results',
+                  args: {
+                    assessment_plan: frm.doc.assessment_plan,
+                    student_group: frm.doc.student_group,
+                  },
+                  callback: function (r) {
+                    if (r.message) {
+                      frappe.msgprint(__('{0} Results submitted', [r.message]))
+                    } else {
+                      frappe.msgprint(__('No Results to submit'))
+                    }
+                    frm.events.assessment_plan(frm)
+                  },
+                })
+              })
             }
             
             for (var criteria of Object.keys(assessment_result.details)) {
@@ -225,9 +271,9 @@ frappe.ui.form.on('Assessment Result Tool', {
   },
 
   submit_result: function (frm) {
-    console.log("Submit result called, show_submit:", frm.doc.show_submit)
+    console.log("Submit result function called, show_submit:", frm.doc.show_submit)
     
-    // Always show the submit button for better usability
+    // Always show the submit button, without any conditions
     frm.page.set_primary_action(__('Submit Results'), function () {
       frappe.call({
         method: 'education.education.api.submit_assessment_results',
@@ -237,9 +283,9 @@ frappe.ui.form.on('Assessment Result Tool', {
         },
         callback: function (r) {
           if (r.message) {
-            frappe.msgprint(__('{0} Result submittted', [r.message]))
+            frappe.msgprint(__('{0} Results submitted', [r.message]))
           } else {
-            frappe.msgprint(__('No Result to submit'))
+            frappe.msgprint(__('No Results to submit'))
           }
           frm.events.assessment_plan(frm)
         },
