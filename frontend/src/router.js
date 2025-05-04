@@ -16,6 +16,11 @@ const routes = [
     component: () => import('@/pages/Grades.vue'),
   },
   {
+    path: '/assessment-logs',
+    name: 'AssessmentLogs',
+    component: () => import('@/pages/AssessmentLogs.vue'),
+  },
+  {
     path: '/fees',
     name: 'Fees',
     component: () => import('@/pages/Fees.vue'),
