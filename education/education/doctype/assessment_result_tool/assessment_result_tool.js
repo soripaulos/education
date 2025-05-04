@@ -19,6 +19,24 @@ frappe.ui.form.on('Assessment Result Tool', {
     frm.disable_save()
     frm.page.clear_indicator()
     frm.page.clear_primary_action(); 
+
+    // Add a test button in the UI to directly test API
+    frm.add_custom_button(__('Test API'), function() {
+      console.log("Test API button clicked");
+      frappe.call({
+        method: 'education.education.api.hello_world',
+        callback: function(r) {
+          frappe.msgprint("API Response: " + r.message);
+        },
+        error: function(r) {
+          frappe.msgprint({
+            title: __('API Error'),
+            indicator: 'red',
+            message: __('Error testing API: ') + JSON.stringify(r)
+          });
+        }
+      });
+    });
   },
 
   assessment_plan: function (frm) {
@@ -142,7 +160,23 @@ frappe.ui.form.on('Assessment Result Tool', {
       console.log(`Client-side total score for ${student} recalculated to: ${current_total_score}`);
       result_table.find(`span[data-student="${student}"].total-score`).html(current_total_score);
 
-      // --- Call API to log this single entry --- 
+      // ***** TEMPORARY DEBUGGING: Call hello_world instead *****
+      console.log("Attempting API call: education.education.api.hello_world (DEBUG)");
+      frappe.call({
+        method: 'education.education.api.hello_world', 
+        // args: {}, // No args needed for hello_world
+        callback: function (r) {
+          console.log(`API Callback received for hello_world:`, r);
+          frappe.show_alert({ message: `Hello World Response: ${r.message}`, indicator: 'green' });
+        },
+        error: function(r) {
+            console.error(`API Error during call to hello_world:`, r);
+            frappe.show_alert({ message: __("API Error calling hello_world"), indicator: 'red' });
+        }
+      });
+      // ***** END TEMPORARY DEBUGGING *****
+
+      /* --- Original API call to log_assessment_entry (Commented Out) ---
       const args = {
         student: student,
         assessment_plan: frm.doc.assessment_plan,
@@ -151,14 +185,7 @@ frappe.ui.form.on('Assessment Result Tool', {
         // Comments are handled by a separate handler
       };
       console.log(`Preparing API call to log_assessment_entry with args:`, args);
-
-      // Basic check for essential arguments before calling API
-      if (!args.student || !args.assessment_plan || !args.assessment_criteria) {
-          console.error("Error: Missing critical data for API call. Aborting save.", args);
-          frappe.show_alert({ message: __("Cannot save: Missing student, plan, or criteria data."), indicator: 'red' });
-          return; // Stop if data is missing
-      }
-
+      // ... validation ...
       console.log(`Attempting API call: education.education.api.log_assessment_entry`);
       frappe.call({
         method: 'education.education.api.log_assessment_entry', 
@@ -187,6 +214,7 @@ frappe.ui.form.on('Assessment Result Tool', {
              setTimeout(() => { $input.removeClass('highlight-error'); }, 1500);
         }
       });
+      */
       console.log("--- Score change handler finished ---");
     });
 
