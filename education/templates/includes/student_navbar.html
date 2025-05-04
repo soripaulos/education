@@ -8,14 +8,18 @@
                 <span class="icon-bar"></span>
             </button>
             <a class="navbar-brand" href="/">
-                <img src="{{ logo }}" alt="{{ abbr }}" style="max-height: 40px; margin-top: -10px;">
+                {% if logo %}
+                <img src="{{ logo }}" alt="{{ abbr or 'Education' }}" style="max-height: 40px; margin-top: -10px;">
+                {% else %}
+                <span>{{ abbr or "Education" }}</span>
+                {% endif %}
             </a>
         </div>
         <div class="collapse navbar-collapse navbar-responsive-collapse">
             <ul class="nav navbar-nav navbar-right">
-                {% if education_portal_links %}
+                {% if education_portal_links | default(false) %}
                     {% for link in education_portal_links %}
-                        <li class="{% if link.active %}active{% endif %}">
+                        <li class="{% if link.active | default(false) %}active{% endif %}">
                             <a href="{{ link.route }}">{{ _(link.title) }}</a>
                         </li>
                     {% endfor %}

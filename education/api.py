@@ -439,17 +439,21 @@ def get_student_assessment_log_entries():
 
 def update_website_context(context):
     """Update the website context for the Education app."""
-    # Add student portal navigation to the context
-    context.education_portal_links = [
-        {"title": "Home", "route": "/me"},
-        {"title": "Admissions", "route": "/admissions"},
-        {"title": "Assessment Logs", "route": "/assessment-log"},
-    ]
-    
-    # If user is a student, highlight the current page in navigation
-    if hasattr(context, 'pathname'):
+    try:
+        # Add student portal navigation to the context
+        context.education_portal_links = [
+            {"title": "Home", "route": "/me"},
+            {"title": "Admissions", "route": "/admissions"},
+            {"title": "Assessment Logs", "route": "/assessment-log"},
+        ]
+        
+        # If user is a student, highlight the current page in navigation
+        current_path = frappe.local.request.path if hasattr(frappe, 'local') and hasattr(frappe.local, 'request') else ""
         for link in context.education_portal_links:
-            if context.pathname == link.get('route'):
+            if current_path == link.get('route'):
                 link['active'] = True
+    except Exception as e:
+        frappe.log_error(f"Error in update_website_context: {str(e)}", "Website Context")
+        # Don't re-raise the error to prevent page breaking
                 
     return context

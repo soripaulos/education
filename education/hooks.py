@@ -29,7 +29,9 @@ app_include_js = "education.bundle.js"
 # website_theme_scss = "education/public/scss/website"
 
 # website
-update_website_context = ["education.education.api.update_website_context"]
+# Temporarily disabled to troubleshoot internal server error
+# update_website_context = ["education.education.api.update_website_context"]
+update_website_context = []
 
 website_generators = ["Student Admission"]
 

@@ -3,7 +3,17 @@
 {% block title %}{{ _("Assessment Logs") }}{% endblock %}
 
 {% block header %}
-{% include "templates/includes/student_navbar.html" %}
+<!-- Simple header without fancy navbar to avoid template errors -->
+<div class="container">
+  <div class="page-header">
+    <h2>{{ _("Assessment Logs") }}</h2>
+    <div class="btn-group" role="group">
+      <a href="/me" class="btn btn-default">{{ _("Home") }}</a>
+      <a href="/admissions" class="btn btn-default">{{ _("Admissions") }}</a>
+      <a href="/assessment-log" class="btn btn-primary">{{ _("Assessment Logs") }}</a>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block page_content %}
