@@ -108,44 +108,65 @@ frappe.ui.form.on('Assessment Result Tool', {
       let student = $input.data().student
       let max_score = $input.data().maxScore
       let value = $input.val()
-      if (value < 0) {
-        $input.val(0)
-      } else if (value > max_score) {
-        $input.val(max_score)
+      
+      // Validate input value
+      let score = parseFloat(value);
+      if (isNaN(score) || score < 0) {
+        score = 0;
+        $input.val(0); // Update input visually if invalid
+      } else if (score > max_score) {
+        score = max_score;
+        $input.val(max_score);
+        frappe.show_alert({ message: __("Score cannot exceed Maximum Score ({0})", [max_score]), indicator: 'orange' })
       }
+      
+      // Recalculate total score for the specific student
       let total_score = 0
       let student_scores = {}
       student_scores['assessment_details'] = {}
+      let all_criteria_filled = true; // Flag to check if all inputs have values
+      
       result_table
         .find(`input[data-student=${student}].student-result-data`)
         .each(function (el, input) {
-          let $input = $(input)
-          let criteria = $input.data().criteria
-          let value = parseFloat($input.val())
-          if (!Number.isNaN(value)) {
-            student_scores['assessment_details'][criteria] = value
-            total_score += value // Accumulate total score correctly
+          let $current_input = $(input);
+          let criteria = $current_input.data().criteria;
+          let criteria_value = parseFloat($current_input.val());
+          
+          if (!isNaN(criteria_value)) {
+            student_scores['assessment_details'][criteria] = criteria_value;
+            total_score += criteria_value; // Accumulate total score only for valid numbers
           } else {
-             student_scores['assessment_details'][criteria] = 0 // Ensure all criteria have a value (0 if empty/NaN)
+            // Still add the key, but with 0, to ensure length check is accurate
+            student_scores['assessment_details'][criteria] = 0;
+            all_criteria_filled = false; // Mark as not all filled if any NaN is found
           }
-        })
-      if (!Number.isNaN(total_score)) {
-        result_table
-          .find(`span[data-student=${student}].total-score`)
-          .html(total_score)
-      }
-      // Check if all criteria have scores (now checking length after ensuring all keys exist)
-      if (
-        Object.keys(student_scores['assessment_details']).length ===
-        criteria_list.length
-      ) {
+        });
+        
+      // Update the total score display immediately
+      result_table
+        .find(`span[data-student=${student}].total-score`)
+        .html(total_score);
+        
+      // Log the check for saving
+      let criteria_count = Object.keys(student_scores['assessment_details']).length;
+      console.log(`Checking save condition for student ${student}: Filled criteria = ${criteria_count}, Total criteria = ${criteria_list.length}, All filled flag = ${all_criteria_filled}`);
+
+      // Check if all criteria have been filled (using the flag now)
+      // if (all_criteria_filled && criteria_count === criteria_list.length) { // Original condition might be too strict
+      // Let's try saving whenever *any* valid score is entered for now, 
+      // but ensure all criteria keys exist in the payload (even if 0).
+      if (criteria_count === criteria_list.length) { // Simplified check: ensure all keys are present
         student_scores['student'] = student
         student_scores['total_score'] = total_score
         result_table
           .find(`[data-student=${student}].result-comment`)
           .each(function (el, input) {
-            student_scores['comment'] = $(input).val()
+            student_scores['comment'] = $(input).val() || ""; // Ensure comment is always a string
           })
+          
+        console.log(`Attempting to save draft for student ${student} with scores:`, student_scores);
+          
         frappe.call({
           method: 'education.education.api.mark_assessment_result',
           args: {
@@ -153,34 +174,47 @@ frappe.ui.form.on('Assessment Result Tool', {
             scores: student_scores,
           },
           callback: function (r) {
-            let assessment_result = r.message
-            if (!frm.doc.show_submit) {
-              frm.doc.show_submit = true
-              frm.events.submit_result(frm) // Call submit_result to potentially show the button
-            }
-            for (var criteria of Object.keys(assessment_result.details)) {
-              result_table
-                .find(
-                  `[data-criteria=${criteria}][data-student=${assessment_result.student}].student-result-grade`
+            if (r.message) {
+                let assessment_result = r.message
+                console.log(`Draft saved successfully for student ${student}:`, assessment_result);
+                if (!frm.doc.show_submit) {
+                  frm.doc.show_submit = true
+                  frm.events.submit_result(frm) // Call submit_result to potentially show the button
+                }
+                // Update grades and link after successful save
+                for (var criteria_key of Object.keys(assessment_result.details)) {
+                  result_table
+                    .find(
+                      `[data-criteria=${criteria_key}][data-student=${assessment_result.student}].student-result-grade`
+                    )
+                    .each(function (e1, input_el) {
+                      $(input_el).html(assessment_result.details[criteria_key])
+                    })
+                }
+                result_table
+                  .find(
+                    `span[data-student=${assessment_result.student}].total-score-grade`
+                  )
+                  .html(assessment_result.grade)
+                let link_span = result_table.find(
+                  `span[data-student=${assessment_result.student}].total-result-link`
                 )
-                .each(function (e1, input) {
-                  $(input).html(assessment_result.details[criteria])
-                })
+                $(link_span).css('display', 'block')
+                $(link_span)
+                  .find('a')
+                  .attr('href', '/app/assessment-result/' + assessment_result.name)
+            } else {
+                console.error(`Failed to save draft for student ${student}. Response:`, r);
+                frappe.show_alert({ message: __("Failed to save draft result for {0}", [student]), indicator: 'red' });
             }
-            result_table
-              .find(
-                `span[data-student=${assessment_result.student}].total-score-grade`
-              )
-              .html(assessment_result.grade)
-            let link_span = result_table.find(
-              `span[data-student=${assessment_result.student}].total-result-link`
-            )
-            $(link_span).css('display', 'block')
-            $(link_span)
-              .find('a')
-              .attr('href', '/app/assessment-result/' + assessment_result.name)
           },
+          error: function(r) {
+             console.error(`API Error saving draft for student ${student}:`, r);
+             frappe.show_alert({ message: __("API Error saving draft for {0}", [student]), indicator: 'red' });
+          }
         })
+      } else {
+          console.log(`Save condition not met for student ${student}. Filled: ${criteria_count}/${criteria_list.length}`);
       }
     })
   },
