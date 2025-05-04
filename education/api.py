@@ -1,10 +1,11 @@
 import frappe
 from frappe import _
-from frappe.utils import flt, now_datetime
+from frappe.utils import flt, now_datetime, cstr
+import json
 
 @frappe.whitelist()
 def hello_world():
-    frappe.log_error("Hello World API called!") # Add log to confirm execution
+    frappe.log_error("Hello World API called!", "API Test")
     return "Hello from API!"
 
 @frappe.whitelist()
@@ -65,132 +66,309 @@ def log_assessment_entry(student, assessment_plan, assessment_criteria, score, c
 
 @frappe.whitelist()
 def get_assessment_students(assessment_plan, student_group):
-    # --- New Logic --- 
-    # 1. Get list of students in the group
-    student_list_details = get_student_group_students(student_group)
-    students_in_group = [s.student for s in student_list_details]
-    student_name_map = {s.student: s.student_name for s in student_list_details}
+    student_list = get_student_group_students(student_group)
+    for i, student in enumerate(student_list):
+        result = get_result(student.student, assessment_plan)
+        if result:
+            student_result = {}
+            for d in result.details:
+                student_result.update({d.assessment_criteria: [cstr(d.score), d.grade]})
+            student_result.update(
+                {"total_score": [cstr(result.total_score), result.grade], "comment": result.comment}
+            )
+            student.update(
+                {
+                    "assessment_details": student_result,
+                    "docstatus": result.docstatus,
+                    "name": result.name,
+                }
+            )
+        else:
+            student.update({"assessment_details": None})
+    return student_list
 
-    if not students_in_group:
-        return []
+@frappe.whitelist()
+def get_assessment_details(assessment_plan):
+    """Return all related criteria details with the assessment plan"""
+    return frappe.get_all(
+        "Assessment Plan Criteria",
+        filters={"parent": assessment_plan},
+        fields=["assessment_criteria", "maximum_score", "docstatus"],
+        order_by="idx",
+    )
 
-    # 2. Get all criteria for the assessment plan
-    plan_criteria = frappe.get_all("Assessment Plan Criteria", 
-                                     filters={"parent": assessment_plan}, 
-                                     fields=["assessment_criteria", "maximum_score"],
-                                     order_by="idx")
-    if not plan_criteria:
-        return [] # Or return student list with empty details?
-    
-    criteria_names = [c.assessment_criteria for c in plan_criteria]
-    criteria_max_score_map = {c.assessment_criteria: c.maximum_score for c in plan_criteria}
-
-    # 3. Fetch the latest log entry for each student+criterion combination
-    # Use a subquery to rank entries by datetime desc and pick the latest (rank=1)
-    latest_logs = frappe.db.sql("""
-        SELECT 
-            student, assessment_criteria, score, comments, entry_datetime, name
-        FROM (
-            SELECT 
-                student, assessment_criteria, score, comments, entry_datetime, name,
-                ROW_NUMBER() OVER(PARTITION BY student, assessment_criteria ORDER BY entry_datetime DESC) as rn
-            FROM 
-                `tabAssessment Log Entry`
-            WHERE 
-                assessment_plan = %(assessment_plan)s
-                AND student IN %(students_in_group)s
-                AND assessment_criteria IN %(criteria_names)s
-        ) ranked_logs
-        WHERE rn = 1
-    """, {
+@frappe.whitelist()
+def get_result(student, assessment_plan, docstatus=None):
+    """Return assessment result for the provided student and assessment criteria"""
+    filters = {
+        "student": student,
         "assessment_plan": assessment_plan,
-        "students_in_group": tuple(students_in_group),
-        "criteria_names": tuple(criteria_names)
-    }, as_dict=1)
+        "docstatus": ("!=", 2)
+    }
+    if docstatus:
+        filters["docstatus"] = docstatus
+    result = frappe.get_all(
+        "Assessment Result",
+        filters=filters,
+        fields=[
+            "name",
+            "total_score",
+            "grade",
+            "comment",
+            "docstatus"
+        ]
+    )
 
-    # 4. Structure the data for the frontend
-    student_data_map = {}
-    for log in latest_logs:
-        student = log.student
-        criterion = log.assessment_criteria
-        if student not in student_data_map:
-            student_data_map[student] = {
-                "student": student,
-                "student_name": student_name_map.get(student, "Unknown"), # Get name from map
-                "assessment_details": {}
-                # Add other base student info if needed
-            }
-        # Store score and comment for the specific criterion
-        student_data_map[student]["assessment_details"][criterion] = {
-            "score": log.score,
-            "comments": log.comments,
-            "entry_datetime": log.entry_datetime, # Keep track of when it was logged
-            "log_name": log.name # Store the name of the log entry itself
-        }
+    if not result:
+        return None
+    
+    result = result[0]
+    result.details = frappe.get_all(
+        "Assessment Result Detail",
+        filters={
+            "parent": result.name
+        },
+        fields=[
+            "assessment_criteria",
+            "score",
+            "grade"
+        ]
+    )
+    return result
 
-    # 5. Assemble the final list, ensuring all students and criteria are present
-    result_list = []
-    plan = frappe.get_doc("Assessment Plan", assessment_plan) # Needed for grading scale
-    for student_id in students_in_group:
-        student_info = student_data_map.get(student_id, {
-            "student": student_id,
-            "student_name": student_name_map.get(student_id, "Unknown"),
-            "assessment_details": {}
-        })
-        
-        current_scores = {}
+def get_grades(grading_scale, percentage):
+    """Return grading scales in order of the percentage"""
+    grades = []
+    for d in get_grade_scale(grading_scale):
+        if percentage >= d.threshold_percentage:
+            return d.grade
+    return ""
+
+def get_grade_scale(grading_scale):
+    """Return grade scales of a particular grading scale in order"""
+    return frappe.get_all(
+        "Grading Scale Interval",
+        filters={"parent": grading_scale},
+        fields=["grade", "threshold_percentage", "grade_description"],
+        order_by="threshold_percentage desc",
+    )
+
+@frappe.whitelist()
+def mark_assessment_result(assessment_plan, scores):
+    student_score = json.loads(scores)
+    assessment_details = frappe.get_doc("Assessment Plan", assessment_plan)
+
+    for criteria in assessment_details.assessment_criteria:
+        criteria.maximum_score = float(criteria.maximum_score)
+    
+    for student in student_score:
         total_score = 0
+        for criteria in student_score[student].get("assessment_details", {}):
+            total_score += flt(student_score[student]["assessment_details"][criteria][0])
+
+        result = get_evaluation_criteria(assessment_details, student_score[student], total_score)
+        result.save()
+    
+    return True
+
+def get_evaluation_criteria(assessment_plan, student_score, total_score):
+    """Return the Assessment Result for the student"""
+    student = student_score["student"]
+    assessment_result = get_assessment_result_doc(student, assessment_plan.name)
+    
+    if not assessment_result:
+        assessment_result = frappe.new_doc("Assessment Result")
+        assessment_result.student = student
+        assessment_result.student_name = frappe.db.get_value("Student", student, "title")
+        assessment_result.assessment_plan = assessment_plan.name
+        assessment_result.program = assessment_plan.program
+        assessment_result.course = assessment_plan.course
+        assessment_result.academic_year = assessment_plan.academic_year
+        assessment_result.academic_term = assessment_plan.academic_term
+    else:
+        # Clear the old assessment details
+        assessment_result.details = []
+
+    assessment_result.comment = student_score.get("comment", "")
+    assessment_result.details = []
+    
+    # Add assessment details for each criteria
+    for criteria in assessment_plan.assessment_criteria:
+        result_detail = frappe.new_doc("Assessment Result Detail")
+        result_detail.assessment_criteria = criteria.assessment_criteria
+        result_detail.maximum_score = criteria.maximum_score
         
-        # Populate details for each criterion defined in the plan
-        for criterion_def in plan_criteria:
-            criterion_name = criterion_def.assessment_criteria
-            max_score = criterion_max_score_map.get(criterion_name, 0)
-            log_detail = student_info["assessment_details"].get(criterion_name)
-            
-            score = log_detail["score"] if log_detail else 0 # Default to 0 if no log yet
-            grade = "" 
-            if max_score > 0:
-                 percentage = (flt(score) / max_score) * 100
-                 grade = get_grade(plan.grading_scale, percentage) if plan.grading_scale else ""
-            
-            current_scores[criterion_name] = [score, grade] # Structure expected by old template [value, grade]
-            total_score += flt(score)
-            
-            # Add comment if available from log
-            if log_detail and log_detail.get("comments"):
-                 current_scores["comment"] = log_detail.get("comments") # This overrides per-criterion comments, maybe adjust? Let's assume one comment field for now.
+        # If score exists for a given criteria, add it, else set it to 0
+        if criteria.assessment_criteria in student_score.get("assessment_details", {}):
+            result_detail.score = student_score["assessment_details"][criteria.assessment_criteria][0]
+            if assessment_plan.grading_scale:
+                score_percentage = (flt(student_score["assessment_details"][criteria.assessment_criteria][0]) / criteria.maximum_score) * 100
+                result_detail.grade = get_grades(assessment_plan.grading_scale, score_percentage)
+        else:
+            result_detail.score = 0
         
-        # Calculate overall grade (similar to Assessment Result)
-        overall_grade = ""
-        if plan.maximum_assessment_score and plan.maximum_assessment_score > 0:
-             overall_percentage = (flt(total_score) / plan.maximum_assessment_score) * 100
-             overall_grade = get_grade(plan.grading_scale, overall_percentage) if plan.grading_scale else ""
+        assessment_result.append("details", result_detail)
+    
+    # Calculate the total score and grade
+    assessment_result.total_score = total_score
+    
+    if assessment_plan.grading_scale:
+        total_percentage = (total_score / assessment_plan.maximum_assessment_score) * 100
+        assessment_result.grade = get_grades(assessment_plan.grading_scale, total_percentage)
+    
+    return assessment_result
 
-        # Update the student info structure to match (roughly) the old format for template compatibility
-        student_info["assessment_details"] = current_scores
-        student_info["assessment_details"]["total_score"] = [total_score, overall_grade]
-        # Add comment here if it wasn't added per criterion
-        if "comment" not in student_info["assessment_details"]:
-             # Get latest comment across all criteria for this student? Or leave blank?
-             student_info["assessment_details"]["comment"] = student_info["assessment_details"].get("comment", "") # Use fetched comment if exists
+def get_assessment_result_doc(student, assessment_plan):
+    """Return Assessment Result for student if exists"""
+    assessment_result = frappe.get_all(
+        "Assessment Result",
+        filters={"student": student, "assessment_plan": assessment_plan, "docstatus": ("!=", 2)},
+    )
+    
+    if assessment_result:
+        return frappe.get_doc("Assessment Result", assessment_result[0])
+    else:
+        return None
 
-        # Note: 'docstatus' and 'name' from the old get_result are no longer directly applicable 
-        # as we are dealing with multiple log entries, not one main document.
-        # We can set docstatus to 0 to indicate it's editable in the tool.
-        student_info["docstatus"] = 0 
-        # 'name' could potentially be the name of the *latest* log entry for linking, but might be confusing.
-        # Let's omit 'name' for the main student object for now.
+@frappe.whitelist()
+def submit_assessment_results(assessment_plan, student_group):
+    """Submit assessment results if all results are marked"""
+    student_list = get_student_group_students(student_group)
+    assessment_results = []
+    
+    for student in student_list:
+        doc = get_result(student.student, assessment_plan, 0)
+        if doc:
+            if doc.docstatus == 0:
+                assessment_result = frappe.get_doc("Assessment Result", doc.name)
+                assessment_result.docstatus = 1
+                assessment_result.save()
+                assessment_results.append(assessment_result.name)
+    
+    return assessment_results
 
-        result_list.append(student_info)
+def get_student_group_students(student_group, include_inactive=0):
+    """Return student list for the student group"""
+    inactive_condition = "" if include_inactive else "and sd.active = 1"
+    return frappe.db.sql(
+        """select sd.student, sd.student_name, sd.idx,
+    sd.active, sd.group_roll_number
+    from `tabStudent Group Student` as sd
+    where sd.parent = %s {0} order by sd.group_roll_number asc, sd.idx""".format(
+            inactive_condition
+        ),
+        student_group,
+        as_dict=1,
+    )
 
-    return result_list
+@frappe.whitelist()
+def create_or_update_assessment_log(student, assessment_plan, assessment_criteria, score, comments=""):
+    """Creates a new Assessment Log Entry or updates the latest one if it exists."""
+    try:
+        # Validate score
+        score = flt(score)
+        if score < 0:
+            score = 0
+        # Optional: Add max score validation if needed later
 
-# --- Keep get_student_group_students, get_assessment_details, get_result (maybe unused now?), get_grade --- 
-# --- Remove or comment out mark_assessment_result and submit_assessment_results if no longer used --- 
-# @frappe.whitelist()
-# def mark_assessment_result(assessment_plan, scores):
-#     # ... old code ...
+        # Check if an entry exists for this specific combination logged today (or maybe ever? let's update latest)
+        latest_entry_name = frappe.db.get_value("Assessment Log Entry", {
+            "student": student,
+            "assessment_plan": assessment_plan,
+            "assessment_criteria": assessment_criteria
+        }, "name", order_by="entry_datetime desc")
 
-# @frappe.whitelist()
-# def submit_assessment_results(assessment_plan, student_group):
-#     # ... old code ... 
+        if latest_entry_name:
+            # Update existing entry
+            log_entry = frappe.get_doc("Assessment Log Entry", latest_entry_name)
+            log_entry.score = score
+            log_entry.comments = comments
+            log_entry.entry_datetime = now_datetime() # Update timestamp
+            log_entry.save(ignore_permissions=True)
+            frappe.db.commit() # Ensure save is committed immediately
+            return {"status": "updated", "log_entry_name": log_entry.name, "logged_score": score}
+        else:
+            # Create new entry
+            plan = frappe.get_doc("Assessment Plan", assessment_plan)
+            student_doc = frappe.get_doc("Student", student)
+            
+            max_score = 0
+            for criteria_detail in plan.assessment_criteria:
+                if criteria_detail.assessment_criteria == assessment_criteria:
+                    max_score = criteria_detail.maximum_score
+                    break
+
+            log_entry = frappe.new_doc("Assessment Log Entry")
+            log_entry.student = student
+            log_entry.student_name = student_doc.student_name
+            log_entry.assessment_plan = assessment_plan
+            log_entry.course = plan.course
+            log_entry.academic_year = plan.academic_year
+            log_entry.academic_term = plan.academic_term
+            log_entry.assessment_criteria = assessment_criteria
+            log_entry.maximum_score = max_score
+            log_entry.score = score
+            log_entry.entry_datetime = now_datetime()
+            log_entry.comments = comments
+            
+            log_entry.insert(ignore_permissions=True)
+            frappe.db.commit() # Ensure save is committed immediately
+            return {"status": "created", "log_entry_name": log_entry.name, "logged_score": score}
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Create/Update Assessment Log Error")
+        # Return error status to frontend
+        return {"status": "error", "message": str(e)}
+
+@frappe.whitelist()
+def get_latest_assessment_logs(assessment_plan, student_group):
+    """Fetches the latest score and comments for each student/criterion log entry."""
+    try:
+        students_details = get_student_group_students(student_group)
+        students_in_group = [s.student for s in students_details]
+        if not students_in_group:
+            return {}
+
+        plan_criteria = get_assessment_details(assessment_plan)
+        criteria_names = [c.assessment_criteria for c in plan_criteria]
+        if not criteria_names:
+            return {}
+
+        latest_logs = frappe.db.sql("""
+            SELECT 
+                student, assessment_criteria, score, comments
+            FROM (
+                SELECT 
+                    student, assessment_criteria, score, comments,
+                    ROW_NUMBER() OVER(PARTITION BY student, assessment_criteria ORDER BY entry_datetime DESC) as rn
+                FROM 
+                    `tabAssessment Log Entry`
+                WHERE 
+                    assessment_plan = %(assessment_plan)s
+                    AND student IN %(students_in_group)s
+                    AND assessment_criteria IN %(criteria_names)s
+            ) ranked_logs
+            WHERE rn = 1
+        """, {
+            "assessment_plan": assessment_plan,
+            "students_in_group": tuple(students_in_group),
+            "criteria_names": tuple(criteria_names)
+        }, as_dict=1)
+
+        # Structure the data as { student_id: { criteria_name: {score: x, comments: y} } }
+        structured_logs = {}
+        for log in latest_logs:
+            student = log.student
+            criterion = log.assessment_criteria
+            if student not in structured_logs:
+                structured_logs[student] = {}
+            structured_logs[student][criterion] = {
+                "score": log.score,
+                "comments": log.comments
+            }
+        
+        return structured_logs
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Latest Assessment Logs Error")
+        return {}
