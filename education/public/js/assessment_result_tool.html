@@ -47,7 +47,7 @@
 				{% if(s.assessment_details && s.docstatus && s.docstatus == 1) { %} disabled {% } %}
 				{% if(s.assessment_details) { %}
 					value="{{s.assessment_details.comment}}"
-				{% } %}
+				{% } %}/>
 			</td>
 			<td>
 				<span data-student="{{s.student}}" class="total-score-grade badge" style="width:30%; float:left;">
@@ -61,7 +61,7 @@
 				{% } %}
 				</span>
 				<span data-student="{{s.student}}" class="total-result-link" style="width: 10%; display:{% if(!s.assessment_details) { %}None{% } %}; float:right;">
-					<a class="btn-open no-decoration" title="Open Link" href="/app/Form/Assessment Result/{% if(s.assessment_details) { %}{{s.name}}{% } %}">
+					<a class="btn-open no-decoration" title="Open Link" href="/app/assessment-result/{% if(s.assessment_details) { %}{{s.name}}{% } %}">
 						<i class="octicon octicon-arrow-right"></i>
 					</a>
 				</span>

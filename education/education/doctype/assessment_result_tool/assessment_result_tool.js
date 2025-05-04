@@ -16,6 +16,11 @@ frappe.ui.form.on('Assessment Result Tool', {
     }
     frm.disable_save()
     frm.page.clear_indicator()
+    
+    // Always check and set submit button on refresh
+    if (frm.doc.assessment_plan) {
+      frm.events.submit_result(frm)
+    }
   },
 
   assessment_plan: function (frm) {
@@ -32,12 +37,22 @@ frappe.ui.form.on('Assessment Result Tool', {
           if (r.message) {
             frm.doc.students = r.message
             frm.events.render_table(frm)
+            
+            // Check if any student has no docstatus or docstatus is 0
             for (let value of r.message) {
+              console.log("Student result:", value)
               if (!value.docstatus) {
+                console.log("Setting show_submit to true")
                 frm.doc.show_submit = true
                 break
               }
             }
+            
+            // Always force show submit if there are students
+            if (r.message.length > 0) {
+              frm.doc.show_submit = true
+            }
+            
             frm.events.submit_result(frm)
           }
         },
@@ -54,6 +69,7 @@ frappe.ui.form.on('Assessment Result Tool', {
         assessment_plan: assessment_plan,
       },
       callback: function (r) {
+        console.log("Assessment details:", r.message)
         frm.events.get_marks(frm, r.message)
       },
     })
@@ -61,9 +77,13 @@ frappe.ui.form.on('Assessment Result Tool', {
 
   get_marks: function (frm, criteria_list) {
     let max_total_score = 0
-    criteria_list.forEach(function (c) {
+    criteria_list.forEach(function (c, index) {
+      // Add index to criteria for reference
+      c._index = index
       max_total_score += c.maximum_score
     })
+    console.log("Max total score:", max_total_score)
+    
     var result_table = $(
       frappe.render_template('assessment_result_tool', {
         frm: frm,
@@ -107,30 +127,44 @@ frappe.ui.form.on('Assessment Result Tool', {
       let student = $input.data().student
       let max_score = $input.data().maxScore
       let value = $input.val()
+      
+      console.log("Input changed:", student, "value:", value, "max:", max_score)
+      
       if (value < 0) {
         $input.val(0)
       } else if (value > max_score) {
         $input.val(max_score)
       }
+      
+      // Recalculate total score
       let total_score = 0
       let student_scores = {}
       student_scores['assessment_details'] = {}
+      
       result_table
         .find(`input[data-student=${student}].student-result-data`)
         .each(function (el, input) {
           let $input = $(input)
           let criteria = $input.data().criteria
           let value = parseFloat($input.val())
+          
+          console.log("Criteria:", criteria, "Value:", value)
+          
           if (!Number.isNaN(value)) {
             student_scores['assessment_details'][criteria] = value
+            total_score += value
           }
-          total_score += value
         })
+        
+      console.log("Total score:", total_score)
+      
       if (!Number.isNaN(total_score)) {
         result_table
           .find(`span[data-student=${student}].total-score`)
           .html(total_score)
       }
+      
+      // Check if all criteria have scores
       if (
         Object.keys(student_scores['assessment_details']).length ===
         criteria_list.length
@@ -142,6 +176,9 @@ frappe.ui.form.on('Assessment Result Tool', {
           .each(function (el, input) {
             student_scores['comment'] = $(input).val()
           })
+        
+        console.log("Saving assessment result:", student_scores)
+        
         frappe.call({
           method: 'education.education.api.mark_assessment_result',
           args: {
@@ -150,10 +187,14 @@ frappe.ui.form.on('Assessment Result Tool', {
           },
           callback: function (r) {
             let assessment_result = r.message
+            console.log("Assessment result saved:", assessment_result)
+            
+            // Always set show_submit to true when we save a result
             if (!frm.doc.show_submit) {
               frm.doc.show_submit = true
-              frm.events.submit_result
+              frm.events.submit_result(frm)
             }
+            
             for (var criteria of Object.keys(assessment_result.details)) {
               result_table
                 .find(
@@ -163,11 +204,13 @@ frappe.ui.form.on('Assessment Result Tool', {
                   $(input).html(assessment_result.details[criteria])
                 })
             }
+            
             result_table
               .find(
                 `span[data-student=${assessment_result.student}].total-score-grade`
               )
               .html(assessment_result.grade)
+              
             let link_span = result_table.find(
               `span[data-student=${assessment_result.student}].total-result-link`
             )
@@ -182,26 +225,25 @@ frappe.ui.form.on('Assessment Result Tool', {
   },
 
   submit_result: function (frm) {
-    if (frm.doc.show_submit) {
-      frm.page.set_primary_action(__('Submit'), function () {
-        frappe.call({
-          method: 'education.education.api.submit_assessment_results',
-          args: {
-            assessment_plan: frm.doc.assessment_plan,
-            student_group: frm.doc.student_group,
-          },
-          callback: function (r) {
-            if (r.message) {
-              frappe.msgprint(__('{0} Result submittted', [r.message]))
-            } else {
-              frappe.msgprint(__('No Result to submit'))
-            }
-            frm.events.assessment_plan(frm)
-          },
-        })
+    console.log("Submit result called, show_submit:", frm.doc.show_submit)
+    
+    // Always show the submit button for better usability
+    frm.page.set_primary_action(__('Submit Results'), function () {
+      frappe.call({
+        method: 'education.education.api.submit_assessment_results',
+        args: {
+          assessment_plan: frm.doc.assessment_plan,
+          student_group: frm.doc.student_group,
+        },
+        callback: function (r) {
+          if (r.message) {
+            frappe.msgprint(__('{0} Result submittted', [r.message]))
+          } else {
+            frappe.msgprint(__('No Result to submit'))
+          }
+          frm.events.assessment_plan(frm)
+        },
       })
-    } else {
-      frm.page.clear_primary_action()
-    }
+    })
   },
 })
