@@ -7,8 +7,15 @@ def hello_world_direct():
     frappe.log_error("Hello World API called directly from education/api/__init__.py!", "API Test")
     return "Hello from API (education/api/__init__.py)!"
 
-# Try to import the hello_world function from the outer api.py
-try:
-    from education.api import hello_world, log_assessment_entry
-except ImportError as e:
-    frappe.log_error(f"Error importing API functions in api/__init__.py: {str(e)}", "Education API Init") 
+# Don't import from education.api to avoid circular import
+@frappe.whitelist()
+def hello_world():
+    frappe.log_error("Hello World API called from education/api/__init__.py!", "API Test")
+    return "Hello from API (education/api/__init__.py standalone)!"
+
+@frappe.whitelist()
+def log_assessment_entry(student, assessment_plan, assessment_criteria, score, comments=""):
+    """Logs a single assessment score entry for a student and criterion."""
+    # Delegate to the implementation in education.education.api
+    from education.education.api import log_assessment_entry as original_log_entry
+    return original_log_entry(student, assessment_plan, assessment_criteria, score, comments) 
