@@ -372,3 +372,84 @@ def get_latest_assessment_logs(assessment_plan, student_group):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Latest Assessment Logs Error")
         return {}
+
+@frappe.whitelist()
+def get_student_assessment_log_entries():
+    """Fetches the latest assessment log entries for the logged-in student, grouped by term and plan."""
+    student_id = frappe.session.user
+    
+    # Verify student exists
+    if not frappe.db.exists("Student", student_id):
+        return {} # Or raise an error?
+
+    # Fetch the latest log entry for each unique combination of student, plan, and criteria
+    # Using ROW_NUMBER() is efficient for this
+    latest_logs_raw = frappe.db.sql("""
+        SELECT 
+            academic_term, assessment_plan, course, assessment_criteria, 
+            maximum_score, score, comments, entry_datetime
+        FROM (
+            SELECT 
+                ale.academic_term, ale.assessment_plan, ale.course, ale.assessment_criteria, 
+                ale.maximum_score, ale.score, ale.comments, ale.entry_datetime,
+                ROW_NUMBER() OVER(PARTITION BY ale.student, ale.assessment_plan, ale.assessment_criteria 
+                                  ORDER BY ale.entry_datetime DESC) as rn
+            FROM 
+                `tabAssessment Log Entry` ale
+            WHERE 
+                ale.student = %(student)s
+        ) ranked_logs
+        WHERE rn = 1
+        ORDER BY
+            academic_term DESC, assessment_plan ASC, assessment_criteria ASC
+    """, {"student": student_id}, as_dict=1)
+
+    # Group the results by term, then by plan
+    grouped_results = {}
+    for log in latest_logs_raw:
+        term = log.academic_term
+        plan = log.assessment_plan
+        
+        if term not in grouped_results:
+            grouped_results[term] = {}
+        
+        if plan not in grouped_results[term]:
+            # Fetch assessment plan details once per plan
+            plan_doc = frappe.get_doc("Assessment Plan", plan)
+            grouped_results[term][plan] = {
+                "course": log.course or plan_doc.course, # Use log's course, fallback to plan's
+                "grading_scale": plan_doc.grading_scale,
+                "entries": []
+            }
+        
+        # Calculate grade if possible
+        grade = ""
+        if log.maximum_score and log.maximum_score > 0 and grouped_results[term][plan]["grading_scale"]:
+            try:
+                percentage = (flt(log.score) / flt(log.maximum_score)) * 100
+                # Assuming get_grades function exists from previous API structure
+                grade = get_grades(grouped_results[term][plan]["grading_scale"], percentage) 
+            except Exception as e:
+                 frappe.log_error(f"Error calculating grade for log entry: {e}", "Assessment Log Grade Calc")
+
+        log["grade"] = grade # Add grade to the log dictionary
+        grouped_results[term][plan]["entries"].append(log)
+        
+    return grouped_results
+
+def update_website_context(context):
+    """Update the website context for the Education app."""
+    # Add student portal navigation to the context
+    context.education_portal_links = [
+        {"title": "Home", "route": "/me"},
+        {"title": "Admissions", "route": "/admissions"},
+        {"title": "Assessment Logs", "route": "/assessment-log"},
+    ]
+    
+    # If user is a student, highlight the current page in navigation
+    if hasattr(context, 'pathname'):
+        for link in context.education_portal_links:
+            if context.pathname == link.get('route'):
+                link['active'] = True
+                
+    return context

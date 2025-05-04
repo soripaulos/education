@@ -2,6 +2,10 @@
 
 {% block title %}{{ _("Assessment Logs") }}{% endblock %}
 
+{% block header %}
+{% include "templates/includes/student_navbar.html" %}
+{% endblock %}
+
 {% block page_content %}
 <div class="assessment-log-container">
     <h3>{{ _("My Assessment Logs") }}</h3>

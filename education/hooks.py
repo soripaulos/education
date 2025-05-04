@@ -29,7 +29,7 @@ app_include_js = "education.bundle.js"
 # website_theme_scss = "education/public/scss/website"
 
 # website
-update_website_context = []
+update_website_context = ["education.education.api.update_website_context"]
 
 website_generators = ["Student Admission"]
 
@@ -60,9 +60,10 @@ standard_portal_menu_items = [
 	},
 ]
 
-# Add assessment-log to the list of allowed pages for the Student portal
+# Portal Items for website sidebar
 portal_menu_items = [
-	{"role": "Student", "title": _("Assessment Log"), "route": "/assessment-log"}
+	{"role": "Student", "title": _("Assessment Log"), "route": "/assessment-log", "reference_doctype": "Assessment Log Entry"},
+	{"role": "Student", "title": _("Admissions"), "route": "/admissions", "reference_doctype": "Student Admission"},
 ]
 
 default_roles = [
