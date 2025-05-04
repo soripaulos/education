@@ -36,6 +36,7 @@ website_generators = ["Student Admission"]
 website_route_rules = [
 	{"from_route": "/admissions", "to_route": "Student Admission"},
 	{"from_route": "/student-portal/<path:app_path>", "to_route": "student-portal"},
+	{"from_route": "/assessment-log", "to_route": "assessment_log"},
 ]
 
 treeviews = ["Assessment Group"]
@@ -46,11 +47,22 @@ calendars = [
 
 standard_portal_menu_items = [
 	{
-		"title": "Admission",
+		"title": _("Admission"),
 		"route": "/admissions",
 		"reference_doctype": "Student Admission",
 		"role": "Student",
 	},
+	{
+		"title": _("Assessment Log"),
+		"route": "/assessment-log",
+		"reference_doctype": "Assessment Log Entry",
+		"role": "Student",
+	},
+]
+
+# Add assessment-log to the list of allowed pages for the Student portal
+portal_menu_items = [
+	{"role": "Student", "title": _("Assessment Log"), "route": "/assessment-log"}
 ]
 
 default_roles = [
@@ -100,6 +112,7 @@ global_search_doctypes = {
 		{"doctype": "Fee Category", "index": 37},
 		{"doctype": "Assessment Code", "index": 38},
 		{"doctype": "Discussion", "index": 39},
+		{"doctype": "Assessment Log Entry", "index": 40},
 	]
 }
 
