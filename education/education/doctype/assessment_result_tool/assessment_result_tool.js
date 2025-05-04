@@ -4,9 +4,11 @@
 frappe.ui.form.on('Assessment Result Tool', {
   setup: function (frm) {
     frm.add_fetch('assessment_plan', 'student_group', 'student_group')
+    console.log("Setup function called")
   },
 
   refresh: function (frm) {
+    console.log("Refresh function called")
     if (frappe.route_options) {
       frm.set_value('student_group', frappe.route_options.student_group)
       frm.set_value('assessment_plan', frappe.route_options.assessment_plan)
@@ -16,9 +18,15 @@ frappe.ui.form.on('Assessment Result Tool', {
     }
     frm.disable_save()
     frm.page.clear_indicator()
+
+    // Always setup the submit button on refresh if an assessment plan is selected
+    if (frm.doc.assessment_plan) {
+      frm.events.setup_submit_button(frm);
+    }
   },
 
   assessment_plan: function (frm) {
+    console.log("Assessment plan function called with assessment_plan:", frm.doc.assessment_plan)
     if (frm.doc.assessment_plan) {
       if (!frm.doc.student_group) return
       frappe.call({
@@ -29,8 +37,12 @@ frappe.ui.form.on('Assessment Result Tool', {
         },
         callback: function (r) {
           if (r.message) {
+            console.log("Got students response:", r.message.length, "students")
             frm.doc.students = r.message
             frm.events.render_table(frm)
+
+            // Setup the submit button after students are loaded
+            frm.events.setup_submit_button(frm);
           }
         },
       })
@@ -144,6 +156,9 @@ frappe.ui.form.on('Assessment Result Tool', {
             frappe.show_alert({ message: __("Error saving score. Check console."), indicator: 'red' });
         }
       });
+
+      // Ensure submit button is visible after a score change/save
+      frm.events.setup_submit_button(frm);
     })
 
     result_table.on('change', 'input.result-comment', function (e) {
@@ -154,6 +169,40 @@ frappe.ui.form.on('Assessment Result Tool', {
         // let student = $input.data().student;
         // let comment = $input.val();
         // // ... call backend to save comment ...
+
+        // Ensure submit button is visible after comment change
+        frm.events.setup_submit_button(frm);
     });
   },
+
+  // New function to consistently setup the submit button
+  setup_submit_button: function(frm) {
+    // Remove existing button first to avoid duplicates if called multiple times
+    if (frm.page.primary_action) {
+      frm.page.clear_primary_action();
+    }
+
+    // Add the button only if an assessment plan is selected
+    if (frm.doc.assessment_plan) {
+      console.log("Setting up submit button");
+      frm.page.set_primary_action(__('Submit Results'), function () {
+        frappe.call({
+          method: 'education.education.api.submit_assessment_results',
+          args: {
+            assessment_plan: frm.doc.assessment_plan,
+            student_group: frm.doc.student_group,
+          },
+          callback: function (r) {
+            if (r.message) {
+              frappe.msgprint(__('{0} Results submitted', [r.message]));
+              // Optionally refresh the view after submission
+              frm.refresh();
+            } else {
+              frappe.msgprint(__('No Results to submit or an error occurred.'));
+            }
+          },
+        });
+      });
+    }
+  }
 })
