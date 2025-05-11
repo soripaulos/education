@@ -157,7 +157,7 @@ def get_grade_scale(grading_scale):
 def mark_assessment_result(assessment_plan, scores):
     """Mark assessment result for a student"""
     try:
-        student_score = json.loads(scores) if isinstance(scores, str) else scores
+        student_score = scores if isinstance(scores, dict) else json.loads(scores)
         assessment_details = frappe.get_doc("Assessment Plan", assessment_plan)
 
         # Validate assessment plan
@@ -195,7 +195,7 @@ def submit_assessment_results(assessment_plan, student_group, scores=None):
     try:
         if scores:
             # Process scores from frontend
-            scores_data = json.loads(scores) if isinstance(scores, str) else scores
+            scores_data = scores if isinstance(scores, list) else json.loads(scores)
             assessment_results = []
             
             for student_score in scores_data:
