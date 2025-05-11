@@ -231,21 +231,105 @@ def get_assessment_result_doc(student, assessment_plan):
         return None
 
 @frappe.whitelist()
-def submit_assessment_results(assessment_plan, student_group):
-    """Submit assessment results if all results are marked"""
-    student_list = get_student_group_students(student_group)
-    assessment_results = []
-    
-    for student in student_list:
-        doc = get_result(student.student, assessment_plan, 0)
-        if doc:
-            if doc.docstatus == 0:
-                assessment_result = frappe.get_doc("Assessment Result", doc.name)
-                assessment_result.docstatus = 1
-                assessment_result.save()
-                assessment_results.append(assessment_result.name)
-    
-    return assessment_results
+def submit_assessment_results(assessment_plan, student_group, scores_json=None):
+    """Submit assessment results for all students"""
+    try:
+        frappe.log_error(f"Received input: plan={assessment_plan}, group={student_group}, scores_json_length={len(scores_json) if scores_json else 'None'}", "Assessment Debug")
+        
+        assessment_details = frappe.get_doc("Assessment Plan", assessment_plan)
+        if not assessment_details:
+            frappe.throw(_("Assessment Plan not found"))
+            
+        if scores_json:
+            # Process scores data from frontend
+            student_scores = json.loads(scores_json)
+            frappe.log_error(f"Parsed scores data: {len(student_scores)} students", "Assessment Debug")
+            assessment_results = []
+            
+            for student_data in student_scores:
+                student_id = student_data.get("student")
+                if not student_id:
+                    continue
+                    
+                # Get or create assessment result doc
+                result_doc = get_assessment_result_doc(student_id, assessment_plan)
+                if not result_doc:
+                    result_doc = frappe.new_doc("Assessment Result")
+                    result_doc.student = student_id
+                    result_doc.student_name = frappe.db.get_value("Student", student_id, "title")
+                    result_doc.assessment_plan = assessment_plan
+                    result_doc.program = assessment_details.program
+                    result_doc.course = assessment_details.course
+                    result_doc.academic_year = assessment_details.academic_year
+                    result_doc.academic_term = assessment_details.academic_term
+                
+                # Clear old details and update with new ones
+                result_doc.comment = student_data.get("comment", "")
+                result_doc.total_score = student_data.get("total_score", 0)
+                
+                # Clear existing details
+                result_doc.details = []
+                
+                # Add details for each criteria
+                for criteria in assessment_details.assessment_criteria:
+                    criteria_name = criteria.assessment_criteria
+                    max_score = flt(criteria.maximum_score)
+                    
+                    detail = frappe.new_doc("Assessment Result Detail")
+                    detail.assessment_criteria = criteria_name
+                    detail.maximum_score = max_score
+                    
+                    # Get score for this criteria if available
+                    score = 0
+                    if criteria_name in student_data.get("assessment_details", {}) and isinstance(student_data["assessment_details"][criteria_name], list):
+                        score_value = student_data["assessment_details"][criteria_name][0]
+                        score = flt(score_value)
+                    
+                    if score < 0:
+                        score = 0
+                    elif score > max_score:
+                        score = max_score
+                        
+                    detail.score = score
+                    
+                    # Calculate grade
+                    if assessment_details.grading_scale and max_score > 0:
+                        score_percentage = (score / max_score) * 100
+                        detail.grade = get_grades(assessment_details.grading_scale, score_percentage)
+                    
+                    result_doc.append("details", detail)
+                
+                # Calculate total grade
+                if assessment_details.grading_scale and assessment_details.maximum_assessment_score > 0:
+                    total_score = result_doc.total_score
+                    total_percentage = (total_score / assessment_details.maximum_assessment_score) * 100
+                    result_doc.grade = get_grades(assessment_details.grading_scale, total_percentage)
+                
+                # Save as submitted
+                result_doc.docstatus = 1  # Set as submitted
+                result_doc.save(ignore_permissions=True)
+                assessment_results.append(result_doc.name)
+                frappe.log_error(f"Saved result for student {student_id}: {result_doc.name}, score={result_doc.total_score}, comment={result_doc.comment}", "Assessment Debug")
+            
+            return assessment_results
+        else:
+            # Legacy: submit existing drafts if no scores data
+            student_list = get_student_group_students(student_group)
+            assessment_results = []
+            
+            for student in student_list:
+                doc = get_result(student.student, assessment_plan, 0)
+                if doc and doc.docstatus == 0:
+                    assessment_result = frappe.get_doc("Assessment Result", doc.name)
+                    assessment_result.docstatus = 1
+                    assessment_result.save()
+                    assessment_results.append(assessment_result.name)
+            
+            return assessment_results
+            
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Assessment Result Submission Error")
+        frappe.throw(_("Error submitting assessment results: {0}").format(str(e)))
 
 def get_student_group_students(student_group, include_inactive=0):
     """Return student list for the student group"""
