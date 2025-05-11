@@ -203,23 +203,19 @@ frappe.ui.form.on('Assessment Result Tool', {
         // Collect all scores before submission
         let all_scores = []
         let processed_students = new Set()
-        
         $(frm.fields_dict.result_html.wrapper).find('input.student-result-data').each(function() {
           let $input = $(this)
           let student = $input.data().student
-          
           // Skip if we've already processed this student
           if (processed_students.has(student)) {
             return
           }
           processed_students.add(student)
-          
           let student_scores = {
             student: student,
             assessment_details: {},
             total_score: 0
           }
-          
           // Get all scores for this student
           $(frm.fields_dict.result_html.wrapper).find(`input[data-student="${student}"].student-result-data`).each(function() {
             let criteria = $(this).data().criteria
@@ -227,16 +223,13 @@ frappe.ui.form.on('Assessment Result Tool', {
             student_scores.assessment_details[criteria] = [score, '']
             student_scores.total_score += score
           })
-          
           // Get comments for this student
           let comment = $(frm.fields_dict.result_html.wrapper).find(`[data-student="${student}"].result-comment`).val()
           if (comment) {
             student_scores.comment = comment
           }
-          
           all_scores.push(student_scores)
         })
-
         // Submit all scores
         frappe.call({
           method: 'education.education.api.submit_assessment_results',
