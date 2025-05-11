@@ -155,21 +155,75 @@ def get_grade_scale(grading_scale):
 
 @frappe.whitelist()
 def mark_assessment_result(assessment_plan, scores):
-    student_score = json.loads(scores)
-    assessment_details = frappe.get_doc("Assessment Plan", assessment_plan)
+    """Mark assessment result for a student"""
+    try:
+        student_score = json.loads(scores) if isinstance(scores, str) else scores
+        assessment_details = frappe.get_doc("Assessment Plan", assessment_plan)
 
-    for criteria in assessment_details.assessment_criteria:
-        criteria.maximum_score = float(criteria.maximum_score)
-    
-    for student in student_score:
+        # Validate assessment plan
+        if not assessment_details:
+            frappe.throw(_("Assessment Plan not found"))
+
+        # Process the score
         total_score = 0
-        for criteria in student_score[student].get("assessment_details", {}):
-            total_score += flt(student_score[student]["assessment_details"][criteria][0])
+        for criteria in assessment_details.assessment_criteria:
+            criteria.maximum_score = float(criteria.maximum_score)
+            if criteria.assessment_criteria in student_score.get("assessment_details", {}):
+                score = flt(student_score["assessment_details"][criteria.assessment_criteria][0])
+                if score < 0:
+                    score = 0
+                elif score > criteria.maximum_score:
+                    score = criteria.maximum_score
+                total_score += score
 
-        result = get_evaluation_criteria(assessment_details, student_score[student], total_score)
+        # Update total score
+        student_score["total_score"] = total_score
+
+        # Get or create assessment result
+        result = get_evaluation_criteria(assessment_details, student_score, total_score)
         result.save()
-    
-    return True
+        
+        return result
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Assessment Result Error")
+        frappe.throw(_("Error marking assessment result: {0}").format(str(e)))
+
+@frappe.whitelist()
+def submit_assessment_results(assessment_plan, student_group, scores=None):
+    """Submit assessment results for all students"""
+    try:
+        if scores:
+            # Process scores from frontend
+            scores_data = json.loads(scores) if isinstance(scores, str) else scores
+            assessment_results = []
+            
+            for student_score in scores_data:
+                # Mark individual result
+                result = mark_assessment_result(assessment_plan, student_score)
+                if result:
+                    # Submit the result
+                    result.docstatus = 1
+                    result.save()
+                    assessment_results.append(result.name)
+        else:
+            # Legacy method - get results from database
+            student_list = get_student_group_students(student_group)
+            assessment_results = []
+            
+            for student in student_list:
+                doc = get_result(student.student, assessment_plan, 0)
+                if doc and doc.docstatus == 0:
+                    assessment_result = frappe.get_doc("Assessment Result", doc.name)
+                    assessment_result.docstatus = 1
+                    assessment_result.save()
+                    assessment_results.append(assessment_result.name)
+        
+        return assessment_results
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Assessment Submission Error")
+        frappe.throw(_("Error submitting assessment results: {0}").format(str(e)))
 
 def get_evaluation_criteria(assessment_plan, student_score, total_score):
     """Return the Assessment Result for the student"""
@@ -198,18 +252,25 @@ def get_evaluation_criteria(assessment_plan, student_score, total_score):
         result_detail.assessment_criteria = criteria.assessment_criteria
         result_detail.maximum_score = criteria.maximum_score
         
-        # If score exists for a given criteria, add it, else set it to 0
+        # Get score for this criteria
+        score = 0
         if criteria.assessment_criteria in student_score.get("assessment_details", {}):
-            result_detail.score = student_score["assessment_details"][criteria.assessment_criteria][0]
-            if assessment_plan.grading_scale:
-                score_percentage = (flt(student_score["assessment_details"][criteria.assessment_criteria][0]) / criteria.maximum_score) * 100
-                result_detail.grade = get_grades(assessment_plan.grading_scale, score_percentage)
-        else:
-            result_detail.score = 0
+            score = flt(student_score["assessment_details"][criteria.assessment_criteria][0])
+            if score < 0:
+                score = 0
+            elif score > criteria.maximum_score:
+                score = criteria.maximum_score
+        
+        result_detail.score = score
+        
+        # Calculate grade if grading scale exists
+        if assessment_plan.grading_scale:
+            score_percentage = (score / criteria.maximum_score) * 100
+            result_detail.grade = get_grades(assessment_plan.grading_scale, score_percentage)
         
         assessment_result.append("details", result_detail)
     
-    # Calculate the total score and grade
+    # Set total score and grade
     assessment_result.total_score = total_score
     
     if assessment_plan.grading_scale:
@@ -229,37 +290,6 @@ def get_assessment_result_doc(student, assessment_plan):
         return frappe.get_doc("Assessment Result", assessment_result[0])
     else:
         return None
-
-@frappe.whitelist()
-def submit_assessment_results(assessment_plan, student_group):
-    """Submit assessment results if all results are marked"""
-    student_list = get_student_group_students(student_group)
-    assessment_results = []
-    
-    for student in student_list:
-        doc = get_result(student.student, assessment_plan, 0)
-        if doc:
-            if doc.docstatus == 0:
-                assessment_result = frappe.get_doc("Assessment Result", doc.name)
-                assessment_result.docstatus = 1
-                assessment_result.save()
-                assessment_results.append(assessment_result.name)
-    
-    return assessment_results
-
-def get_student_group_students(student_group, include_inactive=0):
-    """Return student list for the student group"""
-    inactive_condition = "" if include_inactive else "and sd.active = 1"
-    return frappe.db.sql(
-        """select sd.student, sd.student_name, sd.idx,
-    sd.active, sd.group_roll_number
-    from `tabStudent Group Student` as sd
-    where sd.parent = %s {0} order by sd.group_roll_number asc, sd.idx""".format(
-            inactive_condition
-        ),
-        student_group,
-        as_dict=1,
-    )
 
 @frappe.whitelist()
 def create_or_update_assessment_log(student, assessment_plan, assessment_criteria, score, comments=""):

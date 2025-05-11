@@ -113,9 +113,12 @@ frappe.ui.form.on('Assessment Result Tool', {
       
       // Validate input value
       let score = parseFloat(value)
-      if (isNaN(score) || score < 0) {
+      if (isNaN(score) || value === '') {
         score = 0
-        $input.val(0) // Update input visually if invalid
+        $input.val(0)
+      } else if (score < 0) {
+        score = 0
+        $input.val(0)
       } else if (score > max_score) {
         score = max_score
         $input.val(max_score)
@@ -125,40 +128,37 @@ frappe.ui.form.on('Assessment Result Tool', {
       // Recalculate total score for the specific student
       let total_score = 0
       result_table.find(`input[data-student="${student}"].student-result-data`).each(function() {
-        let current_val = parseFloat($(this).val())
-        if (!isNaN(current_val)) {
-          total_score += current_val
-        }
+        let current_val = parseFloat($(this).val()) || 0
+        total_score += current_val
       })
-      result_table.find(`span[data-student="${student}"].total-score`).html(total_score)
+      result_table.find(`span[data-student="${student}"].total-score`).html(total_score.toFixed(2))
 
       // Get student details object
-      let student_scores = {}
-      student_scores['assessment_details'] = {}
+      let student_scores = {
+        student: student,
+        assessment_details: {},
+        total_score: total_score
+      }
       
       // Collect all scores for this student
       result_table.find(`input[data-student="${student}"].student-result-data`).each(function() {
         let criteria = $(this).data().criteria
-        let score_value = parseFloat($(this).val())
-        if (!isNaN(score_value)) {
-          student_scores['assessment_details'][criteria] = [score_value, '']
-        }
+        let score_value = parseFloat($(this).val()) || 0
+        student_scores.assessment_details[criteria] = [score_value, '']
       })
       
       // Include comments
-      result_table.find(`[data-student="${student}"].result-comment`).each(function() {
-        student_scores['comment'] = $(this).val()
-      })
-      
-      student_scores['student'] = student
-      student_scores['total_score'] = total_score
+      let comment = result_table.find(`[data-student="${student}"].result-comment`).val()
+      if (comment) {
+        student_scores.comment = comment
+      }
 
       // Save the assessment result
       frappe.call({
         method: 'education.education.api.mark_assessment_result',
         args: {
           assessment_plan: frm.doc.assessment_plan,
-          scores: student_scores,
+          scores: JSON.stringify(student_scores)
         },
         callback: function (r) {
           if (r.message) {
@@ -202,37 +202,39 @@ frappe.ui.form.on('Assessment Result Tool', {
       frm.page.set_primary_action(__('Submit Results'), function () {
         // Collect all scores before submission
         let all_scores = []
+        let processed_students = new Set()
+        
         $(frm.fields_dict.result_html.wrapper).find('input.student-result-data').each(function() {
           let $input = $(this)
           let student = $input.data().student
-          let criteria = $input.data().criteria
-          let score = parseFloat($input.val())
           
-          if (!isNaN(score)) {
-            let student_scores = {
-              student: student,
-              assessment_details: {},
-              total_score: 0
-            }
-            
-            // Get all scores for this student
-            $(frm.fields_dict.result_html.wrapper).find(`input[data-student="${student}"].student-result-data`).each(function() {
-              let current_criteria = $(this).data().criteria
-              let current_score = parseFloat($(this).val())
-              if (!isNaN(current_score)) {
-                student_scores.assessment_details[current_criteria] = [current_score, '']
-                student_scores.total_score += current_score
-              }
-            })
-            
-            // Get comments for this student
-            let comment = $(frm.fields_dict.result_html.wrapper).find(`[data-student="${student}"].result-comment`).val()
-            if (comment) {
-              student_scores.comment = comment
-            }
-            
-            all_scores.push(student_scores)
+          // Skip if we've already processed this student
+          if (processed_students.has(student)) {
+            return
           }
+          processed_students.add(student)
+          
+          let student_scores = {
+            student: student,
+            assessment_details: {},
+            total_score: 0
+          }
+          
+          // Get all scores for this student
+          $(frm.fields_dict.result_html.wrapper).find(`input[data-student="${student}"].student-result-data`).each(function() {
+            let criteria = $(this).data().criteria
+            let score = parseFloat($(this).val()) || 0
+            student_scores.assessment_details[criteria] = [score, '']
+            student_scores.total_score += score
+          })
+          
+          // Get comments for this student
+          let comment = $(frm.fields_dict.result_html.wrapper).find(`[data-student="${student}"].result-comment`).val()
+          if (comment) {
+            student_scores.comment = comment
+          }
+          
+          all_scores.push(student_scores)
         })
 
         // Submit all scores
@@ -241,20 +243,18 @@ frappe.ui.form.on('Assessment Result Tool', {
           args: {
             assessment_plan: frm.doc.assessment_plan,
             student_group: frm.doc.student_group,
-            scores: all_scores
+            scores: JSON.stringify(all_scores)
           },
           callback: function (r) {
             if (r.message) {
               frappe.msgprint(__('Assessment Results submitted successfully'))
               frm.events.assessment_plan(frm)
             } else {
-              frappe.msgprint(__('No results to submit'))
+              frappe.msgprint(__('Error submitting assessment results'))
             }
           }
         })
       })
-    } else {
-      frm.page.clear_primary_action()
     }
   }
 }); 
