@@ -154,22 +154,73 @@ def get_grade_scale(grading_scale):
     )
 
 @frappe.whitelist()
-def mark_assessment_result(assessment_plan, scores):
-    student_score = json.loads(scores)
-    assessment_details = frappe.get_doc("Assessment Plan", assessment_plan)
+def mark_assessment_result(assessment_plan, student_data_json):
+    """
+    Marks or updates an assessment result for a single student.
+    Saves the result as a Draft (docstatus=0).
+    """
+    try:
+        if not isinstance(student_data_json, str):
+            # This case should ideally not happen if called from frontend as designed
+            frappe.throw(_("student_data_json must be a JSON string."))
 
-    for criteria in assessment_details.assessment_criteria:
-        criteria.maximum_score = float(criteria.maximum_score)
-    
-    for student in student_score:
-        total_score = 0
-        for criteria in student_score[student].get("assessment_details", {}):
-            total_score += flt(student_score[student]["assessment_details"][criteria][0])
+        student_score_data = json.loads(student_data_json)
 
-        result = get_evaluation_criteria(assessment_details, student_score[student], total_score)
-        result.save()
-    
-    return True
+        assessment_plan_doc = frappe.get_doc("Assessment Plan", assessment_plan)
+        if not assessment_plan_doc:
+            frappe.throw(_("Assessment Plan {0} not found").format(assessment_plan))
+
+        # Validate student_score_data structure
+        if not student_score_data.get("student") or not isinstance(student_score_data.get("assessment_details"), dict):
+            frappe.throw(_("Invalid student data structure received."))
+
+        # Backend calculation/validation of scores
+        be_total_score = 0
+        processed_assessment_details = {}
+
+        for criteria_def in assessment_plan_doc.assessment_criteria:
+            criteria_name = criteria_def.assessment_criteria
+            max_score_for_criteria = flt(criteria_def.maximum_score)
+            score_val = 0
+            grade_val = "" # Will be calculated by get_evaluation_criteria
+
+            if criteria_name in student_score_data.get("assessment_details", {}):
+                try:
+                    score_input = student_score_data["assessment_details"][criteria_name][0]
+                    score_val = flt(score_input)
+                except (IndexError, TypeError, ValueError):
+                    score_val = 0 
+                
+                if score_val < 0:
+                    score_val = 0
+                elif score_val > max_score_for_criteria:
+                    score_val = max_score_for_criteria
+            
+            processed_assessment_details[criteria_name] = [score_val, grade_val]
+            be_total_score += score_val
+        
+        # Update student_score_data with backend-validated scores and total
+        student_score_data["assessment_details"] = processed_assessment_details
+        student_score_data["total_score"] = be_total_score
+        # Comment is expected to be directly in student_score_data.get("comment", "")
+
+        assessment_result_doc = get_evaluation_criteria(assessment_plan_doc, student_score_data, be_total_score)
+        
+        assessment_result_doc.docstatus = 0 # Save as Draft
+        assessment_result_doc.save(ignore_permissions=True)
+        
+        # To ensure the frontend gets up-to-date grades and other calculated fields,
+        # we reload the document after save, as get_evaluation_criteria might not run all hooks of .save()
+        # However, simply returning assessment_result_doc should be fine if it has all fields updated by get_evaluation_criteria.
+        # For safety, can do: return frappe.get_doc("Assessment Result", assessment_result_doc.name)
+        return assessment_result_doc
+
+    except json.JSONDecodeError:
+        frappe.log_error(frappe.get_traceback(), "Mark Assessment JSON Decode Error")
+        frappe.throw(_("Invalid JSON data received for student assessment."))
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Mark Assessment Result Error")
+        frappe.throw(_("Error processing student assessment: {0}").format(str(e)))
 
 def get_evaluation_criteria(assessment_plan, student_score, total_score):
     """Return the Assessment Result for the student"""
@@ -186,35 +237,46 @@ def get_evaluation_criteria(assessment_plan, student_score, total_score):
         assessment_result.academic_year = assessment_plan.academic_year
         assessment_result.academic_term = assessment_plan.academic_term
     else:
-        # Clear the old assessment details
-        assessment_result.details = []
+        # Clear the old assessment details before repopulating
+        assessment_result.set("details", [])
 
     assessment_result.comment = student_score.get("comment", "")
-    assessment_result.details = []
+    # assessment_result.details = [] # Already cleared above with .set("details", [])
     
     # Add assessment details for each criteria
-    for criteria in assessment_plan.assessment_criteria:
+    for criteria_def in assessment_plan.assessment_criteria:
+        criteria_name = criteria_def.assessment_criteria
+        max_score_for_criteria = flt(criteria_def.maximum_score)
+
         result_detail = frappe.new_doc("Assessment Result Detail")
-        result_detail.assessment_criteria = criteria.assessment_criteria
-        result_detail.maximum_score = criteria.maximum_score
+        result_detail.assessment_criteria = criteria_name
+        result_detail.maximum_score = max_score_for_criteria
         
-        # If score exists for a given criteria, add it, else set it to 0
-        if criteria.assessment_criteria in student_score.get("assessment_details", {}):
-            result_detail.score = student_score["assessment_details"][criteria.assessment_criteria][0]
-            if assessment_plan.grading_scale:
-                score_percentage = (flt(student_score["assessment_details"][criteria.assessment_criteria][0]) / criteria.maximum_score) * 100
-                result_detail.grade = get_grades(assessment_plan.grading_scale, score_percentage)
+        current_score_val = 0
+        # Scores are now pre-processed and validated in student_score["assessment_details"]
+        if criteria_name in student_score.get("assessment_details", {}):
+            try:
+                current_score_val = flt(student_score["assessment_details"][criteria_name][0])
+            except (IndexError, TypeError, ValueError): # Should not happen if pre-processed
+                current_score_val = 0
+        
+        result_detail.score = current_score_val
+        
+        if assessment_plan.grading_scale and max_score_for_criteria > 0:
+            score_percentage = (current_score_val / max_score_for_criteria) * 100
+            result_detail.grade = get_grades(assessment_plan.grading_scale, score_percentage)
         else:
-            result_detail.score = 0
+            result_detail.grade = "" # Or some default like 'N/A'
         
         assessment_result.append("details", result_detail)
     
-    # Calculate the total score and grade
     assessment_result.total_score = total_score
     
-    if assessment_plan.grading_scale:
-        total_percentage = (total_score / assessment_plan.maximum_assessment_score) * 100
+    if assessment_plan.grading_scale and flt(assessment_plan.maximum_assessment_score) > 0:
+        total_percentage = (flt(total_score) / flt(assessment_plan.maximum_assessment_score)) * 100
         assessment_result.grade = get_grades(assessment_plan.grading_scale, total_percentage)
+    else:
+        assessment_result.grade = "" # Or some default
     
     return assessment_result
 
@@ -231,21 +293,89 @@ def get_assessment_result_doc(student, assessment_plan):
         return None
 
 @frappe.whitelist()
-def submit_assessment_results(assessment_plan, student_group):
-    """Submit assessment results if all results are marked"""
-    student_list = get_student_group_students(student_group)
-    assessment_results = []
-    
-    for student in student_list:
-        doc = get_result(student.student, assessment_plan, 0)
-        if doc:
-            if doc.docstatus == 0:
-                assessment_result = frappe.get_doc("Assessment Result", doc.name)
-                assessment_result.docstatus = 1
-                assessment_result.save()
-                assessment_results.append(assessment_result.name)
-    
-    return assessment_results
+def submit_assessment_results(assessment_plan, student_group, all_students_data_json=None):
+    """
+    Submits assessment results for all students based on provided data or existing drafts.
+    If all_students_data_json is provided, it processes and submits that data.
+    Otherwise, it attempts to submit existing draft (docstatus=0) Assessment Result documents.
+    """
+    submitted_count = 0
+    failed_count = 0
+    errors = []
+
+    if all_students_data_json:
+        try:
+            all_students_data = json.loads(all_students_data_json)
+            if not isinstance(all_students_data, list):
+                frappe.throw(_("Processed student data must be a list."))
+
+            for student_data in all_students_data:
+                try:
+                    # Use mark_assessment_result to create/update draft
+                    # student_data should already be a dict here, no need to re-stringify
+                    draft_result_doc = mark_assessment_result(assessment_plan, student_data_json=json.dumps(student_data))
+                    
+                    if draft_result_doc and draft_result_doc.name:
+                        # Now submit the draft
+                        submitted_doc = frappe.get_doc("Assessment Result", draft_result_doc.name)
+                        if submitted_doc.docstatus == 0:
+                            submitted_doc.submit() # Use a .submit() method if available, or set docstatus and save
+                            # submitted_doc.docstatus = 1
+                            # submitted_doc.save(ignore_permissions=True) # Ensure save after status change
+                            submitted_count += 1
+                        elif submitted_doc.docstatus == 1:
+                            # Already submitted, count it as success for this batch operation
+                            submitted_count += 1
+                        else:
+                            # Was cancelled or other status, log as error for this batch
+                            failed_count += 1
+                            errors.append(f"Student {student_data.get('student')}: Document {submitted_doc.name} has status {submitted_doc.docstatus} and was not submitted.")
+                    else:
+                        failed_count += 1
+                        errors.append(f"Student {student_data.get('student')}: Failed to save draft.")
+                except Exception as e:
+                    failed_count += 1
+                    student_id_for_error = student_data.get('student', 'Unknown Student')
+                    errors.append(f"Student {student_id_for_error}: Error during processing - {str(e)}")
+                    frappe.log_error(frappe.get_traceback(), f"Submit Assessment Error for Student {student_id_for_error}")
+            
+            if failed_count > 0:
+                return {"status": "partial_success", "submitted_count": submitted_count, "failed_count": failed_count, "errors": errors}
+            return {"status": "success", "submitted_count": submitted_count}
+
+        except json.JSONDecodeError:
+            frappe.log_error(frappe.get_traceback(), "Submit Assessment JSON Decode Error")
+            return {"status": "error", "error": "Invalid JSON data received for all students."}
+        except Exception as e:
+            frappe.log_error(frappe.get_traceback(), "Submit Assessment General Error")
+            return {"status": "error", "error": str(e)}
+
+    else:
+        # Fallback to legacy: submit existing drafts if no data is passed (less ideal now)
+        student_list = get_student_group_students(student_group)
+        assessment_results_names = []
+        for student in student_list:
+            try:
+                draft_docs = frappe.get_all("Assessment Result",
+                                            filters={"student": student.student, 
+                                                     "assessment_plan": assessment_plan, 
+                                                     "docstatus": 0},
+                                            fields=["name"])
+                for doc_meta in draft_docs:
+                    doc_to_submit = frappe.get_doc("Assessment Result", doc_meta.name)
+                    doc_to_submit.submit() # Use .submit() if available
+                    # doc_to_submit.docstatus = 1
+                    # doc_to_submit.save(ignore_permissions=True)
+                    assessment_results_names.append(doc_to_submit.name)
+                    submitted_count += 1
+            except Exception as e:
+                failed_count += 1
+                errors.append(f"Student {student.student}: Error submitting existing draft - {str(e)}")
+                frappe.log_error(frappe.get_traceback(), f"Submit Existing Draft Error for Student {student.student}")
+        
+        if failed_count > 0:
+            return {"status": "partial_success", "submitted_count": submitted_count, "failed_count": failed_count, "submitted_names": assessment_results_names, "errors": errors}
+        return {"status": "success", "submitted_count": submitted_count, "submitted_names": assessment_results_names}
 
 def get_student_group_students(student_group, include_inactive=0):
     """Return student list for the student group"""
