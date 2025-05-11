@@ -157,7 +157,12 @@ def get_grade_scale(grading_scale):
 def mark_assessment_result(assessment_plan, scores):
     """Mark assessment result for a student"""
     try:
-        student_score = scores if isinstance(scores, dict) else json.loads(scores)
+        # Parse scores if it's a string
+        if isinstance(scores, str):
+            student_score = json.loads(scores)
+        else:
+            student_score = scores
+
         assessment_details = frappe.get_doc("Assessment Plan", assessment_plan)
 
         # Validate assessment plan
@@ -181,8 +186,12 @@ def mark_assessment_result(assessment_plan, scores):
 
         # Get or create assessment result
         result = get_evaluation_criteria(assessment_details, student_score, total_score)
-        result.save()
         
+        # Ensure comment is set
+        if "comment" in student_score:
+            result.comment = student_score["comment"]
+            
+        result.save()
         return result
 
     except Exception as e:
@@ -194,8 +203,12 @@ def submit_assessment_results(assessment_plan, student_group, scores=None):
     """Submit assessment results for all students"""
     try:
         if scores:
-            # Process scores from frontend
-            scores_data = scores if isinstance(scores, list) else json.loads(scores)
+            # Parse scores if it's a string
+            if isinstance(scores, str):
+                scores_data = json.loads(scores)
+            else:
+                scores_data = scores
+                
             assessment_results = []
             
             for student_score in scores_data:
@@ -243,6 +256,7 @@ def get_evaluation_criteria(assessment_plan, student_score, total_score):
         # Clear the old assessment details
         assessment_result.details = []
 
+    # Set comment from student_score
     assessment_result.comment = student_score.get("comment", "")
     assessment_result.details = []
     
