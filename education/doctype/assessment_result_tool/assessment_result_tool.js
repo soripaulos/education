@@ -202,35 +202,42 @@ frappe.ui.form.on('Assessment Result Tool', {
       frm.page.set_primary_action(__('Submit Results'), function () {
         // Collect all scores before submission
         let all_scores = []
+        let processed_students = new Set() // To avoid duplicate entries
+
         $(frm.fields_dict.result_html.wrapper).find('input.student-result-data').each(function() {
           let $input = $(this)
           let student = $input.data().student
-          let criteria = $input.data().criteria
-          let score = parseFloat($input.val())
           
-          if (!isNaN(score)) {
-            let student_scores = {
-              student: student,
-              assessment_details: {},
-              total_score: 0
+          // Skip if we've already processed this student
+          if (processed_students.has(student)) {
+            return
+          }
+          processed_students.add(student)
+          
+          let student_scores = {
+            student: student,
+            assessment_details: {},
+            total_score: 0
+          }
+          
+          // Get all scores for this student
+          $(frm.fields_dict.result_html.wrapper).find(`input[data-student="${student}"].student-result-data`).each(function() {
+            let current_criteria = $(this).data().criteria
+            let current_score = parseFloat($(this).val())
+            if (!isNaN(current_score)) {
+              student_scores.assessment_details[current_criteria] = [current_score, '']
+              student_scores.total_score += current_score
             }
-            
-            // Get all scores for this student
-            $(frm.fields_dict.result_html.wrapper).find(`input[data-student="${student}"].student-result-data`).each(function() {
-              let current_criteria = $(this).data().criteria
-              let current_score = parseFloat($(this).val())
-              if (!isNaN(current_score)) {
-                student_scores.assessment_details[current_criteria] = [current_score, '']
-                student_scores.total_score += current_score
-              }
-            })
-            
-            // Get comments for this student
-            let comment = $(frm.fields_dict.result_html.wrapper).find(`[data-student="${student}"].result-comment`).val()
-            if (comment) {
-              student_scores.comment = comment
-            }
-            
+          })
+          
+          // Get comments for this student
+          let comment = $(frm.fields_dict.result_html.wrapper).find(`[data-student="${student}"].result-comment`).val()
+          if (comment) {
+            student_scores.comment = comment
+          }
+          
+          // Only add if there are actual scores
+          if (Object.keys(student_scores.assessment_details).length > 0) {
             all_scores.push(student_scores)
           }
         })
@@ -241,7 +248,7 @@ frappe.ui.form.on('Assessment Result Tool', {
           args: {
             assessment_plan: frm.doc.assessment_plan,
             student_group: frm.doc.student_group,
-            scores: all_scores
+            scores: JSON.stringify(all_scores) // Convert to JSON string
           },
           callback: function (r) {
             if (r.message) {
