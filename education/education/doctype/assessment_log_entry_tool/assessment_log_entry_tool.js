@@ -7,44 +7,29 @@ frappe.ui.form.on('Assessment Log Entry Tool', {
   },
 
   refresh: function (frm) {
-    if (frappe.route_options) {
-      frm.set_value('student_group', frappe.route_options.student_group);
-      frm.set_value('assessment_plan', frappe.route_options.assessment_plan);
-      frappe.route_options = null;
-    } else {
-      if (frm.doc.assessment_plan) {
-        frm.trigger('assessment_plan');
-      }
-    }
     frm.disable_save();
     frm.page.clear_indicator();
     frm.page.clear_primary_action();
+    frm.events.maybe_load_table(frm);
   },
 
-  assessment_plan: function (frm) {
+  assessment_plan: function(frm) { frm.events.maybe_load_table(frm); },
+  academic_term: function(frm) { frm.events.maybe_load_table(frm); },
+  assessment_criteria: function(frm) { frm.events.maybe_load_table(frm); },
+
+  maybe_load_table: function(frm) {
     $(frm.fields_dict.result_html.wrapper).empty();
     frm.page.clear_primary_action();
 
-    if (!frm.doc.assessment_plan) return;
-    if (!frm.doc.student_group) {
-      frappe.msgprint(__('Please select a Student Group first.'));
-      return;
-    }
-    if (!frm.doc.academic_term) {
-      frappe.msgprint(__('Please select an Academic Term.'));
-      return;
-    }
-    if (!frm.doc.assessment_criteria) {
-      frappe.msgprint(__('Please select an Assessment Criteria.'));
+    if (!frm.doc.assessment_plan || !frm.doc.student_group || !frm.doc.academic_term || !frm.doc.assessment_criteria) {
+      // Optionally, show a message or highlight missing fields
       return;
     }
 
     frm.page.set_indicator(__('Loading Students...'), 'blue');
     frappe.call({
       method: 'education.education.api.get_student_group_students',
-      args: {
-        student_group: frm.doc.student_group,
-      },
+      args: { student_group: frm.doc.student_group },
       callback: function (r) {
         frm.page.clear_indicator();
         if (r.message) {
@@ -119,15 +104,15 @@ frappe.ui.form.on('Assessment Log Entry Tool', {
     });
   },
 
-  academic_term: function(frm) {
-    if (frm.doc.assessment_plan && frm.doc.student_group && frm.doc.academic_term && frm.doc.assessment_criteria) {
-      frm.events.assessment_plan(frm);
-    }
-  },
-
-  assessment_criteria: function(frm) {
-    if (frm.doc.assessment_plan && frm.doc.student_group && frm.doc.academic_term && frm.doc.assessment_criteria) {
-      frm.events.assessment_plan(frm);
-    }
+  // On save, clear all fields to reset the form for the next entry
+  after_save: function(frm) {
+    // Clear all fields except route_options
+    frm.set_value('assessment_plan', null);
+    frm.set_value('student_group', null);
+    frm.set_value('academic_term', null);
+    frm.set_value('assessment_criteria', null);
+    $(frm.fields_dict.result_html.wrapper).empty();
+    frm.doc.students = [];
+    frm.refresh_fields();
   }
 }); 
