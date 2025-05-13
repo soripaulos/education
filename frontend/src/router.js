@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { usersStore } from '@/stores/user'
 import { sessionStore } from '@/stores/session'
 import { studentStore } from '@/stores/student'
+import ScormPackages from '@/pages/ScormPackages.vue'
+import ScormPlayer from '@/pages/ScormPlayer.vue'
 
 const routes = [
   { path: '/', redirect: '/schedule' },
@@ -39,6 +41,24 @@ const routes = [
     path: '/teacher-evaluation',
     name: 'TeacherEvaluation',
     component: () => import('@/pages/TeacherEvaluation.vue'),
+  },
+  {
+    path: '/scorm-packages',
+    name: 'scorm-packages',
+    component: ScormPackages,
+    meta: {
+      title: 'SCORM Packages',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/scorm/:packageId',
+    name: 'scorm-player',
+    component: ScormPlayer,
+    meta: {
+      title: 'SCORM Player',
+      requiresAuth: true
+    }
   },
   {
     path: '/:catchAll(.*)',

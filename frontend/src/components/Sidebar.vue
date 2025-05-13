@@ -68,6 +68,7 @@ import {
   Star,
   Menu,
   X,
+  BookOpen,
 } from 'lucide-vue-next'
 
 const mobileMenuOpen = ref(false)
@@ -102,6 +103,11 @@ const links = [
     label: 'Teacher Evaluation',
     to: '/teacher-evaluation',
     icon: Star,
+  },
+  {
+    label: 'SCORM Packages',
+    to: '/scorm-packages',
+    icon: BookOpen,
   },
 ]
 
