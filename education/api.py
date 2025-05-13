@@ -590,64 +590,58 @@ def update_website_context(context):
     return context
 
 @frappe.whitelist()
-def save_scorm_session(package, data):
-    """Save SCORM session data"""
-    if not frappe.session.user:
-        frappe.throw("Not logged in")
-    
-    # Parse CMI data
-    cmi_data = json.loads(data)
-    
-    # Get or create session
-    session = frappe.get_doc({
-        "doctype": "SCORM Session",
-        "user": frappe.session.user,
-        "package": package,
-        "attempt": get_next_attempt(package, frappe.session.user),
-        "started_on": now_datetime(),
-        "cmi_data": data
-    })
-    
-    # Extract key data
-    if "cmi.score.raw" in cmi_data:
-        session.score_raw = float(cmi_data["cmi.score.raw"])
-    if "cmi.score.max" in cmi_data:
-        session.score_max = float(cmi_data["cmi.score.max"])
-    if "cmi.completion_status" in cmi_data:
-        session.completion_status = cmi_data["cmi.completion_status"]
-    if "cmi.success_status" in cmi_data:
-        session.success_status = cmi_data["cmi.success_status"]
-    
-    # Save interactions
-    if "cmi.interactions" in cmi_data:
-        for idx, interaction in enumerate(cmi_data["cmi.interactions"]):
-            session.append("interactions", {
-                "interaction_id": str(idx),
-                "question": interaction.get("description", ""),
-                "learner_response": interaction.get("learner_response", ""),
-                "result": interaction.get("result", "unknown"),
-                "was_skipped": interaction.get("was_skipped", False),
-                "timestamp": now_datetime()
-            })
-    
-    session.insert()
-    
-    return {
-        "status": "success",
-        "session": session.name
-    }
+def get_scorm_package_details(package):
+    try:
+        package_doc = frappe.get_doc('SCORM Package', package)
+        return {
+            'title': package_doc.title,
+            'description': package_doc.description,
+            'launch_url': package_doc.launch_url,
+            'version': package_doc.version
+        }
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), 'SCORM Package Details Error')
+        frappe.throw(str(e))
 
-def get_next_attempt(package, user):
-    """Get next attempt number for user and package"""
-    last_attempt = frappe.get_all(
-        "SCORM Session",
-        filters={
-            "user": user,
-            "package": package
-        },
-        fields=["attempt"],
-        order_by="attempt desc",
-        limit=1
-    )
-    
-    return (last_attempt[0].attempt + 1) if last_attempt else 1
+@frappe.whitelist()
+def save_scorm_session(package, data=None):
+    try:
+        user = frappe.session.user
+        if not user or user == 'Guest':
+            frappe.throw('Not authenticated')
+
+        # Parse the data
+        session_data = json.loads(data) if data else {}
+        
+        # Create or update session
+        filters = {
+            'package': package,
+            'student': user,
+            'attempt': 1
+        }
+
+        existing_session = frappe.get_all('SCORM Session', filters=filters, limit=1)
+        
+        if existing_session:
+            session = frappe.get_doc('SCORM Session', existing_session[0].name)
+        else:
+            session = frappe.new_doc('SCORM Session')
+            session.package = package
+            session.student = user
+            session.attempt = 1
+
+        # Update session data
+        session.score_raw = session_data.get('score', 0)
+        session.score_max = 100
+        session.completion_status = session_data.get('status', 'incomplete')
+        session.success_status = 'passed' if session_data.get('status') == 'Complete' else 'failed'
+        session.cmi_data = data
+        session.ended_on = frappe.utils.now()
+
+        session.save()
+        frappe.db.commit()
+
+        return {'message': 'Session saved successfully'}
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), 'SCORM Session Save Error')
+        frappe.throw(str(e))
