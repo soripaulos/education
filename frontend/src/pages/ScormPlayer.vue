@@ -32,7 +32,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createResource } from 'frappe-ui'
 
@@ -44,6 +44,7 @@ const packageDetails = ref({})
 const launchUrl = ref('')
 const readyToRender = ref(false)
 const scormFrame = ref(null)
+const user = inject('$user')
 
 const getDataFromLMS = (key) => {
   if (key === 'cmi.core.lesson_status') {
@@ -90,7 +91,7 @@ const progress = createResource({
       fieldname: 'status',
       filters: {
         package: route.params.packageId,
-        student: frappe.session.user
+        student: user?.data?.name
       }
     }
   },
@@ -141,8 +142,7 @@ const fetchPackageDetails = async () => {
   try {
     const response = await fetch(`/api/method/education.api.get_scorm_package_details?package=${route.params.packageId}`, {
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       }
     })
     
@@ -174,8 +174,6 @@ const handleIframeError = (err) => {
 const onIframeLoad = () => {
   try {
     setupSCORMAPI()
-    
-    // Try to find API in iframe
     const iframeWindow = scormFrame.value.contentWindow
     if (iframeWindow) {
       window.addEventListener('message', (event) => {
