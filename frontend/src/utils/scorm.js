@@ -23,7 +23,16 @@ export class ScormAPI {
 
     // Initialize both API_1484_11 and API for better compatibility
     window.API_1484_11 = this
-    window.API = this
+    window.API = {
+      LMSInitialize: (param) => this.Initialize(param),
+      LMSFinish: (param) => this.Terminate(param),
+      LMSGetValue: (element) => this.GetValue(element),
+      LMSSetValue: (element, value) => this.SetValue(element, value),
+      LMSCommit: (param) => this.Commit(param),
+      LMSGetLastError: () => this.GetLastError(),
+      LMSGetErrorString: (errorCode) => this.GetErrorString(errorCode),
+      LMSGetDiagnostic: (errorCode) => this.GetDiagnostic(errorCode)
+    }
   }
 
   // SCORM 2004 API Methods
@@ -34,7 +43,9 @@ export class ScormAPI {
 
   Terminate(param) {
     console.log('SCORM Terminate called with:', param)
-    this.onCommit(this.cmi)
+    if (this.onCommit) {
+      this.onCommit(this.cmi)
+    }
     return 'true'
   }
 
@@ -52,7 +63,9 @@ export class ScormAPI {
 
   Commit(param) {
     console.log('SCORM Commit called with:', param)
-    this.onCommit(this.cmi)
+    if (this.onCommit) {
+      this.onCommit(this.cmi)
+    }
     return 'true'
   }
 
@@ -101,7 +114,8 @@ export class ScormAPI {
     // Auto-commit on important changes
     if (element.includes('completion_status') || 
         element.includes('success_status') || 
-        element.includes('score.raw')) {
+        element.includes('score.raw') ||
+        element.includes('lesson_status')) {
       this.onCommit(this.cmi)
     }
   }

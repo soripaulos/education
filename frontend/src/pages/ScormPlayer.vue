@@ -26,6 +26,7 @@
           ref="scormFrame"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"
+          @error="handleIframeError"
         ></iframe>
       </div>
     </div>
@@ -52,19 +53,37 @@ export default {
 
     const fetchPackageDetails = async () => {
       try {
-        const response = await fetch(`/api/method/education.api.get_scorm_package_details?package=${route.params.packageId}`)
+        const response = await fetch(`/api/method/education.api.get_scorm_package_details?package=${route.params.packageId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        
         const data = await response.json()
         
         if (data.message) {
           packageDetails.value = data.message
-          launchUrl.value = data.message.launch_url
+          // Ensure the launch URL is properly formatted
+          launchUrl.value = data.message.launch_url.startsWith('/') 
+            ? window.location.origin + data.message.launch_url
+            : data.message.launch_url
         }
       } catch (err) {
-        error.value = 'Failed to load SCORM package'
+        error.value = 'Failed to load SCORM package: ' + err.message
         console.error('Error fetching package details:', err)
       } finally {
         loading.value = false
       }
+    }
+
+    const handleIframeError = (err) => {
+      console.error('Iframe error:', err)
+      error.value = 'Failed to load SCORM content. Please check your browser settings and try again.'
     }
 
     const onIframeLoad = () => {
@@ -74,16 +93,21 @@ export default {
           packageId: route.params.packageId,
           onCommit: async (data) => {
             try {
-              await fetch('/api/method/education.api.save_scorm_session', {
+              const response = await fetch('/api/method/education.api.save_scorm_session', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                   package: route.params.packageId,
                   data: JSON.stringify(data)
                 })
               })
+              
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+              }
             } catch (err) {
               console.error('Error saving SCORM session:', err)
             }
@@ -127,6 +151,7 @@ export default {
       packageDetails,
       launchUrl,
       onIframeLoad,
+      handleIframeError,
       exitPlayer,
       scormFrame
     }
