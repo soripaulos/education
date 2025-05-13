@@ -23,6 +23,9 @@
           :src="launchUrl"
           class="w-full h-full border-0"
           @load="onIframeLoad"
+          ref="scormFrame"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"
         ></iframe>
       </div>
     </div>
@@ -45,6 +48,7 @@ export default {
     const packageDetails = ref({})
     const launchUrl = ref('')
     const scormAPI = ref(null)
+    const scormFrame = ref(null)
 
     const fetchPackageDetails = async () => {
       try {
@@ -64,26 +68,42 @@ export default {
     }
 
     const onIframeLoad = () => {
-      // Initialize SCORM API when iframe is loaded
-      scormAPI.value = new ScormAPI({
-        packageId: route.params.packageId,
-        onCommit: async (data) => {
-          try {
-            await fetch('/api/method/education.api.save_scorm_session', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                package: route.params.packageId,
-                data: JSON.stringify(data)
+      try {
+        // Initialize SCORM API when iframe is loaded
+        scormAPI.value = new ScormAPI({
+          packageId: route.params.packageId,
+          onCommit: async (data) => {
+            try {
+              await fetch('/api/method/education.api.save_scorm_session', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  package: route.params.packageId,
+                  data: JSON.stringify(data)
+                })
               })
-            })
-          } catch (err) {
-            console.error('Error saving SCORM session:', err)
+            } catch (err) {
+              console.error('Error saving SCORM session:', err)
+            }
           }
+        })
+
+        // Try to find API in iframe
+        const iframeWindow = scormFrame.value.contentWindow
+        if (iframeWindow) {
+          // Set up message listener for cross-frame communication if needed
+          window.addEventListener('message', (event) => {
+            if (event.source === iframeWindow) {
+              console.log('Received message from SCORM content:', event.data)
+            }
+          })
         }
-      })
+      } catch (err) {
+        console.error('Error initializing SCORM API:', err)
+        error.value = 'Failed to initialize SCORM API'
+      }
     }
 
     const exitPlayer = () => {
@@ -107,7 +127,8 @@ export default {
       packageDetails,
       launchUrl,
       onIframeLoad,
-      exitPlayer
+      exitPlayer,
+      scormFrame
     }
   }
 }

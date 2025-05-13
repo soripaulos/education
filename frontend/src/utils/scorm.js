@@ -21,8 +21,9 @@ export class ScormAPI {
       objectives: []
     }
 
-    // Initialize API_1484_11 in the parent window
+    // Initialize both API_1484_11 and API for better compatibility
     window.API_1484_11 = this
+    window.API = this
   }
 
   // SCORM 2004 API Methods
@@ -110,5 +111,6 @@ export class ScormAPI {
       this.onCommit(this.cmi)
     }
     delete window.API_1484_11
+    delete window.API
   }
 } 
