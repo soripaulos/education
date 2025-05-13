@@ -47,10 +47,13 @@ const packages = ref([])
 const fetchPackages = async () => {
   try {
     const response = await fetch('/api/method/education.api.get_scorm_packages', {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'X-Frappe-CSRF-Token': frappe.csrf_token
+      },
+      credentials: 'same-origin'
     })
     
     if (!response.ok) {

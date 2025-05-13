@@ -645,3 +645,28 @@ def save_scorm_session(package, data=None):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), 'SCORM Session Save Error')
         frappe.throw(str(e))
+
+@frappe.whitelist()
+def get_scorm_packages():
+    try:
+        # Get current user's student groups
+        student_groups = get_student_groups(frappe.session.user)
+        
+        if not student_groups:
+            return []
+        
+        # Get SCORM packages assigned to user's student groups
+        packages = frappe.get_all(
+            "SCORM Package",
+            filters={
+                "is_active": 1,
+                "student_groups.student_group": ["in", student_groups]
+            },
+            fields=["name", "title", "description", "version", "modified"],
+            distinct=True
+        )
+        
+        return packages
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), 'SCORM Packages Error')
+        frappe.throw(str(e))
