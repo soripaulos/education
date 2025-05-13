@@ -7,61 +7,29 @@ frappe.ui.form.on('Assessment Log Entry Tool', {
   },
 
   refresh: function (frm) {
-    // Handle route options if coming from another page (like Assessment Plan)
-    if (frappe.route_options) {
-      if (frappe.route_options.student_group) {
-        frm.set_value('student_group', frappe.route_options.student_group);
-      }
-      if (frappe.route_options.assessment_plan) {
-        frm.set_value('assessment_plan', frappe.route_options.assessment_plan);
-      }
-      frappe.route_options = null;
-    }
-    
+    // Always clear fields on refresh to reset the form
+    frm.set_value('assessment_plan', null);
+    frm.set_value('student_group', null);
+    frm.set_value('academic_term', null);
+    frm.set_value('assessment_criteria', null);
+    $(frm.fields_dict.result_html.wrapper).empty();
+    frm.doc.students = [];
     frm.disable_save();
     frm.page.clear_indicator();
     frm.page.clear_primary_action();
-    
-    // Add a "Reset Form" button since this form doesn't use standard Save 
-    if (!frm.reset_button_added) {
-      $('<button class="btn btn-default btn-sm pull-right" style="margin-top: 10px;">Reset Form</button>')
-        .appendTo(frm.fields_dict.result_html.wrapper)
-        .on('click', function() {
-          frm.set_value('assessment_plan', null);
-          frm.set_value('student_group', null);
-          frm.set_value('academic_term', null);
-          frm.set_value('assessment_criteria', null);
-          $(frm.fields_dict.result_html.wrapper).empty();
-          frm.doc.students = [];
-          frm.refresh_fields();
-          frm.reset_button_added = false; // Allow adding button again on refresh
-          frm.trigger('refresh');
-        });
-      frm.reset_button_added = true;
-    }
-    
-    frm.events.maybe_load_table(frm);
   },
 
   assessment_plan: function(frm) { frm.events.maybe_load_table(frm); },
   student_group: function(frm) { frm.events.maybe_load_table(frm); },
-  academic_term: function(frm) { frm.events.maybe_load_table(frm); },
-  assessment_criteria: function(frm) { frm.events.maybe_load_table(frm); },
 
   maybe_load_table: function(frm) {
-    $(frm.fields_dict.result_html.wrapper).find('.assessment-table-container').remove();
+    // Only require assessment_plan and student_group to load the table
+    $(frm.fields_dict.result_html.wrapper).empty();
     frm.page.clear_primary_action();
 
-    if (!frm.doc.assessment_plan || !frm.doc.student_group || !frm.doc.academic_term || !frm.doc.assessment_criteria) {
+    if (!frm.doc.assessment_plan || !frm.doc.student_group) {
       return;
     }
-
-    console.log("Loading students for table... All fields are set:", {
-      plan: frm.doc.assessment_plan,
-      group: frm.doc.student_group,
-      term: frm.doc.academic_term,
-      criteria: frm.doc.assessment_criteria
-    });
 
     frm.page.set_indicator(__('Loading Students...'), 'blue');
     frappe.call({
@@ -84,17 +52,25 @@ frappe.ui.form.on('Assessment Log Entry Tool', {
   },
 
   render_table: function (frm) {
-    // Remove only the table, not the reset button
-    $(frm.fields_dict.result_html.wrapper).find('.assessment-table-container').remove();
-    
+    $(frm.fields_dict.result_html.wrapper).empty();
     const students = frm.doc.students || [];
     if (students.length === 0) {
       return;
     }
 
+    // Optional filters for academic_term and assessment_criteria
+    let filter_html = `
+      <div style="margin-bottom: 10px;">
+        <label>Academic Term:</label>
+        <input type="text" id="log-term-filter" value="${frm.doc.academic_term || ''}" style="width: 120px; margin-right: 20px;" />
+        <label>Assessment Criteria:</label>
+        <input type="text" id="log-criteria-filter" value="${frm.doc.assessment_criteria || ''}" style="width: 120px;" />
+      </div>
+    `;
+
     let table_html = `
       <div class="assessment-table-container">
-        <h4>Assessment Log Entries for ${frm.doc.assessment_criteria}</h4>
+        ${filter_html}
         <table class="table table-bordered assessment-log-entry-tool">
           <thead>
             <tr>
@@ -117,9 +93,7 @@ frappe.ui.form.on('Assessment Log Entry Tool', {
       `;
     });
     table_html += '</tbody></table></div>';
-    
-    // Append the table before the reset button
-    $(frm.fields_dict.result_html.wrapper).prepend(table_html);
+    $(frm.fields_dict.result_html.wrapper).html(table_html);
 
     // Handle score/comment changes
     $(frm.fields_dict.result_html.wrapper).find('input.student-score, input.student-comment').on('change', function (e) {
@@ -133,7 +107,7 @@ frappe.ui.form.on('Assessment Log Entry Tool', {
         args: {
           student: student,
           assessment_plan: frm.doc.assessment_plan,
-          assessment_criteria: frm.doc.assessment_criteria,
+          assessment_criteria: $('#log-criteria-filter').val() || '',
           score: score,
           comments: comments,
         },
