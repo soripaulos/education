@@ -1,0 +1,66 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<div class="scorm-container">
+    <div class="scorm-header">
+        <h1>{{ doc.title }}</h1>
+        <p>{{ doc.description }}</p>
+    </div>
+    
+    <div class="scorm-content">
+        <iframe id="scorm-frame" src="{{ launch_url }}" width="100%" height="600px" frameborder="0"></iframe>
+    </div>
+</div>
+
+<script src="/assets/education/js/scorm_runtime.js"></script>
+<script>
+    // Initialize SCORM API
+    const API = new Scorm2004API({ autocommit: true });
+    window.API_1484_11 = API;
+    
+    // Handle SCORM data
+    API.on("Commit", () => {
+        const cmi = API.cmi;
+        frappe.call({
+            method: "education.api.save_scorm_session",
+            args: {
+                package: "{{ doc.name }}",
+                data: JSON.stringify(cmi)
+            },
+            callback: (r) => {
+                if (r.message.status === "success") {
+                    console.log("SCORM data saved");
+                }
+            }
+        });
+    });
+    
+    // Handle window unload
+    window.addEventListener("beforeunload", () => {
+        API.terminate();
+    });
+</script>
+
+<style>
+    .scorm-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .scorm-header {
+        margin-bottom: 20px;
+    }
+    
+    .scorm-content {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    #scorm-frame {
+        border: none;
+    }
+</style>
+{% endblock %} 

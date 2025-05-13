@@ -1,0 +1,108 @@
+Cursor Prompt: Add SCORM 2004 Playback + Analytics to Frappe Education Portal
+Objective:
+Extend the Frappe Education module to support embedding multiple SCORM 2004 packages in the student portal and track detailed analytics per logged-in user, including:
+
+Quiz scores (cmi.score.raw)
+
+Completion status (cmi.completion_status, cmi.success_status)
+
+Attempts (sessions per package per user)
+
+Answered/skipped questions (cmi.interactions.n.*)
+
+🛠️ Implementation Plan
+1. Create New DocTypes for Tracking
+
+SCORM Package
+
+Fields: title, zip_file, launch_file, description, version
+
+SCORM Session
+
+Fields: user, package, attempt, score_raw, score_max, completion_status, success_status, session_time, cmi_data (LongText JSON), started_on, ended_on
+
+SCORM Interaction (Child Table or standalone)
+
+Fields: session, interaction_id, question, learner_response, result, was_skipped, timestamp
+
+2. Build Upload & Launch UI in the Instructor Portal
+
+Allow SCORM ZIP upload
+
+Auto-extract imsmanifest.xml to find launch file
+
+Store SCORM assets in private/public folder
+
+Add a button to "Launch SCORM in preview mode"
+
+3. Embed SCORM in Student Portal Page
+
+Add a route /scorm/{package_name} and a portal template
+
+Use <iframe src="/files/scorm_packages/{pkg_id}/{launch_file}"> to load content
+
+Inject window.API_1484_11 using Simplify-Scorm or scorm-again
+
+Use CrossFrameAPI if iframe needs postMessage bridge (for cross-domain/frame)
+
+4. Add SCORM API JS Wrapper
+
+Include in page layout:
+<script src="/assets/path_to/scorm_runtime.js"></script>
+<script>
+  const API = new Scorm2004API({ autocommit: true });
+  window.API_1484_11 = API;
+
+  API.on("Commit", () => {
+    const cmi = API.cmi.toJSON();
+    frappe.call("education.api.save_scorm_session", {
+      user: frappe.session.user,
+      package: CURR_PKG_ID,
+      data: JSON.stringify(cmi)
+    });
+  });
+
+  API.on("Terminate", () => {
+    // Optional: final save
+  });
+</script>
+5. Backend Method: save_scorm_session
+
+Whitelisted method: education.api.save_scorm_session
+
+Parse and validate data:
+
+Save as new SCORM Session per attempt
+
+Track start/end timestamps
+
+Store all cmi.interactions as child records or JSON
+
+Update progress in related Lesson if integrated with existing module
+
+Optional: trigger lesson.completed if success_status == passed
+
+6. Add Student Dashboard View
+
+Route: /my-scorm-progress
+
+Show per-package:
+
+Last score, completion status
+
+Attempt count
+
+Chart: progress over time
+
+Expandable view: interactions/questions answered
+
+🧩 Notes
+All code must run client-side and be same-origin if embedding directly.
+
+Use Frappe's frappe.call or REST endpoints to persist data.
+
+Use frappe.utils.get_request_session_user() to get user in backend safely.
+
+Secure SCORM API so users can't spoof score data.
+
+Look at how Learning Content and Chapter are implemented in Frappe Education as examples for lesson tracking.

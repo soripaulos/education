@@ -575,6 +575,7 @@ def update_website_context(context):
             {"title": "Home", "route": "/me"},
             {"title": "Admissions", "route": "/admissions"},
             {"title": "Assessment Logs", "route": "/assessment-log"},
+            {"title": "SCORM Packages", "route": "/scorm-packages"}
         ]
         
         # If user is a student, highlight the current page in navigation
@@ -587,3 +588,66 @@ def update_website_context(context):
         # Don't re-raise the error to prevent page breaking
                 
     return context
+
+@frappe.whitelist()
+def save_scorm_session(package, data):
+    """Save SCORM session data"""
+    if not frappe.session.user:
+        frappe.throw("Not logged in")
+    
+    # Parse CMI data
+    cmi_data = json.loads(data)
+    
+    # Get or create session
+    session = frappe.get_doc({
+        "doctype": "SCORM Session",
+        "user": frappe.session.user,
+        "package": package,
+        "attempt": get_next_attempt(package, frappe.session.user),
+        "started_on": now_datetime(),
+        "cmi_data": data
+    })
+    
+    # Extract key data
+    if "cmi.score.raw" in cmi_data:
+        session.score_raw = float(cmi_data["cmi.score.raw"])
+    if "cmi.score.max" in cmi_data:
+        session.score_max = float(cmi_data["cmi.score.max"])
+    if "cmi.completion_status" in cmi_data:
+        session.completion_status = cmi_data["cmi.completion_status"]
+    if "cmi.success_status" in cmi_data:
+        session.success_status = cmi_data["cmi.success_status"]
+    
+    # Save interactions
+    if "cmi.interactions" in cmi_data:
+        for idx, interaction in enumerate(cmi_data["cmi.interactions"]):
+            session.append("interactions", {
+                "interaction_id": str(idx),
+                "question": interaction.get("description", ""),
+                "learner_response": interaction.get("learner_response", ""),
+                "result": interaction.get("result", "unknown"),
+                "was_skipped": interaction.get("was_skipped", False),
+                "timestamp": now_datetime()
+            })
+    
+    session.insert()
+    
+    return {
+        "status": "success",
+        "session": session.name
+    }
+
+def get_next_attempt(package, user):
+    """Get next attempt number for user and package"""
+    last_attempt = frappe.get_all(
+        "SCORM Session",
+        filters={
+            "user": user,
+            "package": package
+        },
+        fields=["attempt"],
+        order_by="attempt desc",
+        limit=1
+    )
+    
+    return (last_attempt[0].attempt + 1) if last_attempt else 1
