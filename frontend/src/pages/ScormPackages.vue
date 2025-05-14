@@ -13,22 +13,17 @@
     </div>
 
     <div v-else class="p-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div v-for="pkg in packages" :key="pkg.name" class="bg-white rounded-lg shadow p-4">
-          <h2 class="text-lg font-semibold mb-2">{{ pkg.title }}</h2>
-          <p class="text-gray-600 mb-4">{{ pkg.description }}</p>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-500">
-              Last updated: {{ formatDate(pkg.modified) }}
-            </span>
-            <button
-              @click="launchPackage(pkg.name)"
-              class="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
-            >
-              Launch
-            </button>
-          </div>
-        </div>
+      <div v-for="pkg in packages" :key="pkg.name" class="mb-8 bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">{{ pkg.title }}</h2>
+        <p class="text-gray-600 mb-4">{{ pkg.description }}</p>
+        <iframe
+          v-if="pkg.launch_file"
+          :src="getScormUrl(pkg)"
+          class="w-full h-[600px] border"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"
+        ></iframe>
+        <div v-else class="text-red-500">No launch file found for this package.</div>
       </div>
     </div>
   </div>
@@ -36,30 +31,26 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { formatDate } from '@/utils/date'
 
-const router = useRouter()
 const loading = ref(true)
 const error = ref(null)
 const packages = ref([])
 
+const getScormUrl = (pkg) => {
+  // Assume SCORM packages are extracted to /files/scorm_packages/{pkg.name}/{launch_file}
+  return `/files/scorm_packages/${pkg.name}/${pkg.launch_file}`
+}
+
 const fetchPackages = async () => {
   try {
-    const response = await fetch('/api/method/education.api.get_scorm_packages', {
-      method: 'GET',
+    const response = await fetch('/api/method/education.api.get_all_scorm_packages', {
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Frappe-CSRF-Token': frappe.csrf_token
-      },
-      credentials: 'same-origin'
+        'Accept': 'application/json'
+      }
     })
-    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-    
     const data = await response.json()
     packages.value = data.message || []
   } catch (err) {
@@ -68,10 +59,6 @@ const fetchPackages = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const launchPackage = (packageId) => {
-  router.push(`/scorm-player/${packageId}`)
 }
 
 onMounted(fetchPackages)
