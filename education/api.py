@@ -186,8 +186,11 @@ def mark_assessment_result(assessment_plan, student_data_json):
 
             if criteria_name in student_score_data.get("assessment_details", {}):
                 try:
-                    score_input = student_score_data["assessment_details"][criteria_name][0]
-                    score_val = flt(score_input)
+                    val = student_score_data["assessment_details"][criteria_name]
+                    if isinstance(val, list):
+                        score_val = flt(val[0])
+                    else:
+                        score_val = flt(val)
                 except (IndexError, TypeError, ValueError):
                     score_val = 0 
                 
@@ -256,7 +259,11 @@ def get_evaluation_criteria(assessment_plan, student_score, total_score):
         # Scores are now pre-processed and validated in student_score["assessment_details"]
         if criteria_name in student_score.get("assessment_details", {}):
             try:
-                current_score_val = flt(student_score["assessment_details"][criteria_name][0])
+                val = student_score["assessment_details"][criteria_name]
+                if isinstance(val, list):
+                    current_score_val = flt(val[0])
+                else:
+                    current_score_val = flt(val)
             except (IndexError, TypeError, ValueError): # Should not happen if pre-processed
                 current_score_val = 0
         
