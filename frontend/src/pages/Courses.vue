@@ -10,7 +10,12 @@
       {{ error }}
     </div>
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-      <div v-for="course in courses" :key="course.name" class="flex flex-col h-full rounded-md border overflow-hidden bg-white">
+      <router-link
+        v-for="course in courses"
+        :key="course.name"
+        :to="{ name: 'CourseDetail', params: { courseName: course.name } }"
+        class="flex flex-col h-full rounded-md border overflow-hidden bg-white"
+      >
         <div class="h-40 bg-gray-100 flex items-center justify-center" v-if="course.image">
           <img :src="course.image" :alt="course.title" class="object-cover h-full w-full" />
         </div>
@@ -25,7 +30,7 @@
             {{ course.short_introduction || course.description }}
           </div>
         </div>
-      </div>
+      </router-link>
     </div>
   </div>
 </template>

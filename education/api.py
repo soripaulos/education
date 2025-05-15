@@ -612,3 +612,31 @@ def get_courses():
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Failed to fetch courses")
         return []
+
+@frappe.whitelist()
+def get_course_details(course):
+    """Return course details and chapters for the student portal."""
+    doc = frappe.get_doc("LMS Course", course)
+    chapters = frappe.get_all(
+        "Course Chapter",
+        filters={"course": course},
+        fields=["name", "title", "is_scorm_package", "launch_file"],
+        order_by="idx asc"
+    )
+    return {
+        "name": doc.name,
+        "title": doc.title,
+        "short_introduction": doc.short_introduction,
+        "description": doc.description,
+        "chapters": chapters
+    }
+
+@frappe.whitelist()
+def get_scorm_chapter(chapter):
+    """Return SCORM chapter info for embedding in the student portal."""
+    doc = frappe.get_doc("Course Chapter", chapter)
+    return {
+        "name": doc.name,
+        "title": doc.title,
+        "launch_file": doc.launch_file
+    }

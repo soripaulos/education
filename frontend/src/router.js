@@ -46,6 +46,18 @@ const routes = [
     component: () => import('@/pages/Courses.vue'),
   },
   {
+    path: '/courses/:courseName',
+    name: 'CourseDetail',
+    component: () => import('@/pages/CourseDetail.vue'),
+    props: true,
+  },
+  {
+    path: '/courses/:courseName/learn/:chapterName',
+    name: 'SCORMChapter',
+    component: () => import('@/pages/SCORMChapter.vue'),
+    props: true,
+  },
+  {
     path: '/:catchAll(.*)',
     redirect: '/schedule',
   },
