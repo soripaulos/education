@@ -587,3 +587,28 @@ def update_website_context(context):
         # Don't re-raise the error to prevent page breaking
                 
     return context
+
+@frappe.whitelist()
+def get_courses():
+    """Get all published courses for the student portal"""
+    try:
+        courses = frappe.get_all(
+            "LMS Course",
+            fields=[
+                "name",
+                "title",
+                "short_introduction",
+                "image",
+                "description",
+                "published",
+                "upcoming"
+            ],
+            filters={
+                "published": 1,
+                "upcoming": 0
+            }
+        )
+        return courses
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Failed to fetch courses")
+        return []

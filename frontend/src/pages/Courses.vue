@@ -38,8 +38,13 @@ const error = ref(null)
 
 onMounted(async () => {
   try {
-    // Placeholder: Replace with actual API endpoint
-    const response = await fetch('/api/method/education.api.get_courses')
+    const response = await fetch('/api/method/education.api.get_courses', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
     const data = await response.json()
     courses.value = data.message || []
