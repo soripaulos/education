@@ -125,12 +125,9 @@ frappe.ui.form.on('Assessment Result Tool', {
                 if (score_value < 0) score_value = 0;
                 if (score_value > max_score) {
                     score_value = max_score;
-                    // frappe.show_alert({ message: __("Score cannot exceed {0}", [max_score]), indicator: 'orange'}); // Already handled by direct input change
                 }
-                // $(this).val(score_value); // Already handled by direct input change
             }
-            
-            student_data.assessment_details[criteria] = [score_value, '']; // Grade is placeholder
+            student_data.assessment_details[criteria] = score_value;
             student_data.total_score += score_value;
         });
 
@@ -259,9 +256,11 @@ frappe.ui.form.on('Assessment Result Tool', {
                     if (max_score_attr !== undefined) {
                         let max_score = flt(max_score_attr);
                         if (score_value < 0) score_value = 0;
-                        if (score_value > max_score) score_value = max_score;
+                        if (score_value > max_score) {
+                            score_value = max_score;
+                        }
                     }
-                    student_data.assessment_details[criteria] = [score_value, ''];
+                    student_data.assessment_details[criteria] = score_value;
                     student_data.total_score += score_value;
                 });
 
