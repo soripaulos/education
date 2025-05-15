@@ -41,6 +41,11 @@ const routes = [
     component: () => import('@/pages/TeacherEvaluation.vue'),
   },
   {
+    path: '/courses',
+    name: 'Courses',
+    component: () => import('@/pages/Courses.vue'),
+  },
+  {
     path: '/:catchAll(.*)',
     redirect: '/schedule',
   },
