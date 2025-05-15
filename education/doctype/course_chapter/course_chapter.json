@@ -1,0 +1,113 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "creation": "2024-03-28 10:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "title",
+        "description",
+        "is_scorm_package",
+        "scorm_package",
+        "scorm_version",
+        "column_break_1",
+        "course",
+        "chapter_index"
+    ],
+    "fields": [
+        {
+            "fieldname": "title",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Title",
+            "reqd": 1
+        },
+        {
+            "fieldname": "description",
+            "fieldtype": "Text Editor",
+            "label": "Description"
+        },
+        {
+            "default": "0",
+            "fieldname": "is_scorm_package",
+            "fieldtype": "Check",
+            "label": "Is SCORM Package"
+        },
+        {
+            "depends_on": "is_scorm_package",
+            "fieldname": "scorm_package",
+            "fieldtype": "Attach",
+            "label": "SCORM Package",
+            "mandatory_depends_on": "is_scorm_package"
+        },
+        {
+            "depends_on": "is_scorm_package",
+            "fieldname": "scorm_version",
+            "fieldtype": "Select",
+            "label": "SCORM Version",
+            "mandatory_depends_on": "is_scorm_package",
+            "options": "1.2\n2004"
+        },
+        {
+            "fieldname": "column_break_1",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "course",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Course",
+            "options": "Course",
+            "reqd": 1
+        },
+        {
+            "fieldname": "chapter_index",
+            "fieldtype": "Int",
+            "label": "Chapter Index",
+            "reqd": 1
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "istable": 1,
+    "links": [],
+    "modified": "2024-03-28 10:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "Education",
+    "name": "Course Chapter",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Instructor",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "read": 1,
+            "role": "Student"
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1
+} 

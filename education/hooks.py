@@ -41,6 +41,34 @@ website_route_rules = [
 	{"from_route": "/assessment-log", "to_route": "assessment_log"},
 ]
 
+# Assets for SCORM and frontend
+app_include_css = [
+    "/assets/education/frontend/style.css"
+]
+
+app_include_js = [
+    "education.bundle.js",
+    "/assets/education/frontend/index.js"
+]
+
+# SCORM packages need to be accessible
+website_route_rules = [
+	{"from_route": "/admissions", "to_route": "Student Admission"},
+	{"from_route": "/student-portal/<path:app_path>", "to_route": "student-portal"},
+	{"from_route": "/assessment-log", "to_route": "assessment_log"},
+]
+
+website_context = {
+    "include_assets": {
+        "js": [
+            "/assets/education/frontend/index.js"
+        ],
+        "css": [
+            "/assets/education/frontend/style.css"
+        ]
+    }
+}
+
 treeviews = ["Assessment Group"]
 
 calendars = [

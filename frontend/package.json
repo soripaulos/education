@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build --base=/assets/education/frontend/ && yarn copy-html-entry",
     "preview": "vite preview",
-    "copy-html-entry": "cp ../education/public/frontend/index.html ../education/www/student-portal.html"
+    "copy-html-entry": "mkdir -p ../education/www && cp ../education/public/frontend/index.html ../education/www/student-portal.html"
   },
   "dependencies": {
     "@vitejs/plugin-vue": "^2.0.0",
