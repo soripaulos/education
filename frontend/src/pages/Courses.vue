@@ -10,7 +10,12 @@
       {{ error }}
     </div>
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-      <div v-for="course in courses" :key="course.name" class="flex flex-col h-full rounded-md border overflow-hidden bg-white">
+      <router-link
+        v-for="course in courses" 
+        :key="course.name" 
+        :to="{ name: 'CourseDetail', params: { courseName: course.name }}"
+        class="flex flex-col h-full rounded-md border overflow-hidden bg-white hover:shadow-md transition-shadow"
+      >
         <div class="h-40 bg-gray-100 flex items-center justify-center" v-if="course.image">
           <img :src="course.image" :alt="course.title" class="object-cover h-full w-full" />
         </div>
@@ -22,10 +27,10 @@
             {{ course.title }}
           </div>
           <div class="text-ink-gray-7 text-sm mb-2">
-            {{ course.short_introduction || course.description }}
+            {{ course.description }}
           </div>
         </div>
-      </div>
+      </router-link>
     </div>
   </div>
 </template>
@@ -38,8 +43,18 @@ const error = ref(null)
 
 onMounted(async () => {
   try {
-    // Placeholder: Replace with actual API endpoint
-    const response = await fetch('/api/method/education.api.get_courses')
+    const response = await fetch('/api/method/frappe.client.get_list', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        doctype: 'Course',
+        fields: ['name', 'course_name as title', 'description', 'image'],
+        limit: 50
+      })
+    })
+    
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
     const data = await response.json()
     courses.value = data.message || []
