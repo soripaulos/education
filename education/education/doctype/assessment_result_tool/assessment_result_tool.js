@@ -167,7 +167,7 @@ frappe.ui.form.on('Assessment Result Tool', {
         method: 'education.education.api.mark_assessment_result',
         args: {
           assessment_plan: frm.doc.assessment_plan,
-          student_data_json: JSON.stringify(student_scores),
+          scores: JSON.stringify(student_scores),
         },
         callback: function (r) {
           if (r.message) {
