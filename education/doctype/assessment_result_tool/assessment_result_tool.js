@@ -148,7 +148,7 @@ frappe.ui.form.on('Assessment Result Tool', {
                 student_data_json: JSON.stringify(student_data)
             },
             freeze: true,
-            freeze_message: __("Saving for {0}...", [student_data.student_name || student_id]), // Use student_name if available
+            freeze_message: __("Saving for {0}...", [student_data.student_name || student_id]),
             callback: function (r) {
                 if (r.message && r.message.name) {
                     console.log("Saved data for student:", student_id, r.message);
@@ -157,13 +157,9 @@ frappe.ui.form.on('Assessment Result Tool', {
                     // Update grades for each criterion
                     if (result_doc.details) {
                         result_doc.details.forEach(function(detail) {
-                            let grade_cell_selector = `td[data-student="${student_id}"][data-criteria-grade="${detail.assessment_criteria}"]`;
-                            let grade_cell = result_table_el.find(grade_cell_selector);
+                            let grade_cell = result_table_el.find(`[data-criteria='${detail.assessment_criteria}'][data-student='${student_id}'].student-result-grade`);
                             if(grade_cell.length > 0) {
                                 grade_cell.html(detail.grade || 'F');
-                            } else {
-                                // Fallback for older templates or if specific cell not found
-                                result_table_el.find(`[data-criteria='${detail.assessment_criteria}'][data-student='${student_id}'].student-result-grade`).html(detail.grade || 'F');
                             }
                         });
                     }

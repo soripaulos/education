@@ -487,40 +487,64 @@ def log_single_assessment_score(student, assessment_plan, assessment_criteria, s
 
 
 @frappe.whitelist()
-def mark_assessment_result(assessment_plan, scores):
-	student_score = json.loads(scores)
-	assessment_details = []
-	for criteria in student_score.get("assessment_details"):
-		assessment_details.append(
-			{
-				"assessment_criteria": criteria,
-				"score": flt(student_score["assessment_details"][criteria]),
-			}
-		)
-	assessment_result = get_assessment_result_doc(
-		student_score["student"], assessment_plan
-	)
-	assessment_result.update(
-		{
-			"student": student_score.get("student"),
-			"assessment_plan": assessment_plan,
-			"comment": student_score.get("comment"),
-			"total_score": student_score.get("total_score"),
-			"details": assessment_details,
+def mark_assessment_result(assessment_plan, student_data_json):
+	"""
+	Marks or updates an assessment result for a single student.
+	Saves the result as a Draft (docstatus=0).
+	"""
+	try:
+		if not isinstance(student_data_json, str):
+			# This case should ideally not happen if called from frontend as designed
+			frappe.throw(_("student_data_json must be a JSON string."))
+
+		student_score_data = json.loads(student_data_json)
+
+		student = student_score_data.get("student")
+		assessment_plan = student_score_data.get("assessment_plan")
+		assessment_details = student_score_data.get("details", [])
+		comment = student_score_data.get("comment", "")
+		total_score = student_score_data.get("total_score", 0)
+		grade = student_score_data.get("grade", "")
+
+		if not student or not assessment_plan:
+			frappe.throw(_("Missing student or assessment plan"))
+
+		# Fetch existing assessment result
+		result = get_result(student, assessment_plan)
+
+		if result:
+			# Update existing result
+			result.total_score = total_score
+			result.grade = grade
+			result.comment = comment
+			result.details = assessment_details
+			result.docstatus = 0
+		else:
+			# Create new result
+			result = frappe.new_doc("Assessment Result")
+			result.student = student
+			result.assessment_plan = assessment_plan
+			result.total_score = total_score
+			result.grade = grade
+			result.comment = comment
+			result.details = assessment_details
+			result.docstatus = 0
+
+		# Save and submit
+		result.save()
+		result.submit()
+
+		return {
+			"name": result.name,
+			"total_score": result.total_score,
+			"grade": result.grade,
+			"comment": result.comment,
+			"details": result.details,
 		}
-	)
-	assessment_result.save()
-	details = {}
-	for d in assessment_result.details:
-		details.update({d.assessment_criteria: d.grade})
-	assessment_result_dict = {
-		"name": assessment_result.name,
-		"student": assessment_result.student,
-		"total_score": assessment_result.total_score,
-		"grade": assessment_result.grade,
-		"details": details,
-	}
-	return assessment_result_dict
+
+	except Exception as e:
+		frappe.log_error(f"Error marking assessment result: {str(e)}")
+		frappe.throw(_("An error occurred while marking the assessment result. Please try again later."))
 
 
 @frappe.whitelist()
