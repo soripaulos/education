@@ -5,6 +5,7 @@ import router from './router'
 import App from './App.vue'
 import { createPinia } from 'pinia'
 // import '../polyfills'
+import FrappePushNotification from "../public/frappe-push-notification"
 
 import {
   Button,
@@ -17,6 +18,31 @@ import {
 } from 'frappe-ui'
 
 import { VFrappeChart } from 'vue-frappe-chart'
+
+// Initialize push notification service
+const registerPushNotification = async () => {
+  try {
+    window.frappePushNotification = new FrappePushNotification("education")
+  
+    if ("serviceWorker" in navigator) {
+      let serviceWorkerURL = "/assets/education/frontend/sw.js"
+      
+      const config = await window.frappePushNotification.fetchWebConfig()
+      serviceWorkerURL = `${serviceWorkerURL}?config=${encodeURIComponent(
+        JSON.stringify(config)
+      )}`
+      
+      const registration = await navigator.serviceWorker.register(serviceWorkerURL, {
+        scope: "/assets/education/frontend/"
+      })
+      
+      await window.frappePushNotification.initialize(registration)
+      console.log("Frappe Push Notification initialized")
+    }
+  } catch (error) {
+    console.error("Failed to initialize push notifications:", error)
+  }
+}
 
 // Register service worker
 if ('serviceWorker' in navigator) {
@@ -118,6 +144,9 @@ if ('serviceWorker' in navigator) {
         window.addEventListener('frappe-login-success', () => {
           registration.active?.postMessage('login_successful')
         })
+        
+        // Initialize push notifications after service worker is registered
+        registerPushNotification()
       })
       .catch(error => {
         console.log('SW registration failed:', error)
