@@ -27,10 +27,7 @@
     "vue-frappe-chart": "^0.1.10",
     "vue-router": "^4.0.12",
     "vue-star-rating": "^2.1.0",
-    "vue-toastification": "^1.7.14",
-    "workbox-core": "^7.0.0",
-    "workbox-precaching": "^7.0.0",
-    "workbox-window": "^7.0.0"
+    "vue-toastification": "^1.7.14"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^2.0.0",
