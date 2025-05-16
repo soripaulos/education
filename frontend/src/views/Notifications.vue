@@ -68,18 +68,20 @@ const router = useRouter()
 const dayjs = inject("$dayjs")
 const __ = inject("$translate")
 
-const currentUser = computed(() => frappe.session.user)
+const currentUser = computed(() => {
+    return window.frappe?.session?.user || null
+})
 
 const notificationFilters = computed(() => {
     if (currentUser.value) {
-        return { to_user: currentUser.value };
+        return { to_user: currentUser.value }
     }
-    return {}; // Return empty or a non-matching filter if user is not available
-});
+    return {}
+})
 
 const notifications = createListResource({
     doctype: "PWA Notification",
-    filters: notificationFilters, // Use computed property for filters
+    filters: notificationFilters,
     fields: [
         "name",
         "from_user",
@@ -89,39 +91,41 @@ const notifications = createListResource({
         "reference_document_type",
         "reference_document_name"
     ],
-    auto: false, // Set auto to false initially
+    auto: false,
     orderBy: "creation desc",
     onSuccess() {
-        unreadNotificationsCount.reload()
+        if (unreadNotificationsCount) {
+            unreadNotificationsCount.reload()
+        }
     }
 })
 
 // Watch for currentUser to be available, then fetch notifications
 watchEffect(() => {
     if (currentUser.value) {
-        notifications.auto = true; // Enable auto-fetching
-        notifications.reload();    // Manually trigger a reload if needed
+        notifications.auto = true
+        notifications.reload()
     }
-});
+})
 
 const unreadNotificationsCount = createResource({
-    url: "education.education.api.notifications.get_unread_count",
+    url: "education.api.notifications.get_unread_count",
     auto: true,
     transform: (data) => data?.count || 0,
 })
 
 const arePushNotificationsEnabled = createResource({
-    url: "education.education.api.notifications.are_push_notifications_enabled",
+    url: "education.api.notifications.are_push_notifications_enabled",
     auto: true,
     transform: (data) => data?.enabled || false,
 })
 
 const allowPushNotifications = computed(
-    () => window.frappe?.boot.push_relay_server_url && arePushNotificationsEnabled.data
+    () => window.frappe?.boot?.push_relay_server_url && arePushNotificationsEnabled.data
 )
 
 const markAllAsRead = createResource({
-    url: "education.education.api.notifications.mark_all_as_read",
+    url: "education.api.notifications.mark_all_as_read",
     onSuccess() {
         notifications.reload()
         unreadNotificationsCount.reload()
