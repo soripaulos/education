@@ -19,8 +19,14 @@
 
 <script setup>
 import { ref, onMounted, inject } from "vue"
-import { Switch } from "frappe-ui"
-import { arePushNotificationsEnabled } from "@/data/notifications.js"
+import { Switch, createResource } from "frappe-ui"
+
+// Inline the resource
+const arePushNotificationsEnabled = createResource({
+    url: "education.education.api.notifications.are_push_notifications_enabled",
+    auto: true,
+    transform: (data) => data?.enabled || false,
+})
 
 const enabled = ref(false)
 const loading = ref(false)

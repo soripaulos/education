@@ -63,7 +63,25 @@ import { useRouter } from "vue-router"
 import { createResource, FeatherIcon } from "frappe-ui"
 import { computed, inject } from "vue"
 import EmptyState from "@/components/EmptyState.vue"
-import { unreadNotificationsCount, notifications, arePushNotificationsEnabled } from "@/data/notifications.js"
+
+// Inline notification resources instead of importing them
+const notifications = createResource({
+    url: "education.education.api.notifications.get_notifications",
+    auto: true,
+    transform: (data) => data || [],
+})
+
+const unreadNotificationsCount = createResource({
+    url: "education.education.api.notifications.get_unread_count",
+    auto: true,
+    transform: (data) => data?.count || 0,
+})
+
+const arePushNotificationsEnabled = createResource({
+    url: "education.education.api.notifications.are_push_notifications_enabled",
+    auto: true,
+    transform: (data) => data?.enabled || false,
+})
 
 const dayjs = inject("$dayjs")
 const router = useRouter()
