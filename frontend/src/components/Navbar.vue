@@ -7,7 +7,8 @@
         {{ currentRoute }}
       </h3>
     </div>
-    <div class="flex flex-row gap-2">
+    <div class="flex flex-row gap-2 items-center">
+      <NotificationBadge />
       <Button
         v-if="currentRoute === 'Attendance'"
         variant="solid"
@@ -22,6 +23,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { leaveStore } from '@/stores/leave'
+import NotificationBadge from './NotificationBadge.vue'
 
 const router = useRouter()
 const currentRoute = computed(() => router.currentRoute.value.name)

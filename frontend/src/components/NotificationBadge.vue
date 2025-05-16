@@ -1,39 +1,23 @@
 <template>
-  <span class="notification-badge" v-if="count > 0">
-    {{ count }}
-  </span>
+  <div class="relative">
+    <Button variant="ghost" class="!p-2" @click="router.push({ name: 'Notifications' })">
+      <FeatherIcon name="bell" class="h-5 w-5" />
+      <div
+        v-if="unreadNotificationsCount.data"
+        class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center"
+      >
+        {{ unreadNotificationsCount.data > 99 ? "99+" : unreadNotificationsCount.data }}
+      </div>
+    </Button>
+  </div>
 </template>
 
-<script>
-import { ref, onMounted } from 'vue'
+<script setup>
+import { useRouter } from "vue-router"
+import { FeatherIcon } from "frappe-ui"
+import { unreadNotificationsCount } from "@/data/notifications"
 
-export default {
-  name: 'NotificationBadge',
-  setup() {
-    const count = ref(0)
-
-    const updateCount = async () => {
-      try {
-        const response = await frappe.call({
-          method: 'education.education.api.notifications.get_unread_count'
-        })
-        count.value = response.message.count
-      } catch (error) {
-        console.error('Failed to get notification count:', error)
-      }
-    }
-
-    onMounted(() => {
-      updateCount()
-      // Update count every minute
-      setInterval(updateCount, 60000)
-    })
-
-    return {
-      count
-    }
-  }
-}
+const router = useRouter()
 </script>
 
 <style scoped>

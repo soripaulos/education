@@ -61,6 +61,17 @@ const routes = [
     path: '/notifications',
     name: 'Notifications',
     component: () => import('@/views/Notifications.vue'),
+    meta: {
+        requiresAuth: true
+    }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('@/pages/Settings.vue'),
+    meta: {
+        requiresAuth: true
+    }
   },
   {
     path: '/:catchAll(.*)',
