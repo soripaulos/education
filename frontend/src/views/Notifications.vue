@@ -61,13 +61,25 @@
 <script setup>
 import { useRouter } from "vue-router"
 import { createResource, createListResource, FeatherIcon } from "frappe-ui"
-import { computed, inject } from "vue"
+import { computed, inject, watchEffect } from "vue"
 import EmptyState from "@/components/EmptyState.vue"
 
-// Using createListResource instead of createResource for notifications
+const router = useRouter()
+const dayjs = inject("$dayjs")
+const __ = inject("$translate")
+
+const currentUser = computed(() => frappe.session.user)
+
+const notificationFilters = computed(() => {
+    if (currentUser.value) {
+        return { to_user: currentUser.value };
+    }
+    return {}; // Return empty or a non-matching filter if user is not available
+});
+
 const notifications = createListResource({
     doctype: "PWA Notification",
-    filters: { to_user: frappe.session.user },
+    filters: notificationFilters, // Use computed property for filters
     fields: [
         "name",
         "from_user",
@@ -77,12 +89,20 @@ const notifications = createListResource({
         "reference_document_type",
         "reference_document_name"
     ],
-    auto: true,
+    auto: false, // Set auto to false initially
     orderBy: "creation desc",
     onSuccess() {
         unreadNotificationsCount.reload()
     }
 })
+
+// Watch for currentUser to be available, then fetch notifications
+watchEffect(() => {
+    if (currentUser.value) {
+        notifications.auto = true; // Enable auto-fetching
+        notifications.reload();    // Manually trigger a reload if needed
+    }
+});
 
 const unreadNotificationsCount = createResource({
     url: "education.education.api.notifications.get_unread_count",
@@ -95,10 +115,6 @@ const arePushNotificationsEnabled = createResource({
     auto: true,
     transform: (data) => data?.enabled || false,
 })
-
-const dayjs = inject("$dayjs")
-const router = useRouter()
-const __ = inject("$translate")
 
 const allowPushNotifications = computed(
     () => window.frappe?.boot.push_relay_server_url && arePushNotificationsEnabled.data
