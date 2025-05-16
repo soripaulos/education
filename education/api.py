@@ -181,7 +181,7 @@ def mark_assessment_result(assessment_plan, student_data_json):
         for criteria_def in assessment_plan_doc.assessment_criteria:
             criteria_name = criteria_def.assessment_criteria
             max_score_for_criteria = flt(criteria_def.maximum_score)
-            score_val = 0
+            score_val = 7  # DIAGNOSTIC: set to 7 to identify if backend is matching criteria
             grade_val = "" # Will be calculated by get_evaluation_criteria
 
             if criteria_name in student_score_data.get("assessment_details", {}):
@@ -192,12 +192,15 @@ def mark_assessment_result(assessment_plan, student_data_json):
                     else:
                         score_val = flt(val)
                 except (IndexError, TypeError, ValueError):
-                    score_val = 0 
-                
-                if score_val < 0:
-                    score_val = 0
-                elif score_val > max_score_for_criteria:
-                    score_val = max_score_for_criteria
+                    score_val = 7  # DIAGNOSTIC: set to 7 if error
+                frappe.log_error(f"Assessment Debug: criteria_name={criteria_name}, val={val}, score_val={score_val}", "Assessment Debug")
+            else:
+                frappe.log_error(f"Assessment Debug: criteria_name={criteria_name} NOT FOUND in {student_score_data.get('assessment_details', {})}", "Assessment Debug")
+            
+            if score_val < 0:
+                score_val = 0
+            elif score_val > max_score_for_criteria:
+                score_val = max_score_for_criteria
             
             processed_assessment_details[criteria_name] = [score_val, grade_val]
             be_total_score += score_val
