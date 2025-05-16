@@ -63,7 +63,7 @@ import { useRouter } from "vue-router"
 import { createResource, FeatherIcon } from "frappe-ui"
 import { computed, inject } from "vue"
 import EmptyState from "@/components/EmptyState.vue"
-import { unreadNotificationsCount, notifications, arePushNotificationsEnabled } from "@/data/notifications"
+import { unreadNotificationsCount, notifications, arePushNotificationsEnabled } from "@/data/notifications.js"
 
 const dayjs = inject("$dayjs")
 const router = useRouter()

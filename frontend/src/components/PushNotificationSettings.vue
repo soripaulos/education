@@ -18,9 +18,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue"
+import { ref, onMounted, inject } from "vue"
 import { Switch } from "frappe-ui"
-import { arePushNotificationsEnabled } from "@/data/notifications"
+import { arePushNotificationsEnabled } from "@/data/notifications.js"
 
 const enabled = ref(false)
 const loading = ref(false)
