@@ -163,7 +163,7 @@ frappe.ui.form.on('Assessment Result Tool', {
                                 grade_cell.html(detail.grade || 'F');
                             } else {
                                 // Fallback for older templates or if specific cell not found
-                                result_table_el.find(`[data-criteria="${detail.assessment_criteria}"][data-student="${student_id}"].student-result-grade`).html(detail.grade || 'F');
+                                result_table_el.find(`[data-criteria='${detail.assessment_criteria}'][data-student='${student_id}'].student-result-grade`).html(detail.grade || 'F');
                             }
                         });
                     }

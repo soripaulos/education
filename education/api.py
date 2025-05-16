@@ -178,6 +178,9 @@ def mark_assessment_result(assessment_plan, student_data_json):
         be_total_score = 0
         processed_assessment_details = {}
 
+        # Log criteria names in plan and payload for debugging
+        frappe.log_error(f"Assessment Debug: assessment_plan_criteria={[c.assessment_criteria for c in assessment_plan_doc.assessment_criteria]}, payload_keys={list(student_score_data.get('assessment_details', {}).keys())}", "Assessment Debug")
+
         for criteria_def in assessment_plan_doc.assessment_criteria:
             criteria_name = criteria_def.assessment_criteria
             max_score_for_criteria = flt(criteria_def.maximum_score)
