@@ -5,7 +5,7 @@ import router from './router'
 import App from './App.vue'
 import { createPinia } from 'pinia'
 // import '../polyfills'
-import FrappePushNotification from "../public/frappe-push-notification"
+import FrappePushNotification from "../public/frappe-push-notification.js"
 
 import {
   Button,
@@ -25,7 +25,7 @@ const registerPushNotification = async () => {
     window.frappePushNotification = new FrappePushNotification("education")
   
     if ("serviceWorker" in navigator) {
-      let serviceWorkerURL = "/assets/education/frontend/sw.js"
+      let serviceWorkerURL = "/assets/education/frontend/static/sw.js"
       
       const config = await window.frappePushNotification.fetchWebConfig()
       serviceWorkerURL = `${serviceWorkerURL}?config=${encodeURIComponent(
@@ -128,7 +128,7 @@ if ('serviceWorker' in navigator) {
   // Handle service worker registration
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/assets/education/frontend/sw.js', {
+      .register('/assets/education/frontend/static/sw.js', {
         scope: '/assets/education/frontend/'
       })
       .then(registration => {

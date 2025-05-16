@@ -14,6 +14,7 @@
     "autoprefixer": "^10.4.2",
     "dayjs": "^1.11.10",
     "feather-icons": "^4.28.0",
+    "firebase": "^10.7.0",
     "frappe-ui": "^0.1.17",
     "lodash": "^4.17.21",
     "lucide-vue-next": "^0.259.0",
@@ -26,7 +27,10 @@
     "vue-frappe-chart": "^0.1.10",
     "vue-router": "^4.0.12",
     "vue-star-rating": "^2.1.0",
-    "vue-toastification": "^1.7.14"
+    "vue-toastification": "^1.7.14",
+    "workbox-core": "^7.0.0",
+    "workbox-precaching": "^7.0.0",
+    "workbox-window": "^7.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^2.0.0",

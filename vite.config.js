@@ -2,6 +2,32 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import fs from 'fs'
+
+// Custom plugin to copy static files
+const copyStaticFiles = () => {
+  return {
+    name: 'copy-static-files',
+    writeBundle() {
+      // Ensure the static directory exists
+      const outputDir = path.resolve(__dirname, 'dist/static')
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true })
+      }
+      
+      // Copy service worker and notification files
+      const sourceDir = path.resolve(__dirname, 'public/static')
+      if (fs.existsSync(sourceDir)) {
+        const files = fs.readdirSync(sourceDir)
+        files.forEach(file => {
+          const sourcePath = path.join(sourceDir, file)
+          const destPath = path.join(outputDir, file)
+          fs.copyFileSync(sourcePath, destPath)
+        })
+      }
+    }
+  }
+}
 
 export default defineConfig({
   plugins: [
@@ -56,7 +82,8 @@ export default defineConfig({
           }
         ]
       }
-    })
+    }),
+    copyStaticFiles()
   ],
   resolve: {
     alias: {
@@ -68,6 +95,11 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     rollupOptions: {
+      external: [
+        'firebase/app',
+        'firebase/messaging',
+        'firebase/messaging/sw'
+      ],
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
