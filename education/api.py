@@ -154,12 +154,16 @@ def get_grade_scale(grading_scale):
     )
 
 @frappe.whitelist()
-def mark_assessment_result(assessment_plan, student_data_json):
+def mark_assessment_result(assessment_plan, student_data_json=None, scores=None):
     """
     Marks or updates an assessment result for a single student.
     Saves the result as a Draft (docstatus=0).
     """
     try:
+        # Handle both parameter names for backward compatibility
+        if scores:
+            student_data_json = scores
+            
         if not isinstance(student_data_json, str):
             # This case should ideally not happen if called from frontend as designed
             frappe.throw(_("student_data_json must be a JSON string."))
