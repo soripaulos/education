@@ -60,15 +60,28 @@
 
 <script setup>
 import { useRouter } from "vue-router"
-import { createResource, FeatherIcon } from "frappe-ui"
+import { createResource, createListResource, FeatherIcon } from "frappe-ui"
 import { computed, inject } from "vue"
 import EmptyState from "@/components/EmptyState.vue"
 
-// Inline notification resources instead of importing them
-const notifications = createResource({
-    url: "education.education.api.notifications.get_notifications",
+// Using createListResource instead of createResource for notifications
+const notifications = createListResource({
+    doctype: "PWA Notification",
+    filters: { to_user: frappe.session.user },
+    fields: [
+        "name",
+        "from_user",
+        "message",
+        "read",
+        "creation",
+        "reference_document_type",
+        "reference_document_name"
+    ],
     auto: true,
-    transform: (data) => data || [],
+    orderBy: "creation desc",
+    onSuccess() {
+        unreadNotificationsCount.reload()
+    }
 })
 
 const unreadNotificationsCount = createResource({

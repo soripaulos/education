@@ -37,12 +37,26 @@
         </div>
 
         <!-- User Menu -->
-        <div class="hidden sm:flex sm:items-center">
+        <div class="hidden sm:flex sm:items-center sm:space-x-4">
+          <!-- Notifications Icon -->
+          <router-link to="/notifications" class="relative p-1 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-full">
+            <Bell class="h-6 w-6" />
+            <span v-if="unreadNotificationsCount.data > 0" class="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center h-4 w-4 rounded-full bg-red-500 text-white text-xs">
+              {{ unreadNotificationsCount.data > 99 ? '99+' : unreadNotificationsCount.data }}
+            </span>
+          </router-link>
           <UserDropdown :educationSettings="!educationSettings.loading && educationSettings.data" />
         </div>
 
         <!-- Mobile menu button -->
         <div class="flex items-center sm:hidden">
+          <!-- Mobile Notifications Icon -->
+          <router-link to="/notifications" class="relative p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md mr-1">
+            <Bell class="h-6 w-6" />
+            <span v-if="unreadNotificationsCount.data > 0" class="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center h-4 w-4 rounded-full bg-red-500 text-white text-xs">
+              {{ unreadNotificationsCount.data > 99 ? '99+' : unreadNotificationsCount.data }}
+            </span>
+          </router-link>
           <button
             @click="mobileMenuOpen = !mobileMenuOpen"
             class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
@@ -103,6 +117,7 @@ import {
   Menu,
   X,
   Clipboard,
+  Bell
 } from 'lucide-vue-next'
 
 const mobileMenuOpen = ref(false)
@@ -148,6 +163,13 @@ const links = [
 const educationSettings = createResource({
   url: 'education.education.api.get_school_abbr_logo',
   auto: true,
+})
+
+// Add notifications count resource
+const unreadNotificationsCount = createResource({
+  url: 'education.education.api.notifications.get_unread_count',
+  auto: true,
+  transform: (data) => data?.count || 0,
 })
 </script>
 
