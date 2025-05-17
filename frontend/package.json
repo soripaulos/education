@@ -14,7 +14,7 @@
     "pinia": "^2.0.0",
     "vue": "^3.0.0",
     "vue-router": "^4.0.0",
-    "vue-toastification": "^2.0.0",
+    "vue-toastification": "^2.0.0-rc.5",
     "workbox-build": "^6.4.0",
     "workbox-window": "^6.4.0"
   },
