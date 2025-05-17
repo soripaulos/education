@@ -108,6 +108,18 @@ if ('serviceWorker' in navigator) {
       .then(registration => {
         console.log('SW registered:', registration)
         
+        // Initialize push notifications if relay server is configured
+        if (window.frappe?.boot.push_relay_server_url) {
+          window.frappePushNotification = new FrappePushNotification('education');
+          window.frappePushNotification.initialize(registration)
+            .then(() => {
+              console.log('Push notifications initialized');
+            })
+            .catch(error => {
+              console.error('Failed to initialize push notifications:', error);
+            });
+        }
+        
         toast({
           title: 'Ready for Offline Use',
           message: 'Student Portal can now work without internet',
@@ -149,5 +161,28 @@ app.component('VFrappeChart', VFrappeChart)
 router.isReady().then(() => {
   app.mount('#app')
 })
+
+// Register service worker for push notifications
+async function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        try {
+            const registration = await navigator.serviceWorker.register('/assets/education/frontend/sw.js', {
+                type: 'classic'
+            });
+
+            // Initialize push notifications
+            if (window.frappe?.boot.push_relay_server_url) {
+                window.frappePushNotification = new FrappePushNotification('education');
+                await window.frappePushNotification.initialize(registration);
+            }
+        } catch (error) {
+            console.error('Service worker registration failed:', error);
+        }
+    }
+}
+
+// Call registerServiceWorker after app is mounted
+app.mount('#app');
+registerServiceWorker();
 
 

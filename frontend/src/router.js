@@ -58,6 +58,16 @@ const routes = [
     props: true,
   },
   {
+    path: '/notifications',
+    name: 'Notifications',
+    component: () => import('./pages/Notifications.vue')
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('./pages/Settings.vue')
+  },
+  {
     path: '/:catchAll(.*)',
     redirect: '/schedule',
   },

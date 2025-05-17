@@ -12,6 +12,8 @@
 import Sidebar from '@/components/Sidebar.vue'
 import { RouterView } from 'vue-router'
 import { Toasts } from 'frappe-ui'
+import { onMounted } from 'vue'
+import { toast } from 'frappe-ui'
 </script>
 
 <style>
@@ -19,3 +21,30 @@ import { Toasts } from 'frappe-ui'
   @apply antialiased text-gray-900;
 }
 </style>
+
+<script setup>
+onMounted(() => {
+  // Setup handler for foreground push notifications
+  if (window.frappePushNotification) {
+    window.frappePushNotification.onMessage = (payload) => {
+      console.log('Received foreground message:', payload)
+      
+      // Display toast notification
+      toast({
+        title: payload.data.reference_document_type || 'New Notification',
+        message: payload.data.message || 'You have a new notification',
+        duration: 5000,
+        actions: [
+          {
+            label: 'View',
+            variant: 'primary',
+            action() {
+              window.location.href = '/student-portal/notifications'
+            }
+          }
+        ]
+      })
+    }
+  }
+})
+</script>
