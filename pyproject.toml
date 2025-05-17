@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "education"
+version = "15.5.0"
+description = "Education Module for Frappe"
+requires-python = ">=3.10"
+dependencies = [
+    "frappe>=15.0.0",
+]
+
+[tool.setuptools]
+packages = ["education"] 

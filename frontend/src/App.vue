@@ -11,18 +11,9 @@
 <script setup>
 import Sidebar from '@/components/Sidebar.vue'
 import { RouterView } from 'vue-router'
-import { Toasts } from 'frappe-ui'
+import { Toasts, toast } from 'frappe-ui'
 import { onMounted } from 'vue'
-import { toast } from 'frappe-ui'
-</script>
 
-<style>
-#app {
-  @apply antialiased text-gray-900;
-}
-</style>
-
-<script setup>
 onMounted(() => {
   // Setup handler for foreground push notifications
   if (window.frappePushNotification) {
@@ -48,3 +39,9 @@ onMounted(() => {
   }
 })
 </script>
+
+<style>
+#app {
+  @apply antialiased text-gray-900;
+}
+</style>
