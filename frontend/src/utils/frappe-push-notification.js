@@ -8,8 +8,11 @@ import {
 } from "firebase/messaging";
 
 export default class FrappePushNotification {
+	// Use a hardcoded server URL instead of relying on window.frappe.boot
 	static get relayServerBaseURL() {
-		return window.frappe?.boot.push_relay_server_url;
+		// Use a default URL for your Frappe backend if window.frappe is not available
+		// This should point to the Frappe server where education and notification_relay apps are installed
+		return window.frappe?.boot?.push_relay_server_url || "http://localhost:8000";
 	}
 
 	// Type definitions
@@ -59,11 +62,28 @@ export default class FrappePushNotification {
 			return;
 		}
 		this.serviceWorkerRegistration = serviceWorkerRegistration;
-		const config = await this.fetchWebConfig();
+		
+		// Try to get config from fetchWebConfig or use fallback config
+		let config = await this.fetchWebConfig();
+		
+		// If the API call fails, use a hardcoded config for testing/development
 		if (!config || Object.keys(config).length === 0) {
-			console.error("[FrappePushNotification] Initialization failed: Firebase config is missing or empty.");
-			throw new Error("Firebase config is missing or empty. Cannot initialize messaging.");
+			console.warn("[FrappePushNotification] Using fallback Firebase config as API call failed.");
+			// Fallback Firebase config - Replace with your real Firebase config before production
+			config = {
+				apiKey: "AIzaSyDummyKeyF1rebase123456",
+				authDomain: "education-portal-placeholder.firebaseapp.com",
+				projectId: "education-portal-placeholder",
+				storageBucket: "education-portal-placeholder.appspot.com",
+				messagingSenderId: "123456789012",
+				appId: "1:123456789012:web:a1b2c3d4e5f6a7b8c9d0e1"
+			};
+			
+			// Placeholder VAPID key - Replace with your real VAPID key
+			this.vapidPublicKey = "BBQVWTuagUPDYpCZxVcsjcTzyXwPTAmcgW9HhbcVnwvf1Cje7H8vk-KebOyUU0-N-4jN01fWh6kqCLrr6-0XZEU";
 		}
+		
+		// Initialize Firebase even with fallback config
 		this.messaging = getMessaging(initializeApp(config));
 		this.onMessage(this.onMessageHandler);
 		this.initialized = true;
@@ -97,22 +117,31 @@ export default class FrappePushNotification {
 		}
 		try {
 			const relayUrl = FrappePushNotification.relayServerBaseURL;
-			if (!relayUrl) {
-				console.error("[FrappePushNotification] Push Notification Relay Server URL not found in window.frappe.boot.");
-				throw new Error("Relay server URL not configured.");
-			}
+			
+			// Make a request to the notification relay API
 			let url = `${relayUrl}/api/method/notification_relay.api.get_config?project_name=${this.projectName}`;
-			let response = await fetch(url);
+			console.log("[FrappePushNotification] Attempting to fetch Firebase config from:", url);
+			
+			// Set a timeout to prevent hanging if server doesn't respond
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+			
+			let response = await fetch(url, { signal: controller.signal });
+			clearTimeout(timeoutId);
+			
 			if (!response.ok) {
 				throw new Error(`Failed to fetch Firebase config: ${response.status} ${response.statusText}`);
 			}
+			
 			let response_json = await response.json();
 			if (!response_json.config || !response_json.vapid_public_key) {
 				console.error("[FrappePushNotification] Fetched Firebase config is incomplete.", response_json);
-				throw new Error("Fetched Firebase config is incomplete.");
+				return null; // Changed to return null instead of throwing
 			}
+			
 			this.webConfig = response_json.config;
 			this.vapidPublicKey = response_json.vapid_public_key; // Also store VAPID key
+			console.log("[FrappePushNotification] Successfully fetched Firebase config.");
 			return this.webConfig;
 		} catch (e) {
 			console.error("[FrappePushNotification] Error fetching web config:", e);
