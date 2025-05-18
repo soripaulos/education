@@ -32,13 +32,34 @@ const getPushManager = () => {
 };
 
 onMounted(async () => {
-  const pushManager = getPushManager();
-  if (pushManager && typeof pushManager.isNotificationEnabled === 'function') {
-    notificationsEnabled.value = pushManager.isNotificationEnabled();
-  } else {
-    statusMessage.value = 'Push notification system not available.';
-    statusType.value = 'error';
-    console.warn('educationPushNotification manager not found or isNotificationEnabled is not a function.');
+  const attemptInitialization = () => {
+    const pushManager = getPushManager(); // window.educationPushNotification
+    if (pushManager && typeof pushManager.isNotificationEnabled === 'function') {
+      notificationsEnabled.value = pushManager.isNotificationEnabled();
+      if (pushManager.initialized) { // Check if it was fully initialized
+        statusMessage.value = 'Push notification system ready.';
+        statusType.value = 'success';
+      } else {
+        // This case might occur if it's on window but initialize() failed internally due to no config
+        statusMessage.value = 'Push notification system found but not fully initialized. Check console for errors in main.js.';
+        statusType.value = 'error';
+         console.warn('educationPushNotification manager IS ON WINDOW but NOT INITIALIZED.');
+      }
+      return true; // Successfully found and processed
+    }
+    return false; // Not found or not ready
+  };
+
+  if (!attemptInitialization()) {
+    // If not found immediately, wait a bit and try once more,
+    // as SW registration and async setup in main.js might take a moment.
+    setTimeout(() => {
+      if (!attemptInitialization()) {
+        statusMessage.value = 'Push notification system not available or failed to initialize. Please check browser console for errors (especially in main.js or FrappePushNotification setup).';
+        statusType.value = 'error';
+        console.warn('educationPushNotification manager not found after delay. System may not have initialized correctly in main.js.');
+      }
+    }, 2000); // Wait 2 seconds
   }
 });
 
