@@ -662,10 +662,9 @@ def get_scorm_chapter(chapter):
 def get_notifications():
     """Get notifications for the current user"""
     notifications = frappe.get_all(
-        "PWANotification",
+        "PWA Notification",
         filters={
-            "to_user": frappe.session.user,
-            # No project_name filter - get all notifications for this user
+            "to_user": frappe.session.user
         },
         fields=["name", "message", "read", "creation", "reference_document_type", "reference_document_name", "from_user"],
         order_by="creation desc"
@@ -675,7 +674,7 @@ def get_notifications():
 @frappe.whitelist()
 def mark_notification_as_read(notification_id):
     """Mark a notification as read"""
-    notification = frappe.get_doc("PWANotification", notification_id)
+    notification = frappe.get_doc("PWA Notification", notification_id)
     if notification.to_user != frappe.session.user:
         frappe.throw(_("Not authorized"))
     
@@ -687,7 +686,7 @@ def mark_notification_as_read(notification_id):
 def mark_all_notifications_as_read():
     """Mark all notifications as read for the current user"""
     frappe.db.sql("""
-        UPDATE `tabPWANotification`
+        UPDATE `tabPWA Notification`
         SET `read` = 1
         WHERE `to_user` = %s
     """, frappe.session.user)
@@ -697,6 +696,16 @@ def mark_all_notifications_as_read():
 def are_push_notifications_enabled():
     """Check if push notifications are enabled for the site"""
     return frappe.db.get_single_value("Push Notification Settings", "enable_push_notification_relay")
+
+@frappe.whitelist()
+def register_device_token(token):
+    """Register a device token for the current user"""
+    if not frappe.session.user or frappe.session.user == "Guest":
+        frappe.throw(_("You must be logged in to register a device token"))
+    
+    # This just wraps the core frappe.push_notification.subscribe API
+    from frappe.push_notification import subscribe
+    return subscribe(token, "education")
 
 @frappe.whitelist()
 def get_school_abbr_logo():

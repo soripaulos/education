@@ -1,0 +1,88 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Notifications") }}{% endblock %}
+
+{% block page_content %}
+<div class="container notifications-page">
+  <h1>{{ _("Notifications") }}</h1>
+  
+  <div id="notification-list" class="mt-4">
+    {% if notifications %}
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span>{{ _("You have {0} notifications").format(notifications|length) }}</span>
+        <button id="mark-all-read" class="btn btn-sm btn-primary">{{ _("Mark All as Read") }}</button>
+      </div>
+      <div class="list-group">
+        {% for notification in notifications %}
+          <div class="list-group-item list-group-item-action {% if not notification.read %}unread{% endif %}" 
+               data-id="{{ notification.name }}">
+            <div class="d-flex w-100 justify-content-between">
+              <h5 class="mb-1">
+                {% if notification.reference_document_type %}
+                  {{ notification.reference_document_type }}
+                {% else %}
+                  {{ _("Notification") }}
+                {% endif %}
+              </h5>
+              <small>{{ frappe.utils.pretty_date(notification.creation) }}</small>
+            </div>
+            <p class="mb-1">{{ notification.message }}</p>
+            {% if notification.from_user %}
+              <small>{{ _("From: {0}").format(notification.from_user) }}</small>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-info">{{ _("You have no notifications") }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .notifications-page .unread {
+    background-color: rgba(13, 110, 253, 0.05);
+    font-weight: 500;
+  }
+  .notifications-page .list-group-item {
+    cursor: pointer;
+  }
+</style>
+
+<script>
+  frappe.ready(function() {
+    // Mark a notification as read when clicked
+    $('.list-group-item').click(function() {
+      var $this = $(this);
+      var notificationId = $this.data('id');
+      
+      // If it's already read, don't do anything
+      if (!$this.hasClass('unread')) return;
+      
+      frappe.call({
+        method: 'education.education.api.mark_notification_as_read',
+        args: {
+          notification_id: notificationId
+        },
+        callback: function(r) {
+          if (r.message) {
+            $this.removeClass('unread');
+          }
+        }
+      });
+    });
+    
+    // Mark all notifications as read
+    $('#mark-all-read').click(function() {
+      frappe.call({
+        method: 'education.education.api.mark_all_notifications_as_read',
+        callback: function(r) {
+          if (r.message) {
+            $('.list-group-item').removeClass('unread');
+          }
+        }
+      });
+    });
+  });
+</script>
+{% endblock %} 

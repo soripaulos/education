@@ -23,7 +23,7 @@ app_include_js = "education.bundle.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/education/css/education.css"
-# web_include_js = "/assets/education/js/education.js"
+web_include_js = "/assets/education/js/push_notification.js"
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "education/public/scss/website"
@@ -39,6 +39,7 @@ website_route_rules = [
 	{"from_route": "/admissions", "to_route": "Student Admission"},
 	{"from_route": "/student-portal/<path:app_path>", "to_route": "student-portal"},
 	{"from_route": "/assessment-log", "to_route": "assessment_log"},
+	{"from_route": "/notifications", "to_route": "notifications"},
 ]
 
 treeviews = ["Assessment Group"]
@@ -60,12 +61,19 @@ standard_portal_menu_items = [
 		"reference_doctype": "Assessment Log Entry",
 		"role": "Student",
 	},
+	{
+		"title": _("Notifications"),
+		"route": "/notifications",
+		"reference_doctype": "PWA Notification",
+		"role": "Student",
+	},
 ]
 
 # Portal Items for website sidebar
 portal_menu_items = [
 	{"role": "Student", "title": _("Assessment Log"), "route": "/assessment-log", "reference_doctype": "Assessment Log Entry"},
 	{"role": "Student", "title": _("Admissions"), "route": "/admissions", "reference_doctype": "Student Admission"},
+	{"role": "Student", "title": _("Notifications"), "route": "/notifications", "reference_doctype": "PWA Notification"},
 ]
 
 default_roles = [
@@ -116,6 +124,8 @@ global_search_doctypes = {
 		{"doctype": "Assessment Code", "index": 38},
 		{"doctype": "Discussion", "index": 39},
 		{"doctype": "Assessment Log Entry", "index": 40},
+		{"doctype": "PWA Notification", "index": 41},
+		{"doctype": "Notification Test", "index": 42},
 	]
 }
 

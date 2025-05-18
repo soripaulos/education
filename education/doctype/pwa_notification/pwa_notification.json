@@ -1,0 +1,103 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2023-05-01 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "to_user",
+  "from_user",
+  "message",
+  "column_break_4",
+  "read",
+  "reference_document_type",
+  "reference_document_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "to_user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "To User",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "from_user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "From User",
+   "options": "User"
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Message",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "read",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Read"
+  },
+  {
+   "fieldname": "reference_document_type",
+   "fieldtype": "Link",
+   "label": "Reference Document Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_document_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Document Name",
+   "options": "reference_document_type"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2023-05-01 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "PWA Notification",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+} 
