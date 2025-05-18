@@ -84,9 +84,32 @@ export default class FrappePushNotification {
 		}
 		
 		// Initialize Firebase even with fallback config
-		this.messaging = getMessaging(initializeApp(config));
-		this.onMessage(this.onMessageHandler);
-		this.initialized = true;
+		try {
+			// Look for an existing Firebase app with the same name, and if it exists, use it
+			let firebaseApp;
+			try {
+				// For development purposes, you might need to initialize more than once in the same page
+				// This tries to get an existing app first before creating a new one
+				firebaseApp = initializeApp(config, "education-pwa-messaging");
+			} catch (e) {
+				if (e.code === 'app/duplicate-app') {
+					console.log("[FrappePushNotification] Firebase app already exists. Reusing it.");
+					// Firebase app already exists, just get it
+					const { getApp } = await import("firebase/app");
+					firebaseApp = getApp("education-pwa-messaging");
+				} else {
+					throw e; // Re-throw if it's a different error
+				}
+			}
+			
+			this.messaging = getMessaging(firebaseApp);
+			this.onMessage(this.onMessageHandler);
+			this.initialized = true;
+			console.log("[FrappePushNotification] Successfully initialized Firebase messaging client.");
+		} catch (error) {
+			console.error("[FrappePushNotification] Error initializing Firebase:", error);
+			throw error;
+		}
 	}
 
 	/**

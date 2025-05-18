@@ -41,52 +41,24 @@ const updateSW = registerSW({
     try {
       // Use "hrms" to align with shared backend/FCM config as per user request
       const pushManager = new FrappePushNotification("hrms")
+      console.log("[Main.js] FrappePushNotification instance created for 'hrms'");
       
       const firebaseConfig = await pushManager.fetchWebConfig()
+      console.log("[Main.js] Firebase config fetched in main.js:", firebaseConfig ? JSON.stringify(firebaseConfig) : 'null or undefined');
 
-      const sendConfigToSW = (sw) => {
-        if (sw && firebaseConfig) {
-          sw.postMessage({
-            type: 'SET_FIREBASE_CONFIG',
-            firebaseConfig: firebaseConfig,
-          })
-          console.log("Firebase config sent to SW via postMessage.")
-        } else if (!firebaseConfig) {
-            console.error("SW is active, but Firebase config could not be fetched. Cannot send to SW.")
-        }
-      }
-
-      if (registration.active) {
-        sendConfigToSW(registration.active)
-      } else if (registration.installing) {
-        registration.installing.addEventListener('statechange', function(event) {
-            // Check if SW moved to 'activated' state
-            if (event.target.state === 'activated' && registration.active) {
-                 sendConfigToSW(registration.active)
-            }
-        })
-      } else if (registration.waiting) {
-        // If there's a waiting SW, it might become active after skipWaiting()
-        // This case might need more specific handling if skipWaiting is not immediate
-        // For now, assume it will activate or onNeedRefresh will handle it.
-        console.warn("A service worker is waiting. Config will be sent if it activates.")
-         // Attempt to send if it becomes active
-        navigator.serviceWorker.addEventListener('controllerchange',
-          () => {
-            if (navigator.serviceWorker.controller) {
-              sendConfigToSW(navigator.serviceWorker.controller)
-            }
-          }
-        )
-      }
+      // Get Firebase Messaging Service Worker Registration
+      const firebaseMessagingSW = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      console.log("[Main.js] Firebase Messaging service worker registered:", firebaseMessagingSW.scope);
 
       // Initialize the push manager for client-side operations (enable/disable notifications)
+      console.log("[Main.js] Attempting to initialize pushManager...");
       await pushManager.initialize(registration) 
+      console.log("[Main.js] pushManager.initialize() completed.");
       window.educationPushNotification = pushManager // Make it global for NotificationSettings.vue
-      console.log("FrappePushNotification client initialized for UI interactions.")
+      console.log("[Main.js] window.educationPushNotification is SET.");
 
     } catch (error) {
-      console.error('Error in onRegisteredSW during FrappePushNotification setup:', error)
+      console.error('[Main.js] Error in onRegisteredSW during FrappePushNotification setup:', error);
       toast({ title: 'Push Notification Setup Error', message: `Could not fully initialize push notifications: ${error.message}`, type: 'error' })
     }
   },
