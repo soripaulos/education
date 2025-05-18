@@ -40,15 +40,16 @@ const updateSW = registerSW({
     console.log(`Service Worker at ${swUrl} registered with scope: ${registration.scope}`)
     try {
       // Register the Firebase messaging service worker
-      const firebaseMessagingSW = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      console.log("[Main.js] Firebase Messaging service worker registered:", firebaseMessagingSW.scope);
+      const firebaseMessagingSW = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+      console.log("[Main.js] Firebase Messaging service worker registered with scope:", firebaseMessagingSW.scope);
       
-      // Use "hrms" to align with shared backend/FCM config as per user request
-      const pushManager = new FrappePushNotification("hrms")
-      console.log("[Main.js] FrappePushNotification instance created for 'hrms'");
+      // Use "education" as the project name for the new setup
+      const pushManager = new FrappePushNotification("education") 
+      console.log("[Main.js] FrappePushNotification instance created for 'education'");
       
       // Initialize the push manager for client-side operations (enable/disable notifications)
-      console.log("[Main.js] Attempting to initialize pushManager...");
+      // Pass the PWA's service worker registration for token scoping and client-side UI logic.
+      console.log("[Main.js] Attempting to initialize pushManager with PWA SW registration...");
       await pushManager.initialize(registration) 
       console.log("[Main.js] pushManager.initialize() completed.");
       window.educationPushNotification = pushManager // Make it global for NotificationSettings.vue
