@@ -8,8 +8,9 @@ export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
-      mode: 'production',
-      base: '/assets/education/frontend/',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'pwa-icons/*', 'screenshots/*'],
       manifest: {
@@ -17,7 +18,7 @@ export default defineConfig({
         short_name: 'Education',
         description: 'Student Portal for Frappe Education',
         theme_color: '#4F46E5',
-        start_url: '/assets/education/frontend/',
+        start_url: '.',
         scope: '/assets/education/frontend/',
         id: 'student-portal',
         display: 'standalone',
@@ -111,8 +112,7 @@ export default defineConfig({
     target: 'es2015',
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'index.html'),
-        sw: path.resolve(__dirname, 'src/sw.js')
+        main: path.resolve(__dirname, 'index.html')
       },
       output: {
         manualChunks: {
