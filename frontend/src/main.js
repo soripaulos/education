@@ -16,6 +16,9 @@ import {
   toast,
 } from 'frappe-ui'
 
+// Import the FrappePushNotification class
+import FrappePushNotification from '../public/frappe-push-notification'
+
 // Create a pinia instance
 const pinia = createPinia()
 const app = createApp(App)
@@ -33,6 +36,9 @@ app.component('Input', Input)
 // Register service worker and setup push notifications
 async function setupServiceWorker() {
   if ('serviceWorker' in navigator) {
+    // Initialize FrappePushNotification
+    window.frappePushNotification = new FrappePushNotification("education")
+    
     let deferredPrompt;
     let hasShownPrompt = false;
 
@@ -113,45 +119,62 @@ async function setupServiceWorker() {
     });
 
     try {
-      const registration = await navigator.serviceWorker.register('/assets/education/frontend/sw.js', {
+      // Configure service worker with Firebase config
+      let serviceWorkerURL = '/assets/education/frontend/sw.js'
+      
+      // Only append config if relay server is available
+      if (window.frappe?.boot.push_relay_server_url) {
+        try {
+          const config = await window.frappePushNotification.fetchWebConfig()
+          serviceWorkerURL = `${serviceWorkerURL}?config=${encodeURIComponent(JSON.stringify(config))}`
+        } catch (err) {
+          console.error('Failed to fetch Firebase config:', err)
+        }
+      }
+      
+      // Register the service worker
+      const registration = await navigator.serviceWorker.register(serviceWorkerURL, {
         scope: '/assets/education/frontend/',
         type: 'classic'
-      });
+      })
       
-      console.log('SW registered:', registration);
+      console.log('SW registered:', registration)
       
       // Initialize push notifications if relay server is configured
       if (window.frappe?.boot.push_relay_server_url) {
-        window.frappePushNotification = new FrappePushNotification('education');
-        await window.frappePushNotification.initialize(registration);
-        console.log('Push notifications initialized');
+        try {
+          await window.frappePushNotification.initialize(registration)
+          console.log('Push notifications initialized')
+        } catch (error) {
+          console.error('Failed to initialize push notifications:', error)
+        }
       }
       
       toast({
         title: 'Ready for Offline Use',
         message: 'Student Portal can now work without internet',
         duration: 3000
-      });
+      })
 
       // Listen for successful login
       window.addEventListener('frappe-login-success', () => {
-        registration.active?.postMessage('login_successful');
-      });
+        registration.active?.postMessage('login_successful')
+      })
     } catch (error) {
-      console.error('Service worker registration failed:', error);
+      console.error('Service worker registration failed:', error)
       toast({
         title: 'Service Worker Error',
         message: 'Some features might not work offline',
         duration: 5000
-      });
+      })
     }
   }
 }
 
 // Start the app when router is ready
 router.isReady().then(() => {
-  app.mount('#app');
-  setupServiceWorker();
-});
+  app.mount('#app')
+  setupServiceWorker()
+})
 
 
