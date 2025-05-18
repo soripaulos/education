@@ -2,17 +2,11 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
-import Icons from 'unplugin-icons/vite'
-import IconsResolver from 'unplugin-icons/resolver'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
-    Icons({
-      compiler: 'vue3',
-      autoInstall: true,
-    }),
     VitePWA({
       mode: 'production',
       base: '/assets/education/frontend/',
