@@ -11,6 +11,12 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.js',
+      injectManifest: {
+        swSrc: './src/sw.js', // Source service worker with self.__WB_MANIFEST
+        swDest: 'sw.js',      // Output service worker file name
+        injectionPoint: 'self.__WB_MANIFEST', // Ensures this string is replaced with the precache manifest
+        maximumFileSizeToCacheInBytes: 5000000, // Increased size limit for larger assets
+      },
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'pwa-icons/*', 'screenshots/*'],
       manifest: {

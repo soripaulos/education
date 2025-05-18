@@ -2,7 +2,8 @@
 import { initializeApp } from "firebase/app";
 import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 
-// Required line for workbox injectManifest - this will be replaced by the workbox precache manifest
+// This line MUST appear in exactly this format for workbox to inject the precache manifest
+// Do not modify it or add comments around it
 self.__WB_MANIFEST;
 
 let swFirebaseApp;
