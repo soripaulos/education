@@ -39,17 +39,14 @@ const updateSW = registerSW({
   async onRegisteredSW(swUrl, registration) {
     console.log(`Service Worker at ${swUrl} registered with scope: ${registration.scope}`)
     try {
+      // Register the Firebase messaging service worker
+      const firebaseMessagingSW = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      console.log("[Main.js] Firebase Messaging service worker registered:", firebaseMessagingSW.scope);
+      
       // Use "hrms" to align with shared backend/FCM config as per user request
       const pushManager = new FrappePushNotification("hrms")
       console.log("[Main.js] FrappePushNotification instance created for 'hrms'");
       
-      const firebaseConfig = await pushManager.fetchWebConfig()
-      console.log("[Main.js] Firebase config fetched in main.js:", firebaseConfig ? JSON.stringify(firebaseConfig) : 'null or undefined');
-
-      // Get Firebase Messaging Service Worker Registration
-      const firebaseMessagingSW = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      console.log("[Main.js] Firebase Messaging service worker registered:", firebaseMessagingSW.scope);
-
       // Initialize the push manager for client-side operations (enable/disable notifications)
       console.log("[Main.js] Attempting to initialize pushManager...");
       await pushManager.initialize(registration) 

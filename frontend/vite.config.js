@@ -12,12 +12,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'pwa-icons/*', 'screenshots/*'],
       workbox: {
+        swDest: 'sw.js',
+        importScripts: ['/assets/education/frontend/firebase-messaging-sw.js'],
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        additionalManifestEntries: [
-          { url: '/firebase-messaging-sw.js', revision: '1' }
-        ],
+        exclude: [/firebase-messaging-sw\.js$/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
