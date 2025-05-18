@@ -33,6 +33,8 @@
     "autoprefixer": "^10.4.2",
     "postcss": "^8.4.5",
     "vite": "^2.7.2",
-    "vite-plugin-pwa": "^0.11.13"
+    "vite-plugin-pwa": "^0.16.5",
+    "workbox-build": "^6.6.0",
+    "workbox-window": "^6.6.0"
   }
 }
