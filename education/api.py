@@ -697,3 +697,16 @@ def mark_all_notifications_as_read():
 def are_push_notifications_enabled():
     """Check if push notifications are enabled for the site"""
     return frappe.db.get_single_value("Push Notification Settings", "enable_push_notification_relay")
+
+@frappe.whitelist()
+def get_school_abbr_logo():
+    """Get school abbreviation and logo for the sidebar."""
+    school_settings = frappe.get_single("Education Settings")
+    school = frappe.get_doc("School", school_settings.default_school)
+    abbr = school.abbr if hasattr(school, "abbr") else school.school_name[:3].upper()
+    logo = school.school_logo if hasattr(school, "school_logo") else ""
+    
+    return {
+        "abbr": abbr,
+        "logo": logo
+    }
