@@ -16,8 +16,6 @@ import {
   toast,
 } from 'frappe-ui'
 
-import { VFrappeChart } from 'vue-frappe-chart'
-
 // Create a pinia instance
 const pinia = createPinia()
 const app = createApp(App)
@@ -31,7 +29,6 @@ app.use(resourcesPlugin)
 app.component('Button', Button)
 app.component('Card', Card)
 app.component('Input', Input)
-app.component('VFrappeChart', VFrappeChart)
 
 // Register service worker and setup push notifications
 async function setupServiceWorker() {
