@@ -53,4 +53,40 @@ self.addEventListener('message', (event) => {
       })
     })
   }
-}) 
+})
+
+self.addEventListener('push', event => {
+  const data = event.data.json();
+  const title = data.title || 'New Notification';
+  const options = {
+    body: data.body || 'You have a new message.',
+    icon: data.icon || '/assets/education/frontend/pwa-icons/icon-192x192.png', // Adjusted path based on manifest
+    badge: data.badge || '/assets/education/frontend/pwa-icons/badge-72x72.png', // Placeholder, adjust as needed
+    data: {
+      url: data.url || '/' // URL to open on notification click
+    }
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      const targetUrl = new URL(event.notification.data.url, self.location.origin);
+
+      // Check if a window/tab matching the targeted URL already exists.
+      const existingClient = windowClients.find(client => {
+        const clientUrl = new URL(client.url);
+        return clientUrl.pathname === targetUrl.pathname && clientUrl.origin === targetUrl.origin;
+      });
+
+      if (existingClient) {
+        return existingClient.focus();
+      } else {
+        // If no such window/tab exists, open a new one.
+        return clients.openWindow(event.notification.data.url || '/');
+      }
+    })
+  );
+}); 

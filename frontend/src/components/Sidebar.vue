@@ -21,6 +21,14 @@
           :icon="link.icon"
           class="h-10"
         />
+        <!-- Notification Icon -->
+        <button 
+          @click="goToNotifications"
+          title="Notifications"
+          class="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <Bell class="h-6 w-6 text-gray-700" />
+        </button>
       </div>
 
       <!-- Mobile menu button -->
@@ -68,6 +76,7 @@ import {
   Star,
   Menu,
   X,
+  Bell,
 } from 'lucide-vue-next'
 
 const mobileMenuOpen = ref(false)
@@ -109,4 +118,13 @@ const educationSettings = createResource({
   url: 'education.education.api.get_school_abbr_logo',
   auto: true,
 })
+
+// Placeholder for navigation to a notifications page/area
+// You might want to implement a dedicated notifications view or a dropdown panel.
+const goToNotifications = () => {
+  // Example: router.push('/notifications');
+  // For now, it can just log or do nothing if a page doesn't exist yet.
+  console.log('Notification icon clicked. Implement navigation or display panel.');
+  // Potentially, open the NotificationSettings component in a modal or navigate to a page containing it.
+}
 </script> 

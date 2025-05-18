@@ -1,1 +1,87 @@
-# frappe -- https://github.com/frappe/frappe is installed via 'bench init'
+Integrating HRMS Push Notifications into Frappe Education Student Portal PWA
+1. Objective
+Enable the Frappe Education Student Portal PWA to utilize the existing push notification system from the HRMS module. This will allow sending notifications via the 'PWA Notifications' doctype to student users without recreating the system from scratch.
+
+2. Scope
+Inclusions:
+
+Utilize the existing 'PWA Notifications' doctype from the HRMS module to send push notifications to student users.
+
+Integrate necessary frontend components (e.g., enable push notification toggle, notification icon) into the Student Portal PWA.
+
+Ensure backend and frontend integration for seamless notification delivery.
+
+Exclusions:
+
+Automated messaging (e.g., automatic push notifications on enrollment) is not required at this stage.
+
+Significant modifications to the existing HRMS or Education modules should be avoided to maintain stability.
+GitHub
++1
+GitHub
++1
+
+3. Assumptions
+The HRMS module's push notification system is functional and utilizes Firebase Cloud Messaging (FCM) via the Frappe Push Notification Relay Server.
+
+The Student Portal PWA has a different implementation compared to the HRMS PWA, with frontend files located at C:\Users\PC\Desktop\education\frontend.
+
+Mixing HRMS and Education messages is acceptable, and using the existing project name, mixins, and Firebase configurations from the HRMS module is permitted.
+Frappe Forum
+
+4. Functional Requirements
+4.1 Backend Integration
+FR1: Ensure the 'PWA Notifications' doctype from the HRMS module is accessible and usable within the Education module's context.
+
+FR2: Configure the Frappe Push Notification Client in the Education module to use the same project name and Firebase configurations as the HRMS module.
+
+FR3: Implement necessary API endpoints to handle subscription (/api/method/frappe.push_notification.subscribe) and unsubscription (/api/method/frappe.push_notification.unsubscribe) of FCM tokens for student users.
+Frappe Forum
+
+4.2 Frontend Integration
+FR4: Integrate a push notification toggle within the Student Portal PWA's settings or profile section to allow users to enable or disable push notifications.
+
+FR5: Add a notification icon to the navigation bar or sidebar of the Student Portal PWA to provide users with access to their notifications.
+
+FR6: Implement a service worker in the Student Portal PWA to handle incoming push notifications and display them appropriately. 
+Medium
+
+5. Non-Functional Requirements
+NFR1: The integration should prioritize stability and minimize modifications to existing systems to avoid introducing bugs.
+
+NFR2: The solution should be compatible with the existing infrastructure and configurations of both the HRMS and Education modules.
+
+NFR3: The implementation should follow best practices for PWA development and push notification handling.
+
+6. Implementation Considerations
+IC1: Ensure that the service worker in the Student Portal PWA is correctly configured to handle push events and display notifications.
+
+IC2: Reuse existing Firebase configurations from the HRMS module to maintain consistency and reduce setup complexity.
+
+IC3: Test the integration thoroughly to ensure that notifications are delivered correctly to student users and that the frontend components function as expected.
+
+7. Testing and Validation
+TV1: Verify that manually created notifications in the 'PWA Notifications' doctype are successfully delivered to student users in the Student Portal PWA.
+
+TV2: Confirm that the push notification toggle and notification icon are present and functional in the Student Portal PWA.
+
+TV3: Test the subscription and unsubscription processes for FCM tokens to ensure proper registration and deregistration of student devices.
+Medium
++2
+Frappe Forum
++2
+frappecloud.com
++2
+
+8. Deployment Plan
+DP1: Deploy the backend configurations and API endpoints to the Education module's server environment.
+
+DP2: Update the Student Portal PWA's frontend codebase to include the new components and service worker.
+
+DP3: Conduct end-to-end testing to validate the integration before rolling out to all users.
+
+9. Maintenance and Support
+MS1: Monitor the push notification system for any issues or failures in message delivery.
+
+MS2: Provide documentation and support for any future updates or enhancements to the notification system.
+

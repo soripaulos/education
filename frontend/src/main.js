@@ -17,6 +17,7 @@ import {
 } from 'frappe-ui'
 
 import { VFrappeChart } from 'vue-frappe-chart'
+import { useNotificationStore } from '@/stores/notifications'
 
 // Register service worker
 if ('serviceWorker' in navigator) {
@@ -146,7 +147,17 @@ app.component('Card', Card)
 app.component('Input', Input)
 app.component('VFrappeChart', VFrappeChart)
 
-router.isReady().then(() => {
+router.isReady().then(async () => {
+  // Initialize notification store after router is ready and before mounting
+  const notificationStore = useNotificationStore();
+  // No need to await initialize if it handles its own errors and updates reactive state
+  // It will attempt to fetch VAPID key and check subscription status
+  if (('serviceWorker' in navigator) && ('PushManager' in window)) {
+    // Call initialize only if basic push support seems available
+    // The store's initialize function also re-checks these and VAPID key presence
+    notificationStore.initialize(); 
+  }
+  
   app.mount('#app')
 })
 
