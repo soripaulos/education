@@ -120,11 +120,9 @@ frappe.ui.form.on('Assessment Result Tool', {
         .each(function (el, input) {
           let $input = $(input)
           let criteria = $input.data().criteria
-          let value = parseFloat($input.val())
-          if (!Number.isNaN(value)) {
-            student_scores['assessment_details'][criteria] = value
-          }
-          total_score += value
+          let value = parseFloat($input.val()) || 0;
+          student_scores['assessment_details'][criteria] = value;
+          total_score += value;
         })
       if (!Number.isNaN(total_score)) {
         result_table
