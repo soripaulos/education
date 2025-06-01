@@ -12,27 +12,16 @@ frappe.ui.form.on('Assessment Result Tool', {
       frm.set_value('assessment_plan', frappe.route_options.assessment_plan)
       frappe.route_options = null
     } else {
-      if (frm.doc.assessment_plan) {
-        frm.trigger('assessment_plan')
-      }
+      frm.trigger('assessment_plan')
     }
     frm.disable_save()
     frm.page.clear_indicator()
-    frm.page.clear_primary_action()
   },
 
   assessment_plan: function (frm) {
     frm.doc.show_submit = false
-    $(frm.fields_dict.result_html.wrapper).empty()
-    frm.page.clear_primary_action()
-
     if (frm.doc.assessment_plan) {
-      if (!frm.doc.student_group) {
-        frappe.msgprint(__("Please select a Student Group first."))
-        return
-      }
-      frm.page.set_indicator(__("Loading Students..."), "blue")
-
+      if (!frm.doc.student_group) return
       frappe.call({
         method: 'education.education.api.get_assessment_students',
         args: {
@@ -40,32 +29,18 @@ frappe.ui.form.on('Assessment Result Tool', {
           student_group: frm.doc.student_group,
         },
         callback: function (r) {
-          frm.page.clear_indicator()
           if (r.message) {
             frm.doc.students = r.message
             frm.events.render_table(frm)
-            
-            // Check if any students have unsubmitted results
-            let has_unsubmitted = false
-            for (let student of r.message) {
-              if (!student.docstatus || student.docstatus === 0) {
-                has_unsubmitted = true
+            for (let value of r.message) {
+              if (!value.docstatus) {
+                frm.doc.show_submit = true
                 break
               }
             }
-            
-            // Only show submit button if there are unsubmitted results
-            frm.doc.show_submit = has_unsubmitted
             frm.events.submit_result(frm)
-          } else {
-            frappe.msgprint(__("No students found for the selected group or assessment plan."))
           }
         },
-        error: function(r) {
-          frm.page.clear_indicator()
-          console.error("Error fetching assessment students:", r)
-          frappe.show_alert({ message: __("Error fetching student data."), indicator: 'red' })
-        }
       })
     }
   },
@@ -73,36 +48,22 @@ frappe.ui.form.on('Assessment Result Tool', {
   render_table: function (frm) {
     $(frm.fields_dict.result_html.wrapper).empty()
     let assessment_plan = frm.doc.assessment_plan
-    frm.page.set_indicator(__("Loading Assessment Details..."), "blue")
     frappe.call({
       method: 'education.education.api.get_assessment_details',
       args: {
         assessment_plan: assessment_plan,
       },
       callback: function (r) {
-        frm.page.clear_indicator()
-        if (r.message && r.message.length > 0) {
-          frm.events.get_marks(frm, r.message)
-        } else {
-          frappe.msgprint(__("No assessment criteria found for the selected Assessment Plan."))
-          $(frm.fields_dict.result_html.wrapper).html(`<div class="text-muted text-center" style="padding: 20px;">${__("No assessment criteria defined for this plan.")}</div>`)
-        }
+        frm.events.get_marks(frm, r.message)
       },
-      error: function(r) {
-        frm.page.clear_indicator()
-        console.error("Error fetching assessment details:", r)
-        frappe.show_alert({ message: __("Error fetching assessment details."), indicator: 'red' })
-      }
     })
   },
 
   get_marks: function (frm, criteria_list) {
     let max_total_score = 0
-    criteria_list.forEach(function (c, index) { 
-      c._index = index
-      max_total_score += flt(c.maximum_score)
+    criteria_list.forEach(function (c) {
+      max_total_score += c.maximum_score
     })
-    
     var result_table = $(
       frappe.render_template('assessment_result_tool', {
         frm: frm,
@@ -111,75 +72,95 @@ frappe.ui.form.on('Assessment Result Tool', {
         max_total_score: max_total_score,
       })
     )
-    $(frm.fields_dict.result_html.wrapper).empty().append(result_table)
+    result_table.appendTo(frm.fields_dict.result_html.wrapper)
 
-    // Handle SCORE changes
-    result_table.on('change', 'input.student-result-data', function (e) {
+    $('.assessment-criteria').on('keydown', function (e) {
+      // get data-criteria attribute
+      let criteriaIndex = cint(
+        e.target.parentElement.getAttribute('data-criteria-index')
+      )
+      changeFocusToNextCell(e, 2 + criteriaIndex)
+    })
+
+    $('.result-comment').on('keydown', function (e) {
+      changeFocusToNextCell(e, 5)
+    })
+
+    function changeFocusToNextCell(e, cellIndex) {
+      if (e.keyCode === 13 && !e.shiftKey) {
+        let nextRow = e.target.parentElement.parentElement.nextElementSibling
+        if (nextRow) {
+          nextRow.cells[cellIndex].lastElementChild.focus()
+        }
+      }
+      if (e.keyCode === 13 && e.shiftKey) {
+        let prevRow =
+          e.target.parentElement.parentElement.previousElementSibling
+        if (prevRow) {
+          prevRow.cells[cellIndex].lastElementChild.focus()
+        }
+      }
+    }
+
+    result_table.on('change', 'input', function (e) {
       let $input = $(e.target)
       let student = $input.data().student
-      let max_score = flt($input.data().maxScore)
+      let max_score = $input.data().maxScore
       let value = $input.val()
-      
-      // Validate input value
-      let score = parseFloat(value)
-      if (isNaN(score) || score < 0) {
-        score = 0
-        $input.val(0) // Update input visually if invalid
-      } else if (score > max_score) {
-        score = max_score
+      if (value < 0) {
+        $input.val(0)
+      } else if (value > max_score) {
         $input.val(max_score)
-        frappe.show_alert({ message: __("Score cannot exceed Maximum Score ({0})", [max_score]), indicator: 'orange' })
       }
-      
-      // Recalculate total score for the specific student
       let total_score = 0
-      result_table.find(`input[data-student="${student}"].student-result-data`).each(function() {
-        let current_val = parseFloat($(this).val())
-        if (!isNaN(current_val)) {
-          total_score += current_val
-        }
-      })
-      result_table.find(`span[data-student="${student}"].total-score`).html(total_score)
-
-      // Get student details object
       let student_scores = {}
       student_scores['assessment_details'] = {}
-      
-      // Collect all scores for this student
-      result_table.find(`input[data-student="${student}"].student-result-data`).each(function() {
-        let criteria = $(this).data().criteria
-        let score_value = parseFloat($(this).val())
-        if (!isNaN(score_value)) {
-          student_scores['assessment_details'][criteria] = [score_value, '']
-        }
-      })
-      
-      // Include comments
-      result_table.find(`[data-student="${student}"].result-comment`).each(function() {
-        student_scores['comment'] = $(this).val()
-      })
-      
-      student_scores['student'] = student
-      student_scores['total_score'] = total_score
-
-      // Save the assessment result
-      frappe.call({
-        method: 'education.education.api.mark_assessment_result',
-        args: {
-          assessment_plan: frm.doc.assessment_plan,
-          scores: student_scores,
-        },
-        callback: function (r) {
-          if (r.message) {
+      result_table
+        .find(`input[data-student=${student}].student-result-data`)
+        .each(function (el, input) {
+          let $input = $(input)
+          let criteria = $input.data().criteria
+          let value = parseFloat($input.val())
+          if (!Number.isNaN(value)) {
+            student_scores['assessment_details'][criteria] = value
+          }
+          total_score += value
+        })
+      if (!Number.isNaN(total_score)) {
+        result_table
+          .find(`span[data-student=${student}].total-score`)
+          .html(total_score)
+      }
+      if (
+        Object.keys(student_scores['assessment_details']).length ===
+        criteria_list.length
+      ) {
+        student_scores['student'] = student
+        student_scores['total_score'] = total_score
+        result_table
+          .find(`[data-student=${student}].result-comment`)
+          .each(function (el, input) {
+            student_scores['comment'] = $(input).val()
+          })
+        frappe.call({
+          method: 'education.education.api.mark_assessment_result',
+          args: {
+            assessment_plan: frm.doc.assessment_plan,
+            scores: student_scores,
+          },
+          callback: function (r) {
             let assessment_result = r.message
-            // Update grades and link after successful save
-            for (var criteria_key of Object.keys(assessment_result.details)) {
+            if (!frm.doc.show_submit) {
+              frm.doc.show_submit = true
+              frm.events.submit_result
+            }
+            for (var criteria of Object.keys(assessment_result.details)) {
               result_table
                 .find(
-                  `[data-criteria=${criteria_key}][data-student=${assessment_result.student}].student-result-grade`
+                  `[data-criteria=${criteria}][data-student=${assessment_result.student}].student-result-grade`
                 )
-                .each(function (e1, input_el) {
-                  $(input_el).html(assessment_result.details[criteria_key])
+                .each(function (e1, input) {
+                  $(input).html(assessment_result.details[criteria])
                 })
             }
             result_table
@@ -194,21 +175,15 @@ frappe.ui.form.on('Assessment Result Tool', {
             $(link_span)
               .find('a')
               .attr('href', '/app/assessment-result/' + assessment_result.name)
-            
-            // Show submit button if not already shown
-            if (!frm.doc.show_submit) {
-              frm.doc.show_submit = true
-              frm.events.submit_result(frm)
-            }
-          }
-        }
-      })
+          },
+        })
+      }
     })
   },
 
   submit_result: function (frm) {
     if (frm.doc.show_submit) {
-      frm.page.set_primary_action(__('Submit Results'), function () {
+      frm.page.set_primary_action(__('Submit'), function () {
         frappe.call({
           method: 'education.education.api.submit_assessment_results',
           args: {
@@ -217,16 +192,16 @@ frappe.ui.form.on('Assessment Result Tool', {
           },
           callback: function (r) {
             if (r.message) {
-              frappe.msgprint(__('Assessment Results submitted successfully'))
-              frm.events.assessment_plan(frm)
+              frappe.msgprint(__('{0} Result submittted', [r.message]))
             } else {
-              frappe.msgprint(__('No results to submit'))
+              frappe.msgprint(__('No Result to submit'))
             }
-          }
+            frm.events.assessment_plan(frm)
+          },
         })
       })
     } else {
       frm.page.clear_primary_action()
     }
-  }
+  },
 })
