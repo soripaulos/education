@@ -49,9 +49,7 @@ def get_max_score(assessment_criteria):
 
 
 @frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
-def get_students(doctype, txt, searchfield, start, page_len, filters):
-	student_group = filters.get("student_group")
+def get_students(student_group):
 	if not student_group:
 		frappe.throw(_("Please select a Student Group first"))
 
@@ -59,6 +57,7 @@ def get_students(doctype, txt, searchfield, start, page_len, filters):
 		"Student Group Student",
 		filters={"parent": student_group},
 		fields=["student", "student_name"],
+		order_by="student_name",
 		as_list=1,
 	)
 
