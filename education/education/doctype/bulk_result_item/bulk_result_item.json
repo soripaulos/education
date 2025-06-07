@@ -1,0 +1,10 @@
+{
+  "doctype": "DocType",
+  "name": "Bulk Result Item",
+  "istable": 1,
+  "fields": [
+    {"fieldname": "student", "fieldtype": "Link", "label": "Student", "options": "Student", "reqd": 1},
+    {"fieldname": "student_name", "fieldtype": "Data", "label": "Name", "read_only": 1},
+    {"fieldname": "score", "fieldtype": "Float", "label": "Score", "reqd": 1}
+  ]
+}
