@@ -1,0 +1,47 @@
+{
+  "doctype": "DocType",
+  "name": "Student Exam Result",
+  "is_submittable": 1,
+  "fields": [
+    {"fieldname": "student", "fieldtype": "Link", "label": "Student", "options": "Student", "reqd": 1},
+    {"fieldname": "academic_term", "fieldtype": "Link", "label": "Academic Term", "options": "Academic Term", "reqd": 1},
+    {"fieldname": "subject", "fieldtype": "Link", "label": "Subject", "options": "Subject", "reqd": 1},
+    {"fieldname": "assessment_criteria", "fieldtype": "Link", "label": "Exam", "options": "Assessment Criteria", "reqd": 1},
+    {"fieldname": "score", "fieldtype": "Float", "label": "Score", "reqd": 1},
+    {"fieldname": "max_score", "fieldtype": "Float", "label": "Max Score", "reqd": 1},
+    {"fieldname": "student_group", "fieldtype": "Link", "label": "Student Group", "options": "Student Group"}
+    {
+      "fieldname": "docstatus",
+      "fieldtype": "Int",
+      "label": "Document Status",
+      "hidden": 1,
+      "default": 0
+    }
+  ],
+  "permissions": [
+    {
+      "role": "Academics User",
+      "permlevel": 0,
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1
+    },
+    {
+      "role": "Instructor",
+      "permlevel": 0,
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "Student",
+      "permlevel": 0,
+      "read": 1,
+      "write": 0,
+      "create": 0,
+      "delete": 0
+    }
+  ]
+}
