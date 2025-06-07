@@ -2,6 +2,7 @@
  "actions": [],
  "allow_rename": 0,
  "creation": "2024-05-20 10:20:00.000000",
+ "custom": 1,
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [

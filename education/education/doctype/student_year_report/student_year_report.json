@@ -3,6 +3,7 @@
  "allow_rename": 1,
  "autoname": "naming_series:",
  "creation": "2024-05-20 10:30:00.000000",
+ "custom": 1,
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
