@@ -432,3 +432,28 @@ def check_quiz_completion(quiz, enrollment_name):
 		if result == "Pass":
 			status = True
 	return status, score, result, time_taken
+
+def create_exam_results_from_bulk(bulk_entry):
+    bulk_doc = frappe.get_doc("Bulk Result Entry", bulk_entry)
+    created = []
+    
+    for row in bulk_doc.results:
+        # Create exam result document
+        exam_result = frappe.get_doc({
+            "doctype": "Student Exam Result",
+            "student": row.student,
+            "academic_term": bulk_doc.academic_term,
+            "subject": bulk_doc.subject,
+            "assessment_criteria": bulk_doc.assessment_criteria,
+            "score": row.score,
+            "max_score": bulk_doc.max_score,
+            "student_group": bulk_doc.student_group
+        })
+        
+        # Insert and submit
+        exam_result.insert()
+        exam_result.submit()
+        created.append(exam_result.name)
+    
+    frappe.db.commit()
+    return created
