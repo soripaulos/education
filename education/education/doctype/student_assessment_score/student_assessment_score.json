@@ -108,7 +108,9 @@
    "read": 1,
    "report": 1,
    "role": "Academics User",
+   "set_user_permissions": 0,
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
@@ -120,10 +122,13 @@
    "read": 1,
    "report": 1,
    "role": "Instructor",
-   "share": 1,
+   "set_user_permissions": 0,
+   "share": 0,
+   "submit": 1,
    "write": 1
   }
  ],
+ "quick_entry": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
