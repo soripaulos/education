@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2024-05-20 10:25:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "student",
+  "student_name",
+  "academic_year",
+  "academic_term",
+  "student_group",
+  "term_average",
+  "rank_in_group",
+  "course_summary_section",
+  "course_summary"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "STR-"
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "label": "Student Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Academic Year",
+   "options": "Academic Year",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "academic_term",
+   "fieldtype": "Link",
+   "label": "Academic Term",
+   "options": "Academic Term",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Student Group",
+   "options": "Student Group",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "term_average",
+   "fieldtype": "Float",
+   "label": "Term Average",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "rank_in_group",
+   "fieldtype": "Int",
+   "label": "Rank in Group",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "course_summary_section",
+   "fieldtype": "Section Break",
+   "label": "Course Summary"
+  },
+  {
+   "fieldname": "course_summary",
+   "fieldtype": "Table",
+   "label": "Course Summary",
+   "options": "Course Term Summary"
+  }
+ ],
+ "issubmittable": 1,
+ "links": [],
+ "module": "Education",
+ "name": "Student Term Report",
+ "naming_rule": "By \"Naming Series\"",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Academics User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Instructor",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+} 
