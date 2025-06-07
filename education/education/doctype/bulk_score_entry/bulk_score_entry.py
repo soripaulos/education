@@ -19,14 +19,34 @@ class BulkScoreEntry(Document):
 		if max_score is None:
 			frappe.throw(_("Max score not defined for Assessment Criteria: {0}").format(self.assessment_criteria))
 
+		success_count = 0
+		failed_students = []
+
 		for student_entry in self.students:
 			if student_entry.score is not None:
-				if student_entry.score > max_score:
-					frappe.throw(_("Score for {0} ({1}) cannot be greater than {2}").format(student_entry.student_name, student_entry.score, max_score))
-				if student_entry.score < 0:
-					frappe.throw(_("Score for {0} ({1}) cannot be negative").format(student_entry.student_name, student_entry.score))
+				try:
+					if student_entry.score > max_score:
+						raise ValueError(_("Score ({0}) cannot be greater than {1}").format(student_entry.score, max_score))
+					if student_entry.score < 0:
+						raise ValueError(_("Score cannot be negative"))
+
+					self.create_student_assessment_score(student_entry, max_score)
+					success_count += 1
 				
-				self.create_student_assessment_score(student_entry, max_score)
+				except Exception as e:
+					failed_students.append(student_entry.student_name)
+					frappe.log_error(
+						message=f"Failed to create Assessment Score for Student: {student_entry.student} ({student_entry.student_name})",
+						title="Bulk Score Entry Submission Error"
+					)
+
+		if failed_students:
+			message = _("Successfully created {0} records. ").format(success_count)
+			message += _("Failed to create records for: {0}. ").format(", ".join(failed_students))
+			message += _("Please check the Error Log for more details.")
+			frappe.msgprint(message, title=_("Partial Success"), indicator="orange")
+		else:
+			frappe.msgprint(_("Successfully created and submitted records for all {0} students.").format(success_count), title=_("Success"), indicator="green")
 
 	def create_student_assessment_score(self, student_entry, max_score):
 		doc = frappe.new_doc("Student Assessment Score")
