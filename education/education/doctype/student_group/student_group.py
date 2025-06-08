@@ -212,3 +212,79 @@ def fetch_students(doctype, txt, searchfield, start, page_len, filters):
 			),
 			tuple(["%%%s%%" % txt, "%%%s%%" % txt, start, page_len]),
 		)
+
+# ---- Result Entry Functions ----
+
+def _create_and_submit_single_result(roster_plan, student, score):
+	"""Helper function to create and submit a single student result. Not whitelisted."""
+	try:
+		roster_plan_doc = frappe.get_doc("Roster Plan", roster_plan)
+		student_doc = frappe.get_doc("Student", student)
+
+		if not roster_plan_doc:
+			raise ValueError(f"Roster Plan {roster_plan} not found.")
+		if not student_doc:
+			raise ValueError(f"Student {student} not found.")
+
+		score_value = float(score)
+		max_score = float(roster_plan_doc.maximum_assessment_score)
+
+		if score_value < 0:
+			raise ValueError("Score cannot be negative.")
+		if score_value > max_score:
+			raise ValueError(f"Score ({score_value}) cannot be greater than max score ({max_score}).")
+
+		if frappe.db.exists("Student Term Subject Result", {"roster_plan": roster_plan, "student": student, "docstatus": 1}):
+			raise ValueError("Submitted result for this student and roster plan already exists.")
+
+		doc = frappe.new_doc("Student Term Subject Result")
+		doc.roster_plan = roster_plan
+		doc.student = student
+		doc.student_name = student_doc.student_name
+		doc.grade = roster_plan_doc.grade
+		doc.subject = roster_plan_doc.subject
+		doc.maximum_score = max_score
+		doc.score = score_value
+		
+		doc.insert(ignore_permissions=True)
+		doc.submit()
+	except Exception as e:
+		# Re-raise the exception to be caught by the bulk function
+		raise e
+
+@frappe.whitelist()
+def create_and_submit_bulk_term_subject_results(results_json):
+	"""
+	Whitelist method to accept a list of student results and process them.
+	`results_json` is expected to be a JSON string array of objects,
+	each object containing 'roster_plan', 'student', and 'score'.
+	"""
+	try:
+		results = frappe.parse_json(results_json)
+	except Exception:
+		frappe.throw(_("Invalid JSON data provided."), title="JSON Error")
+
+	if not isinstance(results, list):
+		frappe.throw(_("Payload must be a list of student results."))
+
+	success_count = 0
+	failures = []
+
+	for result in results:
+		try:
+			_create_and_submit_single_result(
+				roster_plan=result.get('roster_plan'),
+				student=result.get('student'),
+				score=result.get('score')
+			)
+			success_count += 1
+		except Exception as e:
+			student_name = frappe.db.get_value("Student", result.get('student'), "student_name", cache=True) or result.get('student')
+			failures.append({"student": student_name, "error": str(e)})
+			frappe.log_error(f"Failed to submit for student {student_name}: {e}", "Bulk Submission Individual Failure")
+	
+	return {
+		"success_count": success_count,
+		"failure_count": len(failures),
+		"failures": failures
+	}

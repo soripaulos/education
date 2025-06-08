@@ -1164,4 +1164,57 @@ def get_existing_teacher_reviews(student=None):
         frappe.log_error(f"Error fetching teacher reviews: {str(e)}")
         frappe.throw(_("Failed to fetch existing reviews"))
 
+@frappe.whitelist()
+def get_students_for_group(student_group):
+	if not student_group:
+		frappe.throw(_("Please select a Student Group first"))
+	return frappe.get_all(
+		"Student Group Student",
+		filters={"parent": student_group},
+		fields=["student", "student_name"],
+		order_by="student_name",
+	)
+
+@frappe.whitelist()
+def create_and_submit_score(academic_year, academic_term, course, assessment_criteria, student, score, student_group):
+	try:
+		doc = frappe.new_doc("Student Assessment Score")
+		doc.academic_year = academic_year
+		doc.academic_term = academic_term
+		doc.student_group = student_group
+		doc.course = course
+		doc.assessment_criteria = assessment_criteria
+		doc.student = student
+		doc.score = float(score)
+		doc.insert(ignore_permissions=True)
+		doc.submit()
+		return doc
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Student Assessment Score API Error")
+		frappe.throw(str(e))
+
+@frappe.whitelist()
+def create_and_submit_term_subject_result(data):
+	data = frappe.parse_json(data)
+	try:
+		doc = frappe.new_doc("Student Term Subject Result")
+		doc.roster_plan = data.get("roster_plan")
+		doc.grade = data.get("grade")
+		doc.subject = data.get("subject")
+		doc.exam = data.get("exam")
+		doc.semester = data.get("semester")
+		doc.academic_year = data.get("academic_year")
+		doc.max_score = data.get("max_score")
+		doc.examiner = data.get("examiner")
+		doc.student_group = data.get("student_group")
+		doc.student = data.get("student")
+		doc.score = data.get("score")
+		
+		doc.insert(ignore_permissions=True)
+		doc.submit()
+		return doc
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Student Term Subject Result API Error")
+		frappe.throw(str(e))
+
 
