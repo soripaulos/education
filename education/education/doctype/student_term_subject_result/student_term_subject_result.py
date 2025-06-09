@@ -73,12 +73,12 @@ def calculate_term_results(semester, academic_year, student_group=None):
 	}
 	
 	if student_group:
-		filters["section"] = student_group  # user's field name for student group
+		filters["student_group"] = student_group
 	
 	# Get all submitted results for the semester
 	results = frappe.get_all("Student Term Subject Result", 
 		filters=filters,
-		fields=["student", "section", "subject", "score", "max_score"]
+		fields=["student", "student_group", "subject", "score", "max_score"]
 	)
 	
 	if not results:
@@ -91,12 +91,12 @@ def calculate_term_results(semester, academic_year, student_group=None):
 		# Get student name separately since it's not in the result
 		student_name = frappe.db.get_value("Student", result.student, "student_name") or result.student
 		
-		key = (result.student, result.section)  # using user's field name 'section'
+		key = (result.student, result.student_group)
 		if key not in student_data:
 			student_data[key] = {
 				"student": result.student,
 				"student_name": student_name,
-				"student_group": result.section,  # user uses 'section' for student group
+				"student_group": result.student_group,
 				"subjects": {}
 			}
 		
@@ -107,7 +107,7 @@ def calculate_term_results(semester, academic_year, student_group=None):
 			}
 		
 		student_data[key]["subjects"][result.subject]["total_score"] += result.score
-		student_data[key]["subjects"][result.subject]["total_max_score"] += result.max_score  # user's field name
+		student_data[key]["subjects"][result.subject]["total_max_score"] += result.max_score
 	
 	# Calculate term averages and create/update term reports
 	for (student, student_group), data in student_data.items():
