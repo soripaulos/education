@@ -45,23 +45,27 @@ class StudentTermReport(Document):
 		if not reports:
 			return
 
-		# Calculate rank with tie handling
+		# Calculate rank with proper tie handling
 		ranks = {}
-		current_rank = 0
-		prev_average = -1
+		current_rank = 1
+		prev_average = None
 		
 		for i, report in enumerate(reports):
-			if flt(report.term_average) < flt(prev_average):
+			current_average = flt(report.term_average)
+			
+			if prev_average is None:
+				# First student gets rank 1
+				current_rank = 1
+			elif current_average < prev_average:
+				# Lower average gets next available rank
 				current_rank = i + 1
-			elif flt(report.term_average) == flt(prev_average):
-				# Tied, so same rank as previous
+			elif current_average == prev_average:
+				# Same average gets same rank as previous
+				# current_rank stays the same
 				pass
-			else:
-				# New rank
-				current_rank = i + 1
-		
+			
 			ranks[report.name] = current_rank
-			prev_average = report.term_average
+			prev_average = current_average
 
 		# Update all reports in the group
 		for name, rank in ranks.items():
@@ -69,58 +73,45 @@ class StudentTermReport(Document):
 		frappe.db.commit()
 
 
-def create_or_update_term_report(student, student_name, academic_year, academic_term, student_group, subjects_data):
-	"""
-	Create or update a term report for a student
-	subjects_data: dict with subject as key and {total_score, total_max_score} as value
-	"""
-	# Check if report already exists
-	existing = frappe.db.exists("Student Term Report", {
-		"student": student,
-		"academic_year": academic_year,
-		"academic_term": academic_term,
-		"student_group": student_group
-	})
+def calculate_and_set_term_ranks(academic_year, academic_term, student_group):
+	"""Calculate and set ranks for all term reports in a group before submission"""
+	reports = frappe.get_all("Student Term Report",
+		filters={
+			"student_group": student_group,
+			"academic_term": academic_term,
+			"academic_year": academic_year,
+			"docstatus": 0  # Only draft documents
+		},
+		fields=["name", "term_average"],
+		order_by="term_average desc"
+	)
 
-	if existing:
-		doc = frappe.get_doc("Student Term Report", existing)
-		# Cancel if submitted to allow updates
-		if doc.docstatus == 1:
-			doc.cancel()
-	else:
-		doc = frappe.new_doc("Student Term Report")
-		doc.student = student
-		doc.student_name = student_name
-		doc.academic_year = academic_year
-		doc.academic_term = academic_term
-		doc.student_group = student_group
+	if not reports:
+		return
 
-	# Clear existing course summary
-	doc.course_summary = []
+	# Calculate rank with proper tie handling
+	ranks = {}
+	current_rank = 1
+	prev_average = None
+	
+	for i, report in enumerate(reports):
+		current_average = flt(report.term_average)
+		
+		if prev_average is None:
+			# First student gets rank 1
+			current_rank = 1
+		elif current_average < prev_average:
+			# Lower average gets next available rank
+			current_rank = i + 1
+		elif current_average == prev_average:
+			# Same average gets same rank as previous
+			# current_rank stays the same
+			pass
+		
+		ranks[report.name] = current_rank
+		prev_average = current_average
 
-	# Add course summary data
-	total_percentage = 0
-	subject_count = 0
-
-	for subject, data in subjects_data.items():
-		if data["total_max_score"] > 0:
-			percentage = (data["total_score"] / data["total_max_score"]) * 100
-			total_percentage += percentage
-			subject_count += 1
-
-			doc.append("course_summary", {
-				"course": subject,
-				"total_score_for_term": data["total_score"],
-				"total_maximum_score": data["total_max_score"],
-				"percentage": percentage
-			})
-
-	# Calculate term average
-	if subject_count > 0:
-		doc.term_average = total_percentage / subject_count
-
-	# Save and submit
-	doc.save()
-	doc.submit()
-
-	return doc 
+	# Update all reports in the group
+	for name, rank in ranks.items():
+		frappe.db.set_value("Student Term Report", name, "rank_in_group", rank, update_modified=False)
+	frappe.db.commit() 

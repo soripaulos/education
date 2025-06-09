@@ -34,23 +34,27 @@ class StudentYearReport(Document):
 		if not reports:
 			return
 
-		# Calculate rank with tie handling
+		# Calculate rank with proper tie handling
 		ranks = {}
-		current_rank = 0
-		prev_average = -1
+		current_rank = 1
+		prev_average = None
 		
 		for i, report in enumerate(reports):
-			if flt(report.year_average) < flt(prev_average):
+			current_average = flt(report.year_average)
+			
+			if prev_average is None:
+				# First student gets rank 1
+				current_rank = 1
+			elif current_average < prev_average:
+				# Lower average gets next available rank
 				current_rank = i + 1
-			elif flt(report.year_average) == flt(prev_average):
-				# Tied, so same rank as previous
+			elif current_average == prev_average:
+				# Same average gets same rank as previous
+				# current_rank stays the same
 				pass
-			else:
-				# New rank
-				current_rank = i + 1
-		
+			
 			ranks[report.name] = current_rank
-			prev_average = report.year_average
+			prev_average = current_average
 
 		# Update all reports in the group
 		for name, rank in ranks.items():
@@ -58,34 +62,44 @@ class StudentYearReport(Document):
 		frappe.db.commit()
 
 
-def create_or_update_year_report(student, student_name, academic_year, student_group, year_average):
-	"""
-	Create or update a year report for a student
-	"""
-	# Check if report already exists
-	existing = frappe.db.exists("Student Year Report", {
-		"student": student,
-		"academic_year": academic_year,
-		"student_group": student_group
-	})
+def calculate_and_set_year_ranks(academic_year, student_group):
+	"""Calculate and set ranks for all year reports in a group before submission"""
+	reports = frappe.get_all("Student Year Report",
+		filters={
+			"student_group": student_group,
+			"academic_year": academic_year,
+			"docstatus": 0  # Only draft documents
+		},
+		fields=["name", "year_average"],
+		order_by="year_average desc"
+	)
 
-	if existing:
-		doc = frappe.get_doc("Student Year Report", existing)
-		# Cancel if submitted to allow updates
-		if doc.docstatus == 1:
-			doc.cancel()
-	else:
-		doc = frappe.new_doc("Student Year Report")
-		doc.student = student
-		doc.student_name = student_name
-		doc.academic_year = academic_year
-		doc.student_group = student_group
+	if not reports:
+		return
 
-	# Set year average
-	doc.year_average = year_average
+	# Calculate rank with proper tie handling
+	ranks = {}
+	current_rank = 1
+	prev_average = None
+	
+	for i, report in enumerate(reports):
+		current_average = flt(report.year_average)
+		
+		if prev_average is None:
+			# First student gets rank 1
+			current_rank = 1
+		elif current_average < prev_average:
+			# Lower average gets next available rank
+			current_rank = i + 1
+		elif current_average == prev_average:
+			# Same average gets same rank as previous
+			# current_rank stays the same
+			pass
+		
+		ranks[report.name] = current_rank
+		prev_average = current_average
 
-	# Save and submit
-	doc.save()
-	doc.submit()
-
-	return doc 
+	# Update all reports in the group
+	for name, rank in ranks.items():
+		frappe.db.set_value("Student Year Report", name, "rank_in_group", rank, update_modified=False)
+	frappe.db.commit() 
