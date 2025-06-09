@@ -32,6 +32,7 @@ function calculate_results(frm) {
 	}
 
 	// Show confirmation dialog
+	let action_text = frm.doc.result_action === 'Save as Draft' ? 'save as drafts' : 'calculate and submit';
 	let message = `Calculate ${frm.doc.calculation_type} for ${frm.doc.academic_year}`;
 	if (frm.doc.semester) {
 		message += ` - ${frm.doc.semester}`;
@@ -41,7 +42,7 @@ function calculate_results(frm) {
 	} else {
 		message += ` (All Student Groups)`;
 	}
-	message += '?';
+	message += ` and ${action_text}?`;
 
 	frappe.confirm(
 		message,
@@ -58,7 +59,8 @@ function calculate_results(frm) {
 					calculation_type: frm.doc.calculation_type,
 					academic_year: frm.doc.academic_year,
 					semester: frm.doc.semester,
-					student_group: frm.doc.student_group
+					student_group: frm.doc.student_group,
+					result_action: frm.doc.result_action
 				},
 				callback: function(r) {
 					if (r.message && r.message.status === 'success') {

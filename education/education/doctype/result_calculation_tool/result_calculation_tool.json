@@ -12,6 +12,8 @@
   "academic_year",
   "semester",
   "student_group",
+  "section_break_3",
+  "result_action",
   "section_break_2",
   "calculate_button"
  ],
@@ -54,6 +56,20 @@
    "label": "Student Group (Optional)",
    "options": "Student Group",
    "description": "Leave blank to calculate for all student groups"
+  },
+  {
+   "fieldname": "section_break_3",
+   "fieldtype": "Section Break",
+   "label": "Result Action"
+  },
+  {
+   "fieldname": "result_action",
+   "fieldtype": "Select",
+   "label": "After Calculation",
+   "options": "Save as Draft\nSave and Submit",
+   "default": "Save as Draft",
+   "reqd": 1,
+   "description": "Choose whether to save results as drafts or submit them immediately"
   },
   {
    "fieldname": "section_break_2",

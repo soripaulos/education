@@ -1315,28 +1315,34 @@ def trigger_year_calculation(academic_year, student_group=None):
 
 
 @frappe.whitelist()
-def calculate_results(calculation_type, academic_year, semester=None, student_group=None):
+def calculate_results(calculation_type, academic_year, semester=None, student_group=None, result_action="Save as Draft"):
 	"""
 	Calculate term or year results based on parameters
 	Updated to use user's field names: semester instead of academic_term
 	"""
 	try:
+		submit_results = result_action == "Save and Submit"
+		
 		if calculation_type == "Term Results":
 			if not semester:
 				frappe.throw("Semester is required for Term Results calculation")
 			
 			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
-			calculate_term_results(semester, academic_year, student_group)
+			calculate_term_results(semester, academic_year, student_group, submit_results)
 			
 		elif calculation_type == "Year Results":
 			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
-			calculate_year_results(academic_year, student_group)
+			calculate_year_results(academic_year, student_group, submit_results)
 		
 		else:
 			frappe.throw("Invalid calculation type")
 			
 		frappe.db.commit()
-		return {"status": "success", "message": "Calculation completed successfully"}
+		
+		if submit_results:
+			return {"status": "success", "message": "Calculation completed and results submitted successfully"}
+		else:
+			return {"status": "success", "message": "Calculation completed and results saved as drafts"}
 		
 	except Exception as e:
 		frappe.db.rollback()

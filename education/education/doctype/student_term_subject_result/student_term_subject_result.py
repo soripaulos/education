@@ -58,7 +58,7 @@ class StudentTermSubjectResult(Document):
 		pass
 
 
-def calculate_term_results(semester, academic_year, student_group=None):
+def calculate_term_results(semester, academic_year, student_group=None, submit_results=True):
 	"""
 	Calculate term results for all students in a semester
 	This function will be called by server script or manually
@@ -132,12 +132,16 @@ def calculate_term_results(semester, academic_year, student_group=None):
 		# Calculate rankings for the entire group
 		calculate_and_set_term_ranks_for_group(academic_year, semester, group_name)
 		
-		# Now submit all reports with rankings already set
-		for report in draft_reports:
-			report.reload()
-			report.submit()
+		# Submit all reports with rankings already set (if requested)
+		if submit_results:
+			for report in draft_reports:
+				report.reload()
+				report.submit()
 	
-	frappe.msgprint(f"Term results calculated for {len(student_data)} students")
+	if submit_results:
+		frappe.msgprint(f"Term results calculated and submitted for {len(student_data)} students")
+	else:
+		frappe.msgprint(f"Term results calculated and saved as drafts for {len(student_data)} students")
 
 
 def create_term_report_draft(student, student_name, academic_year, academic_term, student_group, subjects_data):
@@ -200,7 +204,7 @@ def calculate_and_set_term_ranks_for_group(academic_year, academic_term, student
 	calculate_and_set_term_ranks(academic_year, academic_term, student_group)
 
 
-def calculate_year_results(academic_year, student_group=None):
+def calculate_year_results(academic_year, student_group=None, submit_results=True):
 	"""
 	Calculate year results by averaging term results
 	This function will be called when academic year is completed
@@ -263,12 +267,16 @@ def calculate_year_results(academic_year, student_group=None):
 		# Calculate rankings for the entire group
 		calculate_and_set_year_ranks_for_group(academic_year, group_name)
 		
-		# Now submit all reports with rankings already set
-		for report in draft_reports:
-			report.reload()
-			report.submit()
+		# Submit all reports with rankings already set (if requested)
+		if submit_results:
+			for report in draft_reports:
+				report.reload()
+				report.submit()
 	
-	frappe.msgprint(f"Year results calculated for {len(student_data)} students")
+	if submit_results:
+		frappe.msgprint(f"Year results calculated and submitted for {len(student_data)} students")
+	else:
+		frappe.msgprint(f"Year results calculated and saved as drafts for {len(student_data)} students")
 
 
 def create_year_report_draft(student, student_name, academic_year, student_group, year_average):
