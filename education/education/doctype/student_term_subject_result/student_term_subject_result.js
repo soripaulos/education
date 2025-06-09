@@ -1,3 +1,6 @@
+// Copyright (c) 2024, Frappe Technologies and contributors
+// For license information, please see license.txt
+
 frappe.ui.form.on('Student Term Subject Result', {
     // 1. INITIALIZATION
     onload: function(frm) {
@@ -66,15 +69,35 @@ frappe.ui.form.on('Student Term Subject Result', {
 
     // 3. SCORE VALIDATION
     score: function(frm) {
-        if (!frm.doc.score || !frm.doc.max_score) return;
-        
-        if (parseFloat(frm.doc.score) > parseFloat(frm.doc.max_score)) {
-            frappe.msgprint({
-                title: __('Invalid Score'),
-                indicator: 'red',
-                message: __('Score cannot exceed Max Score of {0}', [frm.doc.max_score])
-            });
-            frm.set_value('score', '');
+        calculate_percentage(frm);
+        validate_score(frm);
+    },
+
+    max_score: function(frm) {
+        calculate_percentage(frm);
+        validate_score(frm);
+    },
+
+    student: function(frm) {
+        if (frm.doc.student) {
+            frappe.db.get_value('Student', frm.doc.student, 'student_name')
+                .then(r => {
+                    if (r.message) {
+                        frm.set_value('student_name', r.message.student_name);
+                    }
+                });
+        }
+    },
+
+    refresh: function(frm) {
+        // Set student name when student is selected
+        if (frm.doc.student && !frm.doc.student_name) {
+            frappe.db.get_value('Student', frm.doc.student, 'student_name')
+                .then(r => {
+                    if (r.message) {
+                        frm.set_value('student_name', r.message.student_name);
+                    }
+                });
         }
     }
 });
@@ -160,4 +183,33 @@ function clearDownstreamFields(frm, fields) {
     fields.forEach(field => {
         if (frm.doc[field]) frm.set_value(field, '');
     });
+}
+
+function calculate_percentage(frm) {
+    if (frm.doc.score && frm.doc.maximum_score && frm.doc.maximum_score > 0) {
+        let percentage = (frm.doc.score / frm.doc.maximum_score) * 100;
+        frm.set_value('percentage', percentage);
+    }
+}
+
+function validate_score(frm) {
+    if (frm.doc.score && frm.doc.maximum_score) {
+        if (parseFloat(frm.doc.score) > parseFloat(frm.doc.maximum_score)) {
+            frappe.msgprint({
+                title: __('Invalid Score'),
+                indicator: 'red',
+                message: __('Score cannot exceed Maximum Score of {0}', [frm.doc.maximum_score])
+            });
+            frm.set_value('score', '');
+        }
+        
+        if (parseFloat(frm.doc.score) < 0) {
+            frappe.msgprint({
+                title: __('Invalid Score'),
+                indicator: 'red',
+                message: __('Score cannot be negative')
+            });
+            frm.set_value('score', '');
+        }
+    }
 } 

@@ -1198,23 +1198,117 @@ def create_and_submit_term_subject_result(data):
 	data = frappe.parse_json(data)
 	try:
 		doc = frappe.new_doc("Student Term Subject Result")
-		doc.roster_plan = data.get("roster_plan")
-		doc.grade = data.get("grade")
-		doc.subject = data.get("subject")
-		doc.exam = data.get("exam")
-		doc.semester = data.get("semester")
-		doc.academic_year = data.get("academic_year")
-		doc.max_score = data.get("max_score")
-		doc.examiner = data.get("examiner")
-		doc.student_group = data.get("student_group")
+		# Use the user's actual field names
 		doc.student = data.get("student")
-		doc.score = data.get("score")
+		doc.academic_year = data.get("academic_year")
+		doc.semester = data.get("semester")  # user's field name for academic term
+		doc.subject = data.get("subject")
+		doc.section = data.get("section") or data.get("student_group")  # user's field name
+		doc.grade = data.get("grade")
+		doc.exam = data.get("exam") or data.get("assessment_criteria")  # user's field name
+		doc.roster_plan = data.get("roster_plan")
+		doc.score = float(data.get("score"))
+		doc.max_score = float(data.get("max_score") or data.get("maximum_score"))  # user's field name
+		doc.examiner = data.get("examiner") or data.get("instructor")  # user's field name
 		
 		doc.insert(ignore_permissions=True)
 		doc.submit()
-		return doc
+		return {"status": "success", "name": doc.name, "message": "Result submitted successfully"}
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Student Term Subject Result API Error")
 		frappe.throw(str(e))
+
+
+@frappe.whitelist()
+def get_student_term_results(student, academic_year, semester=None):
+	"""Get all term subject results for a student"""
+	try:
+		filters = {
+			"student": student,
+			"academic_year": academic_year,
+			"docstatus": 1
+		}
+		
+		if semester:
+			filters["semester"] = semester  # user's field name
+		
+		results = frappe.get_all("Student Term Subject Result",
+			filters=filters,
+			fields=["name", "subject", "semester", "exam", 
+					"score", "max_score", "percentage", "modified"],
+			order_by="semester, subject"
+		)
+		
+		return {"status": "success", "results": results}
+	except Exception as e:
+		frappe.log_error(f"Error fetching student term results: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def get_student_term_report(student, academic_year, academic_term, student_group):
+	"""Get term report for a student"""
+	try:
+		report = frappe.db.get_value("Student Term Report", {
+			"student": student,
+			"academic_year": academic_year,
+			"academic_term": academic_term,
+			"student_group": student_group,
+			"docstatus": 1
+		}, ["name", "term_average", "rank_in_group"], as_dict=True)
+		
+		if report:
+			# Get course summary
+			course_summary = frappe.get_all("Course Term Summary",
+				filters={"parent": report.name},
+				fields=["course", "total_score_for_term", "total_maximum_score", "percentage"]
+			)
+			report["course_summary"] = course_summary
+			
+		return {"status": "success", "report": report}
+	except Exception as e:
+		frappe.log_error(f"Error fetching student term report: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def get_student_year_report(student, academic_year, student_group):
+	"""Get year report for a student"""
+	try:
+		report = frappe.db.get_value("Student Year Report", {
+			"student": student,
+			"academic_year": academic_year,
+			"student_group": student_group,
+			"docstatus": 1
+		}, ["name", "year_average", "rank_in_group"], as_dict=True)
+		
+		return {"status": "success", "report": report}
+	except Exception as e:
+		frappe.log_error(f"Error fetching student year report: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def trigger_term_calculation(academic_year, semester, student_group=None):
+	"""Trigger term result calculation using user's field names"""
+	try:
+		from education.education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
+		calculate_term_results(semester, academic_year, student_group)
+		return {"status": "success", "message": "Term calculation completed successfully"}
+	except Exception as e:
+		frappe.log_error(f"Error in term calculation: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def trigger_year_calculation(academic_year, student_group=None):
+	"""Trigger year result calculation"""
+	try:
+		from education.education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
+		calculate_year_results(academic_year, student_group)
+		return {"status": "success", "message": "Year calculation completed successfully"}
+	except Exception as e:
+		frappe.log_error(f"Error in year calculation: {str(e)}")
+		return {"status": "error", "message": str(e)}
 
 

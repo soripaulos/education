@@ -7,7 +7,9 @@
  "engine": "InnoDB",
  "field_order": [
   "course",
-  "total_score_for_term"
+  "total_score_for_term",
+  "total_maximum_score",
+  "percentage"
  ],
  "fields": [
   {
@@ -22,6 +24,22 @@
    "fieldname": "total_score_for_term",
    "fieldtype": "Float",
    "label": "Total Score for Term",
+   "in_list_view": 1,
+   "read_only": 1,
+   "precision": "2"
+  },
+  {
+   "fieldname": "total_maximum_score",
+   "fieldtype": "Float",
+   "label": "Total Maximum Score",
+   "in_list_view": 1,
+   "read_only": 1,
+   "precision": "2"
+  },
+  {
+   "fieldname": "percentage",
+   "fieldtype": "Percent",
+   "label": "Percentage",
    "in_list_view": 1,
    "read_only": 1
   }
