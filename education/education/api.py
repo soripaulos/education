@@ -1292,7 +1292,7 @@ def get_student_year_report(student, academic_year, student_group):
 def trigger_term_calculation(academic_year, semester, student_group=None):
 	"""Trigger term result calculation using user's field names"""
 	try:
-		from education.education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
+		from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
 		calculate_term_results(semester, academic_year, student_group)
 		return {"status": "success", "message": "Term calculation completed successfully"}
 	except Exception as e:
@@ -1304,7 +1304,7 @@ def trigger_term_calculation(academic_year, semester, student_group=None):
 def trigger_year_calculation(academic_year, student_group=None):
 	"""Trigger year result calculation"""
 	try:
-		from education.education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
+		from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
 		calculate_year_results(academic_year, student_group)
 		return {"status": "success", "message": "Year calculation completed successfully"}
 	except Exception as e:

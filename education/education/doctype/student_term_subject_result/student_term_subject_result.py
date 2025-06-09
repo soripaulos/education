@@ -63,7 +63,7 @@ def calculate_term_results(semester, academic_year, student_group=None):
 	Calculate term results for all students in a semester
 	This function will be called by server script or manually
 	"""
-	from education.education.education.doctype.student_term_report.student_term_report import create_or_update_term_report
+	from education.education.doctype.student_term_report.student_term_report import create_or_update_term_report
 	
 	# Get all students in the semester using user's field names
 	filters = {
@@ -128,7 +128,7 @@ def calculate_year_results(academic_year, student_group=None):
 	Calculate year results by averaging term results
 	This function will be called when academic year is completed
 	"""
-	from education.education.education.doctype.student_year_report.student_year_report import create_or_update_year_report
+	from education.education.doctype.student_year_report.student_year_report import create_or_update_year_report
 	
 	# Get all term reports for the academic year
 	filters = {

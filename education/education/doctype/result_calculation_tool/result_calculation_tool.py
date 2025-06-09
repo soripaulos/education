@@ -20,11 +20,11 @@ def calculate_results(calculation_type, academic_year, semester=None, student_gr
 			if not semester:
 				frappe.throw("Semester is required for Term Results calculation")
 			
-			from education.education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
+			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
 			calculate_term_results(semester, academic_year, student_group)
 			
 		elif calculation_type == "Year Results":
-			from education.education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
+			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
 			calculate_year_results(academic_year, student_group)
 		
 		else:
