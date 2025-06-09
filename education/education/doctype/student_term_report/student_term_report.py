@@ -22,41 +22,51 @@ class StudentTermReport(Document):
 
 	def on_submit(self):
 		"""Calculate rank after submission"""
-		self.calculate_rank()
+		self.queue_action(
+			"calculate_rank_for_group",
+			student_group=self.student_group,
+			academic_term=self.academic_term,
+			academic_year=self.academic_year,
+		)
 
-	def calculate_rank(self):
-		"""Calculate rank within student group"""
-		if not self.term_average or not self.student_group:
-			return
-
-		# Get all submitted term reports for the same group, term, and year
-		reports = frappe.get_all("Student Term Report", 
+	def calculate_rank_for_group(self, student_group, academic_term, academic_year):
+		"""Calculate rank for all students in the group"""
+		reports = frappe.get_all("Student Term Report",
 			filters={
-				"student_group": self.student_group,
-				"academic_term": self.academic_term,
-				"academic_year": self.academic_year,
+				"student_group": student_group,
+				"academic_term": academic_term,
+				"academic_year": academic_year,
 				"docstatus": 1
 			},
 			fields=["name", "term_average"],
 			order_by="term_average desc"
 		)
 
-		# Calculate rank with tie handling
-		rank = 1
-		prev_average = None
-		actual_position = 1
+		if not reports:
+			return
 
-		for report in reports:
-			if prev_average is not None and flt(report.term_average) < flt(prev_average):
-				rank = actual_position
-			
-			if report.name == self.name:
-				self.rank_in_group = rank
-				frappe.db.set_value("Student Term Report", self.name, "rank_in_group", rank)
-				break
-			
+		# Calculate rank with tie handling
+		ranks = {}
+		current_rank = 0
+		prev_average = -1
+		
+		for i, report in enumerate(reports):
+			if flt(report.term_average) < flt(prev_average):
+				current_rank = i + 1
+			elif flt(report.term_average) == flt(prev_average):
+				# Tied, so same rank as previous
+				pass
+			else:
+				# New rank
+				current_rank = i + 1
+		
+			ranks[report.name] = current_rank
 			prev_average = report.term_average
-			actual_position += 1
+
+		# Update all reports in the group
+		for name, rank in ranks.items():
+			frappe.db.set_value("Student Term Report", name, "rank_in_group", rank, update_modified=False)
+		frappe.db.commit()
 
 
 def create_or_update_term_report(student, student_name, academic_year, academic_term, student_group, subjects_data):
