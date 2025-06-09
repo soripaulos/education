@@ -53,7 +53,7 @@ function calculate_results(frm) {
 			});
 
 			frappe.call({
-				method: 'education.education.education.doctype.result_calculation_tool.result_calculation_tool.calculate_results',
+				method: 'education.education.api.calculate_results',
 				args: {
 					calculation_type: frm.doc.calculation_type,
 					academic_year: frm.doc.academic_year,
