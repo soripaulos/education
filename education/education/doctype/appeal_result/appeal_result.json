@@ -1,1 +1,166 @@
- 
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "format:AR-{student}-{subject}-{##}",
+    "creation": "2024-06-15 10:00:00.000000",
+    "custom": 1,
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+     "student",
+     "student_name",
+     "student_group",
+     "column_break_1",
+     "academic_year",
+     "semester",
+     "section_break_1",
+     "subject",
+     "exam",
+     "original_score",
+     "original_max_score",
+     "section_break_2",
+     "reason",
+     "attachment",
+     "status_section",
+     "status",
+     "resolution"
+    ],
+    "fields": [
+     {
+      "fieldname": "student",
+      "fieldtype": "Link",
+      "label": "Student",
+      "options": "Student",
+      "reqd": 1,
+      "in_list_view": 1
+     },
+     {
+      "fieldname": "student_name",
+      "fieldtype": "Data",
+      "label": "Student Name",
+      "read_only": 1,
+      "fetch_from": "student.student_name"
+     },
+     {
+      "fieldname": "student_group",
+      "fieldtype": "Link",
+      "label": "Class/Group",
+      "options": "Student Group"
+     },
+     {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+     },
+     {
+      "fieldname": "academic_year",
+      "fieldtype": "Link",
+      "label": "Academic Year",
+      "options": "Academic Year",
+      "reqd": 1
+     },
+     {
+      "fieldname": "semester",
+      "fieldtype": "Link",
+      "label": "Semester",
+      "options": "Academic Term",
+      "reqd": 1
+     },
+     {
+      "fieldname": "section_break_1",
+      "fieldtype": "Section Break",
+      "label": "Appeal Details"
+     },
+     {
+      "fieldname": "subject",
+      "fieldtype": "Link",
+      "label": "Subject",
+      "options": "Course",
+      "reqd": 1
+     },
+     {
+      "fieldname": "exam",
+      "fieldtype": "Data",
+      "label": "Exam",
+      "reqd": 1
+     },
+     {
+      "fieldname": "original_score",
+      "fieldtype": "Float",
+      "label": "Original Score",
+      "read_only": 1
+     },
+     {
+      "fieldname": "original_max_score",
+      "fieldtype": "Float",
+      "label": "Original Max Score",
+      "read_only": 1
+     },
+     {
+      "fieldname": "section_break_2",
+      "fieldtype": "Section Break"
+     },
+     {
+      "fieldname": "reason",
+      "fieldtype": "Text",
+      "label": "Reason for Appeal",
+      "reqd": 1
+     },
+     {
+      "fieldname": "attachment",
+      "fieldtype": "Attach Image",
+      "label": "Proof/Attachment"
+     },
+     {
+      "fieldname": "status_section",
+      "fieldtype": "Section Break",
+      "label": "Resolution"
+     },
+     {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "\\nOpen\\nIn Review\\nResolved\\nRejected",
+      "default": "Open",
+      "in_list_view": 1
+     },
+     {
+      "fieldname": "resolution",
+      "fieldtype": "Text",
+      "label": "Resolution Notes",
+      "depends_on": "eval:doc.status!='Open'"
+     }
+    ],
+    "index_web_pages_for_search": 1,
+    "is_submittable": 0,
+    "links": [],
+    "module": "Education",
+    "name": "Appeal Result",
+    "naming_rule": "Expression (autoname)",
+    "owner": "Administrator",
+    "permissions": [
+     {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+     },
+     {
+      "create": 1,
+      "read": 1,
+      "role": "Student",
+      "share": 1,
+      "write": 1
+     }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1
+   }
+    
