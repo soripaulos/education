@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:SF-{student}-{YYYY}-{MM}-{DD}-{##}",
+ "creation": "2024-06-11 12:00:00.000000",
+ "custom": 1,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "student_section",
+  "student",
+  "student_name",
+  "column_break_1",
+  "status",
+  "feedback_section",
+  "category",
+  "subcategory",
+  "specific_issue",
+  "contextual_details",
+  "remarks",
+  "other_feedback_section",
+  "other_issues_feedback"
+ ],
+ "fields": [
+  {
+   "fieldname": "student_section",
+   "fieldtype": "Section Break",
+   "label": "Student Information"
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "label": "Student Name",
+   "fetch_from": "student.student_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nIn Review\nResolved\nClosed",
+   "default": "Open",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "feedback_section",
+   "fieldtype": "Section Break",
+   "label": "Structured Feedback"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Data",
+   "label": "Category",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "subcategory",
+   "fieldtype": "Data",
+   "label": "Subcategory",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "specific_issue",
+   "fieldtype": "Data",
+   "label": "Specific Issue",
+   "reqd": 1
+  },
+  {
+   "fieldname": "contextual_details",
+   "fieldtype": "JSON",
+   "label": "Contextual Details"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "other_feedback_section",
+   "fieldtype": "Section Break",
+   "label": "Other Feedback"
+  },
+  {
+   "fieldname": "other_issues_feedback",
+   "fieldtype": "Text",
+   "label": "Feedback for Other Issues"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 0,
+ "links": [],
+ "module": "Education",
+ "name": "School Feedback",
+ "naming_rule": "Expression (autoname)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Student",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+} 
