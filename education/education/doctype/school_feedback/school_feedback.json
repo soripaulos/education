@@ -17,9 +17,12 @@
   "subcategory",
   "specific_issue",
   "contextual_details",
+  "attachment",
   "remarks",
   "other_feedback_section",
-  "other_issues_feedback"
+  "other_issues_feedback",
+  "section_break_config",
+  "feedback_categories_config"
  ],
  "fields": [
   {
@@ -58,47 +61,73 @@
   {
    "fieldname": "feedback_section",
    "fieldtype": "Section Break",
-   "label": "Structured Feedback"
+   "label": "Feedback Details"
   },
   {
    "fieldname": "category",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "label": "Category",
    "reqd": 1,
    "in_list_view": 1
   },
   {
    "fieldname": "subcategory",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "label": "Subcategory",
    "reqd": 1,
-   "in_list_view": 1
+   "in_list_view": 1,
+   "depends_on": "eval:doc.category && doc.category != 'Other Issues'"
   },
   {
    "fieldname": "specific_issue",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "label": "Specific Issue",
-   "reqd": 1
+   "reqd": 1,
+   "depends_on": "eval:doc.subcategory && doc.category != 'Other Issues'"
   },
   {
    "fieldname": "contextual_details",
    "fieldtype": "JSON",
-   "label": "Contextual Details"
+   "label": "Contextual Details",
+   "depends_on": "eval:doc.category != 'Other Issues'"
+  },
+  {
+   "fieldname": "attachment",
+   "fieldtype": "Attach Image",
+   "label": "Supporting Document/Image"
   },
   {
    "fieldname": "remarks",
    "fieldtype": "Text",
-   "label": "Remarks"
+   "label": "Additional Remarks",
+   "depends_on": "eval:doc.category != 'Other Issues'"
   },
   {
    "fieldname": "other_feedback_section",
    "fieldtype": "Section Break",
-   "label": "Other Feedback"
+   "label": "Other Issues Details",
+   "depends_on": "eval:doc.category == 'Other Issues'"
   },
   {
    "fieldname": "other_issues_feedback",
-   "fieldtype": "Text",
-   "label": "Feedback for Other Issues"
+   "fieldtype": "Long Text",
+   "label": "Describe the Issue",
+   "depends_on": "eval:doc.category == 'Other Issues'"
+  },
+  {
+   "fieldname": "section_break_config",
+   "fieldtype": "Section Break",
+   "label": "Configuration",
+   "collapsible": 1,
+   "depends_on": "eval:frappe.user.has_role('System Manager')"
+  },
+  {
+   "fieldname": "feedback_categories_config",
+   "fieldtype": "JSON",
+   "label": "Feedback Categories Configuration",
+   "description": "JSON configuration for categories, subcategories, and specific issues. Only visible to System Manager.",
+   "depends_on": "eval:frappe.user.has_role('System Manager')",
+   "default": "{\n  \"Academic Issues\": {\n    \"Curriculum\": [\"Content Difficulty\", \"Pace Too Fast\", \"Pace Too Slow\", \"Missing Topics\"],\n    \"Teaching Methods\": [\"Unclear Explanations\", \"Lack of Examples\", \"No Interactive Activities\", \"Poor Use of Technology\"],\n    \"Assessment\": [\"Unfair Grading\", \"Too Many Tests\", \"Unclear Instructions\", \"Late Feedback\"]\n  },\n  \"Facility Issues\": {\n    \"Classroom\": [\"Poor Lighting\", \"Uncomfortable Seating\", \"Temperature Issues\", \"Cleanliness\"],\n    \"Technology\": [\"Broken Equipment\", \"Internet Issues\", \"Software Problems\", \"Lack of Resources\"],\n    \"Safety\": [\"Security Concerns\", \"Emergency Procedures\", \"Maintenance Issues\", \"Accessibility\"]\n  },\n  \"Administrative Issues\": {\n    \"Communication\": [\"Poor Information Sharing\", \"Late Notifications\", \"Unclear Policies\", \"Language Barriers\"],\n    \"Scheduling\": [\"Conflicting Times\", \"Too Many Classes\", \"Break Time Issues\", \"Event Planning\"],\n    \"Documentation\": [\"Missing Records\", \"Incorrect Information\", \"Slow Processing\", \"Lost Documents\"]\n  },\n  \"Other Issues\": {}\n}"
   }
  ],
  "index_web_pages_for_search": 1,
