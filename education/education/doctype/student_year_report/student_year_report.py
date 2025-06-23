@@ -6,58 +6,59 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 
+def calculate_course_summaries(doc):
+	"""Fetch all term reports and calculate the year's summary for each course."""
+	doc.course_year_summary = []
+	term_reports = frappe.get_all("Student Term Report",
+		filters={
+			"student": doc.student,
+			"academic_year": doc.academic_year,
+			"docstatus": 1
+		},
+		fields=["name"]
+	)
+
+	if not term_reports:
+		return
+
+	course_data = {}
+	for report_info in term_reports:
+		report = frappe.get_doc("Student Term Report", report_info.name)
+		for summary in report.course_summary:
+			course = summary.course
+			if course not in course_data:
+				course_data[course] = {
+					"total_score": 0,
+					"max_score": 0,
+					"count": 0
+				}
+			course_data[course]["total_score"] += summary.total_score_for_term
+			course_data[course]["max_score"] += summary.total_maximum_score
+			course_data[course]["count"] += 1
+
+	total_year_average = 0
+	num_courses = 0
+	for course, data in course_data.items():
+		percentage = (data["total_score"] / data["max_score"] * 100) if data["max_score"] else 0
+		doc.append("course_year_summary", {
+			"course": course,
+			"total_year_score": data["total_score"],
+			"total_year_max_score": data["max_score"],
+			"year_average_percentage": percentage,
+			"terms_count": data["count"]
+		})
+		total_year_average += percentage
+		num_courses += 1
+	
+	if num_courses > 0:
+		doc.year_average = total_year_average / num_courses
+
+
 class StudentYearReport(Document):
 	def validate(self):
 		if self.student:
 			self.student_name = frappe.db.get_value("Student", self.student, "student_name")
-		self.calculate_year_summary_for_courses()
-
-	def calculate_year_summary_for_courses(self):
-		"""Fetch all term reports and calculate the year's summary for each course."""
-		self.course_year_summary = []
-		term_reports = frappe.get_all("Student Term Report",
-			filters={
-				"student": self.student,
-				"academic_year": self.academic_year,
-				"docstatus": 1
-			},
-			fields=["name"]
-		)
-
-		if not term_reports:
-			return
-
-		course_data = {}
-		for report_info in term_reports:
-			report = frappe.get_doc("Student Term Report", report_info.name)
-			for summary in report.course_summary:
-				course = summary.course
-				if course not in course_data:
-					course_data[course] = {
-						"total_score": 0,
-						"max_score": 0,
-						"count": 0
-					}
-				course_data[course]["total_score"] += summary.total_score_for_term
-				course_data[course]["max_score"] += summary.total_maximum_score
-				course_data[course]["count"] += 1
-
-		total_year_average = 0
-		num_courses = 0
-		for course, data in course_data.items():
-			percentage = (data["total_score"] / data["max_score"] * 100) if data["max_score"] else 0
-			self.append("course_year_summary", {
-				"course": course,
-				"total_year_score": data["total_score"],
-				"total_year_max_score": data["max_score"],
-				"year_average_percentage": percentage,
-				"terms_count": data["count"]
-			})
-			total_year_average += percentage
-			num_courses += 1
-		
-		if num_courses > 0:
-			self.year_average = total_year_average / num_courses
+		calculate_course_summaries(self)
 
 	def on_submit(self):
 		"""Calculate rank after submission"""

@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from collections import defaultdict
+from education.education.doctype.student_year_report.student_year_report import calculate_course_summaries
 
 class RankCalculation(Document):
 	pass
@@ -115,8 +116,8 @@ def calculate_year_ranks(doc):
 		report.student = student
 		report.year_average = year_average
 		
-		# Trigger validation which will call calculate_year_summary_for_courses
-		report.validate()
+		# Calculate course year summary (this populates the child table)
+		calculate_course_summaries(report)
 		
 		report.save(ignore_permissions=True)
 

@@ -283,6 +283,8 @@ def create_year_report_draft(student, student_name, academic_year, student_group
 	"""
 	Create a draft year report for a student (without submitting)
 	"""
+	from education.education.doctype.student_year_report.student_year_report import calculate_course_summaries
+
 	# Check if report already exists
 	existing = frappe.db.exists("Student Year Report", {
 		"student": student,
@@ -305,8 +307,8 @@ def create_year_report_draft(student, student_name, academic_year, student_group
 	# Set year average
 	doc.year_average = year_average
 
-	# Trigger validation which will call calculate_year_summary_for_courses
-	doc.validate()
+	# Calculate course year summary (this populates the child table)
+	calculate_course_summaries(doc)
 
 	# Save as draft only
 	doc.save()
