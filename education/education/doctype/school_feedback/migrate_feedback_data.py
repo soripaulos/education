@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Migration script for School Feedback doctype
+Migration for School Feedback doctype
 Run this to update existing documents with the new categories configuration
 """
 
