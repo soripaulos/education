@@ -13,7 +13,9 @@
   "academic_year",
   "student_group",
   "year_average",
-  "rank_in_group"
+  "rank_in_group",
+  "course_year_summary_section",
+  "course_year_summary"
  ],
  "fields": [
   {
@@ -65,6 +67,17 @@
    "label": "Rank in Group",
    "read_only": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "course_year_summary_section",
+   "fieldtype": "Section Break",
+   "label": "Course Year Summary"
+  },
+  {
+   "fieldname": "course_year_summary",
+   "fieldtype": "Table",
+   "label": "Course Year Summary",
+   "options": "Course Year Summary"
   }
  ],
  "issubmittable": 1,

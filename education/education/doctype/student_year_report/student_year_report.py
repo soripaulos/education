@@ -10,6 +10,66 @@ class StudentYearReport(Document):
 	def validate(self):
 		if self.student:
 			self.student_name = frappe.db.get_value("Student", self.student, "student_name")
+		self.calculate_course_year_summary()
+		self.calculate_year_average()
+
+	def calculate_course_year_summary(self):
+		"""Fetch term reports and calculate the year summary for each course."""
+		if not (self.student and self.academic_year):
+			return
+
+		term_reports = frappe.get_all(
+			"Student Term Report",
+			filters={
+				"student": self.student,
+				"academic_year": self.academic_year,
+				"docstatus": 1,
+			},
+			fields=["name"],
+		)
+
+		course_data = {}
+		for report in term_reports:
+			term_doc = frappe.get_doc("Student Term Report", report.name)
+			for summary in term_doc.course_summary:
+				course = summary.course
+				if course not in course_data:
+					course_data[course] = {
+						"total_score": 0,
+						"max_score": 0,
+						"term_count": 0,
+					}
+				course_data[course]["total_score"] += summary.total_score_for_term
+				course_data[course]["max_score"] += summary.total_maximum_score
+				course_data[course]["term_count"] += 1
+
+		self.set("course_year_summary", [])
+		for course, data in course_data.items():
+			percentage = (data["total_score"] / data["max_score"]) * 100 if data["max_score"] else 0
+			self.append(
+				"course_year_summary",
+				{
+					"course": course,
+					"total_year_score": data["total_score"],
+					"total_year_max_score": data["max_score"],
+					"year_average_percentage": percentage,
+					"terms_count": data["term_count"],
+				},
+			)
+
+	def calculate_year_average(self):
+		"""Calculate the overall year average from the course year summary."""
+		if not self.course_year_summary:
+			self.year_average = 0
+			return
+
+		total_percentage = sum(flt(row.year_average_percentage) for row in self.course_year_summary)
+		total_courses = len(self.course_year_summary)
+
+		if total_courses > 0:
+			self.year_average = total_percentage / total_courses
+		else:
+			self.year_average = 0
 
 	def on_submit(self):
 		"""Calculate rank after submission"""
