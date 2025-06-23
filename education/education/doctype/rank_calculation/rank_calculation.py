@@ -115,8 +115,8 @@ def calculate_year_ranks(doc):
 		report.student = student
 		report.year_average = year_average
 		
-		# Calculate course year summary (this populates the child table)
-		report.calculate_year_summary_for_courses()
+		# Trigger validation which will call calculate_year_summary_for_courses
+		report.validate()
 		
 		report.save(ignore_permissions=True)
 

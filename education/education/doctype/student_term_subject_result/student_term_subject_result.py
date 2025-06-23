@@ -305,8 +305,8 @@ def create_year_report_draft(student, student_name, academic_year, student_group
 	# Set year average
 	doc.year_average = year_average
 
-	# Calculate course year summary (this populates the child table)
-	doc.calculate_year_summary_for_courses()
+	# Trigger validation which will call calculate_year_summary_for_courses
+	doc.validate()
 
 	# Save as draft only
 	doc.save()
