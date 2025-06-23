@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 0,
- "creation": "2024-12-23 12:00:00.000000",
+ "creation": "2024-05-20 10:35:00.000000",
  "custom": 1,
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -48,7 +48,6 @@
    "fieldname": "terms_count",
    "fieldtype": "Int",
    "label": "Terms Count",
-   "in_list_view": 1,
    "read_only": 1
   }
  ],
