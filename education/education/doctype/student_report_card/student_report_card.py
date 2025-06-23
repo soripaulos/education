@@ -4,11 +4,9 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, getdate, today, random_string
-import qrcode
-import io
-import base64
-import os
-from datetime import datetime
+
+# Disable QR code functionality for Frappe Cloud compatibility
+QR_CODE_AVAILABLE = False
 
 
 class StudentReportCard(Document):
@@ -38,147 +36,105 @@ class StudentReportCard(Document):
 	def populate_student_details(self):
 		"""Populate student details from Student master"""
 		if self.student:
-			student_doc = frappe.get_doc("Student", self.student)
-			self.student_name = student_doc.student_name
-			self.student_id_number = student_doc.student_email_id or self.student
-			self.student_gender = student_doc.gender or "Not Specified"
-			
-			# Calculate age from date of birth
-			if student_doc.date_of_birth:
-				birth_date = getdate(student_doc.date_of_birth)
-				today_date = getdate(today())
-				age = today_date.year - birth_date.year
-				if today_date.month < birth_date.month or (today_date.month == birth_date.month and today_date.day < birth_date.day):
-					age -= 1
-				self.student_age = age
-			
-			# Get class name and program from student group
-			if self.student_group:
-				group_doc = frappe.get_doc("Student Group", self.student_group)
-				self.class_name = group_doc.group_name
-				self.program = group_doc.program
+			try:
+				student_doc = frappe.get_doc("Student", self.student)
+				self.student_name = student_doc.student_name
+				self.student_id_number = student_doc.student_email_id or self.student
+				self.student_gender = student_doc.gender or "Not Specified"
+				
+				# Calculate age from date of birth
+				if student_doc.date_of_birth:
+					birth_date = getdate(student_doc.date_of_birth)
+					today_date = getdate(today())
+					age = today_date.year - birth_date.year
+					if today_date.month < birth_date.month or (today_date.month == birth_date.month and today_date.day < birth_date.day):
+						age -= 1
+					self.student_age = age
+				
+				# Get class name and program from student group
+				if self.student_group:
+					group_doc = frappe.get_doc("Student Group", self.student_group)
+					self.class_name = group_doc.group_name
+					self.program = group_doc.program
+			except:
+				pass
 
 	def fetch_academic_data(self):
 		"""Fetch academic data from Student Term Report and Student Year Report"""
 		if not self.student or not self.academic_year or not self.student_group:
 			return
 		
-		# Get academic terms for the year
-		terms = frappe.get_all("Academic Term", 
-			filters={"academic_year": self.academic_year},
-			fields=["name", "term_name"],
-			order_by="term_start_date"
-		)
-		
-		# Fetch Term 1 data
-		if len(terms) >= 1:
-			term_1_report = frappe.get_value("Student Term Report", {
-				"student": self.student,
-				"academic_year": self.academic_year,
-				"academic_term": terms[0].name,
-				"student_group": self.student_group,
-				"docstatus": 1
-			}, ["term_average", "rank_in_group"], as_dict=True)
+		try:
+			# Get academic terms for the year
+			terms = frappe.get_all("Academic Term", 
+				filters={"academic_year": self.academic_year},
+				fields=["name", "term_name"],
+				order_by="term_start_date"
+			)
 			
-			if term_1_report:
-				self.term_1_average = flt(term_1_report.term_average, 3)
-				self.term_1_rank = term_1_report.rank_in_group
-				
-				# Fetch term 1 subject details
-				term_1_doc = frappe.get_doc("Student Term Report", {
+			# Fetch Term 1 data
+			if len(terms) >= 1:
+				term_1_report = frappe.get_value("Student Term Report", {
 					"student": self.student,
 					"academic_year": self.academic_year,
 					"academic_term": terms[0].name,
 					"student_group": self.student_group,
 					"docstatus": 1
-				})
+				}, ["term_average", "rank_in_group"], as_dict=True)
 				
-				# Clear existing term 1 subjects
-				self.term_1_subjects = []
-				
-				# Add term 1 subjects
-				for course_summary in term_1_doc.course_summary:
-					self.append("term_1_subjects", {
-						"course": course_summary.course,
-						"total_score_for_term": course_summary.total_score_for_term,
-						"total_maximum_score": course_summary.total_maximum_score,
-						"percentage": course_summary.percentage
-					})
-		
-		# Fetch Term 2 data
-		if len(terms) >= 2:
-			term_2_report = frappe.get_value("Student Term Report", {
-				"student": self.student,
-				"academic_year": self.academic_year,
-				"academic_term": terms[1].name,
-				"student_group": self.student_group,
-				"docstatus": 1
-			}, ["term_average", "rank_in_group"], as_dict=True)
+				if term_1_report:
+					self.term_1_average = flt(term_1_report.term_average, 3)
+					self.term_1_rank = term_1_report.rank_in_group
 			
-			if term_2_report:
-				self.term_2_average = flt(term_2_report.term_average, 3)
-				self.term_2_rank = term_2_report.rank_in_group
-				
-				# Fetch term 2 subject details
-				term_2_doc = frappe.get_doc("Student Term Report", {
+			# Fetch Term 2 data
+			if len(terms) >= 2:
+				term_2_report = frappe.get_value("Student Term Report", {
 					"student": self.student,
 					"academic_year": self.academic_year,
 					"academic_term": terms[1].name,
 					"student_group": self.student_group,
 					"docstatus": 1
-				})
+				}, ["term_average", "rank_in_group"], as_dict=True)
 				
-				# Clear existing term 2 subjects
-				self.term_2_subjects = []
-				
-				# Add term 2 subjects
-				for course_summary in term_2_doc.course_summary:
-					self.append("term_2_subjects", {
-						"course": course_summary.course,
-						"total_score_for_term": course_summary.total_score_for_term,
-						"total_maximum_score": course_summary.total_maximum_score,
-						"percentage": course_summary.percentage
-					})
-		
-		# Fetch Year data
-		year_report = frappe.get_value("Student Year Report", {
-			"student": self.student,
-			"academic_year": self.academic_year,
-			"student_group": self.student_group,
-			"docstatus": 1
-		}, ["year_average", "rank_in_group"], as_dict=True)
-		
-		if year_report:
-			self.year_average = flt(year_report.year_average, 3)
-			self.year_rank = year_report.rank_in_group
+				if term_2_report:
+					self.term_2_average = flt(term_2_report.term_average, 3)
+					self.term_2_rank = term_2_report.rank_in_group
 			
-			# Fetch year subject details
-			year_doc = frappe.get_doc("Student Year Report", {
+			# Fetch Year data
+			year_report = frappe.get_value("Student Year Report", {
 				"student": self.student,
 				"academic_year": self.academic_year,
 				"student_group": self.student_group,
 				"docstatus": 1
-			})
+			}, ["year_average", "rank_in_group"], as_dict=True)
 			
-			# Clear existing year subjects
-			self.year_subjects = []
-			
-			# Add year subjects
-			for course_summary in year_doc.course_year_summary:
-				self.append("year_subjects", {
-					"course": course_summary.course,
-					"total_year_score": course_summary.total_year_score,
-					"total_year_max_score": course_summary.total_year_max_score,
-					"year_average_percentage": course_summary.year_average_percentage,
-					"terms_count": course_summary.terms_count
-				})
+			if year_report:
+				self.year_average = flt(year_report.year_average, 3)
+				self.year_rank = year_report.rank_in_group
+		except:
+			pass
 
 	def generate_html_content(self):
 		"""Generate HTML content for the report card"""
 		
 		# Get school/company information
-		default_company = frappe.db.get_single_value("Global Defaults", "default_company")
-		company_doc = frappe.get_doc("Company", default_company) if default_company else None
+		try:
+			default_company = frappe.db.get_single_value("Global Defaults", "default_company")
+			company_doc = frappe.get_doc("Company", default_company) if default_company else None
+		except:
+			company_doc = None
+		
+		# Simple verification section without QR code
+		verification_section = f"""
+		<div class="qr-section">
+			<div class="section-title">Verification</div>
+			<div class="verification-text">
+				<strong>Report ID: {self.report_id}</strong><br>
+				Verify this report at: <a href="{self.qr_code_url or '#'}" target="_blank">app.makkobillischool.com</a><br>
+				<span class="verification-bold">Only reports from app.makkobillischool.com are authentic.</span>
+			</div>
+		</div>
+		"""
 		
 		html_content = f"""
 		<!DOCTYPE html>
@@ -336,47 +292,11 @@ class StudentReportCard(Document):
 					color: #2c3e50;
 				}}
 				
-				.subjects-section {{
-					padding: 30px;
-					background: #f8f9fa;
-				}}
-				
-				.subjects-table {{
-					width: 100%;
-					border-collapse: collapse;
-					background: white;
-					border-radius: 8px;
-					overflow: hidden;
-					box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-					margin-bottom: 30px;
-				}}
-				
-				.subjects-table th {{
-					background: #667eea;
-					color: white;
-					padding: 15px;
-					text-align: left;
-					font-weight: 600;
-				}}
-				
-				.subjects-table td {{
-					padding: 12px 15px;
-					border-bottom: 1px solid #e9ecef;
-				}}
-				
-				.subjects-table tr:hover {{
-					background: #f8f9fa;
-				}}
-				
 				.qr-section {{
 					padding: 30px;
 					text-align: center;
 					background: white;
 					border-top: 2px solid #e9ecef;
-				}}
-				
-				.qr-code {{
-					margin: 20px 0;
 				}}
 				
 				.verification-text {{
@@ -403,15 +323,6 @@ class StudentReportCard(Document):
 					.performance-grid {{
 						grid-template-columns: repeat(2, 1fr);
 					}}
-					
-					.subjects-table {{
-						font-size: 14px;
-					}}
-					
-					.subjects-table th,
-					.subjects-table td {{
-						padding: 8px;
-					}}
 				}}
 			</style>
 		</head>
@@ -421,7 +332,7 @@ class StudentReportCard(Document):
 					<div class="logo">
 						<img src="/files/school_logo.png" alt="School Logo" onerror="this.style.display='none'">
 					</div>
-					<div class="school-name">{company_doc.company_name if company_doc else 'Makko Billi School'}</div>
+					<div class="school-name">{company_doc.company_name if company_doc else 'Makko Bills School'}</div>
 					<div class="report-title">Student Report Card</div>
 				</div>
 				
@@ -456,7 +367,7 @@ class StudentReportCard(Document):
 				
 				<div class="performance-summary">
 					<div class="section-title">Performance Summary</div>
-                <div class="performance-grid">
+					<div class="performance-grid">
 		"""
 		
 		# Add performance cards
@@ -464,7 +375,7 @@ class StudentReportCard(Document):
 			html_content += f"""
 						<div class="performance-card">
 							<div class="performance-label">Term 1 Average</div>
-							<div class="performance-value">{self.term_1_average:.3f}</div>
+							<div class="performance-value">{self.term_1_average:.1f}</div>
 						</div>
 						<div class="performance-card">
 							<div class="performance-label">Term 1 Rank</div>
@@ -476,135 +387,34 @@ class StudentReportCard(Document):
 			html_content += f"""
 						<div class="performance-card">
 							<div class="performance-label">Term 2 Average</div>
-							<div class="performance-value">{self.term_2_average:.3f}</div>
-                    </div>
+							<div class="performance-value">{self.term_2_average:.1f}</div>
+						</div>
 						<div class="performance-card">
 							<div class="performance-label">Term 2 Rank</div>
 							<div class="performance-value">{self.term_2_rank or 'N/A'}</div>
-                </div>
+						</div>
 			"""
 		
 		if self.year_average:
 			html_content += f"""
 						<div class="performance-card">
 							<div class="performance-label">Year Average</div>
-							<div class="performance-value">{self.year_average:.3f}</div>
+							<div class="performance-value">{self.year_average:.1f}</div>
 						</div>
 						<div class="performance-card">
 							<div class="performance-label">Year Rank</div>
 							<div class="performance-value">{self.year_rank or 'N/A'}</div>
-            </div>
-			"""
-            
-		html_content += """
 						</div>
-					</div>
-		"""
-		
-		# Add Term 1 subjects if available
-		if self.term_1_subjects:
-			html_content += """
-					<div class="subjects-section">
-					<div class="section-title">Term 1 Subject Performance</div>
-						<table class="subjects-table">
-							<thead>
-								<tr>
-									<th>Subject</th>
-									<th>Score</th>
-								</tr>
-							</thead>
-							<tbody>
-			"""
-			
-			for subject in self.term_1_subjects:
-				course_name = frappe.db.get_value("Course", subject.course, "course_name") or subject.course
-				html_content += f"""
-								<tr>
-								<td>{course_name}</td>
-									<td>{subject.total_score_for_term}</td>
-								</tr>
-				"""
-			
-			html_content += """
-							</tbody>
-						</table>
-					</div>
 			"""
 		
-		# Add Term 2 subjects if available
-		if self.term_2_subjects:
-			html_content += """
-					<div class="subjects-section">
-					<div class="section-title">Term 2 Subject Performance</div>
-						<table class="subjects-table">
-							<thead>
-								<tr>
-									<th>Subject</th>
-									<th>Score</th>
-								</tr>
-							</thead>
-							<tbody>
-			"""
-			
-			for subject in self.term_2_subjects:
-				course_name = frappe.db.get_value("Course", subject.course, "course_name") or subject.course
-				html_content += f"""
-								<tr>
-								<td>{course_name}</td>
-									<td>{subject.total_score_for_term}</td>
-								</tr>
-				"""
-			
-			html_content += """
-							</tbody>
-						</table>
-					</div>
-			"""
-		
-		# Add Year subjects if available
-		if self.year_subjects:
-			html_content += """
-					<div class="subjects-section">
-					<div class="section-title">Year Subject Performance</div>
-						<table class="subjects-table">
-							<thead>
-								<tr>
-									<th>Subject</th>
-								<th>Total Year Score</th>
-									<th>Terms</th>
-								</tr>
-							</thead>
-							<tbody>
-			"""
-			
-			for subject in self.year_subjects:
-				course_name = frappe.db.get_value("Course", subject.course, "course_name") or subject.course
-				html_content += f"""
-								<tr>
-								<td>{course_name}</td>
-									<td>{subject.total_year_score}</td>
-									<td>{subject.terms_count}</td>
-								</tr>
-				"""
-			
-			html_content += """
-							</tbody>
-						</table>
-					</div>
-			"""
-		
-		# Add QR code section
-		html_content += f"""
-				<div class="qr-section">
-					<div class="section-title">Verification</div>
-					<div class="qr-code">
-						<img src="data:image/png;base64,{self.generate_qr_code_base64()}" alt="QR Code" style="width: 150px; height: 150px;">
-					</div>
-					<div class="verification-text">
-						Scan this QR code to verify the authenticity of this report card.<br>
-						<span class="verification-bold">Only reports from app.makkobillischool.com are authentic.</span>
+		html_content += """
 					</div>
 				</div>
+		"""
+		
+		# Add verification section
+		html_content += verification_section
+		html_content += """
 			</div>
 		</body>
 		</html>
@@ -616,29 +426,6 @@ class StudentReportCard(Document):
 		"""Generate QR code URL for the report card"""
 		base_url = "https://app.makkobillischool.com"
 		self.qr_code_url = f"{base_url}/report-card/{self.report_id}"
-
-	def generate_qr_code_base64(self):
-		"""Generate QR code as base64 string"""
-		if not self.qr_code_url:
-			self.generate_qr_code()
-		
-			qr = qrcode.QRCode(
-				version=1,
-				error_correction=qrcode.constants.ERROR_CORRECT_L,
-				box_size=10,
-				border=4,
-			)
-			qr.add_data(self.qr_code_url)
-			qr.make(fit=True)
-			
-			img = qr.make_image(fill_color="black", back_color="white")
-			
-			# Convert to base64
-			buffer = io.BytesIO()
-			img.save(buffer, format='PNG')
-			img_str = base64.b64encode(buffer.getvalue()).decode()
-			
-			return img_str
 
 
 @frappe.whitelist()
@@ -661,23 +448,23 @@ def bulk_generate_report_cards(academic_year, student_group, regenerate=False):
 	skipped_count = 0
 	
 	for student in students:
-		# Check if report card already exists
-		existing_report = frappe.db.exists("Student Report Card", {
-			"student": student.student,
-			"academic_year": academic_year,
-			"student_group": student_group
-		})
-		
-		if existing_report and not regenerate:
-			skipped_count += 1
-			continue
-		
-		# Delete existing report if regenerating
-		if existing_report and regenerate:
-			frappe.delete_doc("Student Report Card", existing_report)
-		
-		# Create new report card
 		try:
+			# Check if report card already exists
+			existing_report = frappe.db.exists("Student Report Card", {
+				"student": student.student,
+				"academic_year": academic_year,
+				"student_group": student_group
+			})
+			
+			if existing_report and not regenerate:
+				skipped_count += 1
+				continue
+			
+			# Delete existing report if regenerating
+			if existing_report and regenerate:
+				frappe.delete_doc("Student Report Card", existing_report)
+			
+			# Create new report card
 			report_card = frappe.new_doc("Student Report Card")
 			report_card.student = student.student
 			report_card.academic_year = academic_year
@@ -704,9 +491,12 @@ def bulk_generate_report_cards(academic_year, student_group, regenerate=False):
 @frappe.whitelist()
 def get_report_card_html(report_id):
 	"""Get HTML content for public viewing"""
-	report_card = frappe.get_doc("Student Report Card", {"report_id": report_id})
-	
-	if not report_card or not report_card.is_published:
-		frappe.throw("Report card not found or not published")
-	
-	return report_card.html_content 
+	try:
+		report_card = frappe.get_doc("Student Report Card", {"report_id": report_id})
+		
+		if not report_card or not report_card.is_published:
+			frappe.throw("Report card not found or not published")
+		
+		return report_card.html_content
+	except:
+		frappe.throw("Report card not found") 

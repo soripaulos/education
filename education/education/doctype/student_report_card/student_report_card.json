@@ -36,12 +36,6 @@
   "column_break_24",
   "year_average",
   "year_rank",
-  "term_1_subjects_section",
-  "term_1_subjects",
-  "term_2_subjects_section",
-  "term_2_subjects",
-  "year_subjects_section",
-  "year_subjects",
   "html_content_section",
   "html_content"
  ],
@@ -222,39 +216,6 @@
    "fieldtype": "Int",
    "label": "Year Rank",
    "read_only": 1
-  },
-  {
-   "fieldname": "term_1_subjects_section",
-   "fieldtype": "Section Break",
-   "label": "Term 1 Subjects"
-  },
-  {
-   "fieldname": "term_1_subjects",
-   "fieldtype": "Table",
-   "label": "Term 1 Subjects",
-   "options": "Course Term Summary"
-  },
-  {
-   "fieldname": "term_2_subjects_section",
-   "fieldtype": "Section Break",
-   "label": "Term 2 Subjects"
-  },
-  {
-   "fieldname": "term_2_subjects",
-   "fieldtype": "Table",
-   "label": "Term 2 Subjects",
-   "options": "Course Term Summary"
-  },
-  {
-   "fieldname": "year_subjects_section",
-   "fieldtype": "Section Break",
-   "label": "Year Subjects Summary"
-  },
-  {
-   "fieldname": "year_subjects",
-   "fieldtype": "Table",
-   "label": "Year Subjects",
-   "options": "Course Year Summary"
   },
   {
    "fieldname": "html_content_section",
