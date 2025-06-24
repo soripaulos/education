@@ -54,7 +54,6 @@
  "modified_by": "Administrator",
  "module": "Education",
  "name": "App Notification Student",
- "owner": "Administrator",
  "permissions": [],
  "sort_field": "modified",
  "sort_order": "DESC",
