@@ -641,3 +641,120 @@ def calculate_results(calculation_type, academic_year, semester=None, student_gr
 		frappe.db.rollback()
 		frappe.log_error(f"Result calculation failed: {str(e)}")
 		return {"status": "error", "message": str(e)}
+
+@frappe.whitelist()
+def get_feedback_taxonomy():
+    """
+    Returns the feedback taxonomy from Feedback Settings with caching
+    """
+    # Try to get from cache first
+    cached_taxonomy = frappe.cache().get_value("feedback_taxonomy")
+    if cached_taxonomy:
+        return cached_taxonomy
+    
+    try:
+        settings = frappe.get_single("Feedback Settings")
+        if settings and settings.taxonomy_json:
+            import json
+            taxonomy = json.loads(settings.taxonomy_json)
+            # Cache for 1 hour
+            frappe.cache().set_value("feedback_taxonomy", taxonomy, expires_in_sec=3600)
+            return taxonomy
+        else:
+            # Return default taxonomy if settings not found
+            default_taxonomy = {
+                "Academic Issues": {
+                    "Curriculum": [
+                        "Content Difficulty",
+                        "Pace Too Fast", 
+                        "Pace Too Slow",
+                        "Missing Topics",
+                        "Outdated Materials"
+                    ],
+                    "Teaching Methods": [
+                        "Unclear Explanations",
+                        "Lack of Examples",
+                        "No Interactive Activities",
+                        "Poor Use of Technology",
+                        "Insufficient Practice"
+                    ],
+                    "Assessment": [
+                        "Unfair Grading",
+                        "Too Many Tests",
+                        "Unclear Instructions",
+                        "Late Feedback",
+                        "Result Errors"
+                    ]
+                },
+                "Facility Issues": {
+                    "Classroom": [
+                        "Poor Lighting",
+                        "Uncomfortable Seating",
+                        "Temperature Issues",
+                        "Cleanliness",
+                        "Overcrowding"
+                    ],
+                    "Technology": [
+                        "Broken Equipment",
+                        "Internet Issues",
+                        "Software Problems",
+                        "Lack of Resources",
+                        "Outdated Hardware"
+                    ],
+                    "Safety": [
+                        "Security Concerns",
+                        "Emergency Procedures",
+                        "Maintenance Issues",
+                        "Accessibility",
+                        "Fire Safety"
+                    ]
+                },
+                "Administrative Issues": {
+                    "Communication": [
+                        "Poor Information Sharing",
+                        "Late Notifications",
+                        "Unclear Policies",
+                        "Language Barriers",
+                        "Unresponsive Staff"
+                    ],
+                    "Scheduling": [
+                        "Conflicting Times",
+                        "Too Many Classes",
+                        "Break Time Issues",
+                        "Event Planning",
+                        "Exam Scheduling"
+                    ]
+                },
+                "Other Issues": {}
+            }
+            # Cache the default taxonomy too
+            frappe.cache().set_value("feedback_taxonomy", default_taxonomy, expires_in_sec=3600)
+            return default_taxonomy
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Feedback Taxonomy Error")
+        # Return minimal taxonomy on error
+        error_taxonomy = {
+            "Academic Issues": {
+                "Curriculum": [
+                    "Content Difficulty",
+                    "Pace Too Fast", 
+                    "Pace Too Slow"
+                ],
+                "Teaching Methods": [
+                    "Unclear Explanations",
+                    "Lack of Examples"
+                ]
+            },
+            "Facility Issues": {
+                "Classroom": [
+                    "Poor Lighting",
+                    "Uncomfortable Seating"
+                ],
+                "Technology": [
+                    "Internet Issues",
+                    "Broken Equipment"
+                ]
+            },
+            "Other Issues": {}
+        }
+        return error_taxonomy
