@@ -1,0 +1,224 @@
+{
+ "actions": [],
+ "allow_copy": 0,
+ "allow_events_in_timeline": 0,
+ "allow_guest_to_view": 0,
+ "allow_import": 0,
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "beta": 0,
+ "creation": "2025-01-23 00:00:00.000000",
+ "custom": 0,
+ "docstatus": 0,
+ "doctype": "DocType",
+ "document_type": "Document",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_1",
+  "naming_series",
+  "title",
+  "column_break_2",
+  "status",
+  "sent_date",
+  "notification_details_section",
+  "notification_category",
+  "message",
+  "column_break_8",
+  "priority",
+  "send_to_all_students",
+  "recipients_section",
+  "student_groups",
+  "section_break_12",
+  "students",
+  "delivery_section",
+  "total_recipients",
+  "column_break_16",
+  "delivery_status",
+  "error_log"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "APP-NOTIF-.YYYY.-",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Notification Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nSent\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_date",
+   "fieldtype": "Datetime",
+   "label": "Sent Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notification_details_section",
+   "fieldtype": "Section Break",
+   "label": "Notification Details"
+  },
+  {
+   "fieldname": "notification_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "General\nAcademic\nAnnouncements\nUrgent\nFees\nEvents\nExaminations",
+   "reqd": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Text",
+   "label": "Message",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_8",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Normal",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent"
+  },
+  {
+   "default": "0",
+   "fieldname": "send_to_all_students",
+   "fieldtype": "Check",
+   "label": "Send to All Students"
+  },
+  {
+   "depends_on": "eval:!doc.send_to_all_students",
+   "fieldname": "recipients_section",
+   "fieldtype": "Section Break",
+   "label": "Recipients"
+  },
+  {
+   "depends_on": "eval:!doc.send_to_all_students",
+   "fieldname": "student_groups",
+   "fieldtype": "Table",
+   "label": "Student Groups",
+   "options": "App Notification Student Group"
+  },
+  {
+   "depends_on": "eval:!doc.send_to_all_students",
+   "fieldname": "section_break_12",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "eval:!doc.send_to_all_students",
+   "fieldname": "students",
+   "fieldtype": "Table",
+   "label": "Individual Students",
+   "options": "App Notification Student"
+  },
+  {
+   "fieldname": "delivery_section",
+   "fieldtype": "Section Break",
+   "label": "Delivery Information"
+  },
+  {
+   "fieldname": "total_recipients",
+   "fieldtype": "Int",
+   "label": "Total Recipients",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_16",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "delivery_status",
+   "fieldtype": "Small Text",
+   "label": "Delivery Status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error_log",
+   "fieldtype": "Long Text",
+   "label": "Error Log",
+   "read_only": 1
+  }
+ ],
+ "has_web_view": 0,
+ "hide_heading": 0,
+ "hide_toolbar": 0,
+ "idx": 0,
+ "image_view": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "issingle": 0,
+ "istable": 0,
+ "max_attachments": 0,
+ "modified": "2025-01-23 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "App Notification",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Academics User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Instructor"
+  }
+ ],
+ "quick_entry": 0,
+ "read_only": 0,
+ "read_only_onload": 0,
+ "show_name_in_global_search": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "title",
+ "track_changes": 1,
+ "track_seen": 0,
+ "track_views": 0
+} 
