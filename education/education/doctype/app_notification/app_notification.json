@@ -6,7 +6,6 @@
  "allow_import": 0,
  "allow_rename": 0,
  "autoname": "naming_series:",
- "beta": 0,
  "creation": "2025-01-23 00:00:00.000000",
  "custom": 0,
  "docstatus": 0,
@@ -25,17 +24,11 @@
   "notification_category",
   "message",
   "column_break_8",
-  "priority",
   "send_to_all_students",
   "recipients_section",
   "student_groups",
   "section_break_12",
-  "students",
-  "delivery_section",
-  "total_recipients",
-  "column_break_16",
-  "delivery_status",
-  "error_log"
+  "students"
  ],
  "fields": [
   {
@@ -100,13 +93,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "Normal",
-   "fieldname": "priority",
-   "fieldtype": "Select",
-   "label": "Priority",
-   "options": "Low\nNormal\nHigh\nUrgent"
-  },
-  {
    "default": "0",
    "fieldname": "send_to_all_students",
    "fieldtype": "Check",
@@ -136,33 +122,6 @@
    "fieldtype": "Table",
    "label": "Individual Students",
    "options": "App Notification Student"
-  },
-  {
-   "fieldname": "delivery_section",
-   "fieldtype": "Section Break",
-   "label": "Delivery Information"
-  },
-  {
-   "fieldname": "total_recipients",
-   "fieldtype": "Int",
-   "label": "Total Recipients",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_16",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "delivery_status",
-   "fieldtype": "Small Text",
-   "label": "Delivery Status",
-   "read_only": 1
-  },
-  {
-   "fieldname": "error_log",
-   "fieldtype": "Long Text",
-   "label": "Error Log",
-   "read_only": 1
   }
  ],
  "has_web_view": 0,
@@ -171,7 +130,7 @@
  "idx": 0,
  "image_view": 0,
  "in_create": 0,
- "is_submittable": 0,
+ "is_submittable": 1,
  "issingle": 0,
  "istable": 0,
  "max_attachments": 0,
@@ -192,6 +151,7 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
@@ -204,6 +164,7 @@
    "report": 1,
    "role": "Academics User",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
