@@ -1081,16 +1081,38 @@ def submit_teacher_evaluation(data=None):
             if value < 0 or value > 1:
                 frappe.throw(_(f"{field.replace('_', ' ').title()} rating must be between 0 and 1"))
         
-        # Check for existing review with better error handling
-        existing_review = frappe.db.exists("Teacher Evaluation", {
-            "reviewer": reviewer,
-            "instructors": instructor
-        })
+        # Check for existing review within the same calendar month
+        from datetime import datetime
         
+        review_date_str = evaluation_data.get("review_date") or frappe.utils.today()
+        review_date = frappe.utils.getdate(review_date_str)
+        
+        # Get first and last day of the review month
+        first_day_of_month = review_date.replace(day=1)
+        import calendar
+        _, num_days = calendar.monthrange(review_date.year, review_date.month)
+        last_day_of_month = review_date.replace(day=num_days)
+
+        existing_review = frappe.db.exists(
+            "Teacher Evaluation",
+            {
+                "reviewer": reviewer,
+                "instructors": instructor,
+                "review_date": ["between", (first_day_of_month, last_day_of_month)],
+            },
+        )
+
         if existing_review:
-            review_date = frappe.db.get_value("Teacher Evaluation", existing_review, "review_date")
-            frappe.throw(_("You have already submitted an evaluation for this instructor on {0}").format(
-                frappe.format(review_date, {'fieldtype': 'Date'})
+            # Calculate next allowed review date (first day of next month)
+            if review_date.month == 12:
+                next_month_date = review_date.replace(year=review_date.year + 1, month=1, day=1)
+            else:
+                next_month_date = review_date.replace(month=review_date.month + 1, day=1)
+            
+            last_review_date = frappe.db.get_value("Teacher Evaluation", existing_review, "review_date")
+            frappe.throw(_("You have already reviewed this instructor this month on {0}. You can submit another review after {1}.").format(
+                frappe.format(last_review_date, {'fieldtype': 'Date'}),
+                frappe.format(next_month_date, {'fieldtype': 'Date'})
             ))
 
         # Create a new Teacher Evaluation document
@@ -1137,7 +1159,7 @@ def submit_teacher_evaluation(data=None):
 
 @frappe.whitelist()
 def get_existing_teacher_reviews(student=None):
-    """Returns a list of teachers already reviewed by the student."""
+    """Returns a list of teachers already reviewed by the student with monthly restrictions."""
     try:
         if not student:
             student = frappe.session.user
@@ -1150,6 +1172,37 @@ def get_existing_teacher_reviews(student=None):
             order_by="review_date desc"
         )
         
+        # Calculate monthly restrictions
+        from datetime import datetime, timedelta
+        import calendar
+        
+        current_date = datetime.now().date()
+        current_month_start = current_date.replace(day=1)
+        
+        monthly_restrictions = {}
+        current_month_reviewed = []
+        
+        for review in reviews:
+            teacher_name = review.instructors
+            review_date = frappe.utils.getdate(review.review_date)
+            
+            # Check if review was made in current month
+            review_month_start = review_date.replace(day=1)
+            if review_month_start == current_month_start:
+                current_month_reviewed.append(teacher_name)
+                
+                # Calculate next allowed date (first day of next month)
+                if current_date.month == 12:
+                    next_month = current_date.replace(year=current_date.year + 1, month=1, day=1)
+                else:
+                    next_month = current_date.replace(month=current_date.month + 1, day=1)
+                
+                monthly_restrictions[teacher_name] = {
+                    "last_reviewed_date": frappe.format(review_date, {'fieldtype': 'Date'}),
+                    "next_allowed_date": frappe.format(next_month, {'fieldtype': 'Date'}),
+                    "can_review": False
+                }
+        
         # Format dates for frontend
         for review in reviews:
             review.review_date = frappe.format(review.review_date, {'fieldtype': 'Date'})
@@ -1157,7 +1210,9 @@ def get_existing_teacher_reviews(student=None):
         return {
             "reviewed_teachers": [r.instructors for r in reviews],
             "review_details": reviews,
-            "total_reviews": len(reviews)
+            "total_reviews": len(reviews),
+            "monthly_restrictions": monthly_restrictions,
+            "current_month_reviewed": current_month_reviewed
         }
 
     except Exception as e:
