@@ -229,7 +229,7 @@
                                 class="btn-primary"
                                 :class="{ 'opacity-50 cursor-not-allowed': isSubmitting }"
                             >
-                                {{ isSubmitting ? 'Submitting...' : 'Submit Application' }}
+                                {{ submitButtonText }}
                             </button>
                         </div>
                     </div>
@@ -346,11 +346,13 @@
                 canProceed() {
                     switch (this.currentStep) {
                         case 1:
-                            return this.guardianType === 'parent' 
-                                ? (this.fatherData.guardian_name && this.fatherData.email_address && this.motherData.guardian_name && this.motherData.email_address)
-                                : (this.guardianData.guardian_name && this.guardianData.email_address)
+                            if (this.guardianType === 'parent') {
+                                return (this.fatherData.guardian_name && this.fatherData.email_address && this.motherData.guardian_name && this.motherData.email_address)
+                            } else {
+                                return (this.guardianData.guardian_name && this.guardianData.email_address)
+                            }
                         case 2:
-                            return this.studentType === 'new' ? this.selectedBranch : true
+                            return this.studentType === 'new' && this.selectedBranch || this.studentType === 'existing'
                         case 3:
                             return this.studentData.first_name && this.studentData.last_name && this.studentData.date_of_birth && this.studentData.program
                         case 4:
@@ -359,6 +361,13 @@
                             return true
                         default:
                             return false
+                    }
+                },
+                submitButtonText() {
+                    if (this.isSubmitting) {
+                        return 'Submitting...'
+                    } else {
+                        return 'Submit Application'
                     }
                 }
             },
