@@ -12,8 +12,7 @@
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
-    <!-- Frappe UI CSS -->
-    <link rel="stylesheet" href="/assets/frappe/css/frappe-ui.css">
+    <!-- Remove Frappe UI CSS as it's causing MIME type issues -->
     
     <style>
         /* Custom styles for the application */
@@ -187,17 +186,395 @@
                             </div>
                         </div>
                         
-                        <!-- Guardian Forms placeholder - will be populated by JavaScript -->
-                        <div id="guardian-forms"></div>
+                        <!-- Guardian Forms -->
+                        <div v-if="guardianType === 'parent'" class="space-y-8">
+                            <!-- Father Information -->
+                            <div class="bg-blue-50 p-6 rounded-lg">
+                                <h3 class="text-lg font-medium text-blue-900 mb-4">Father Information</h3>
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Full Name *</label>
+                                        <input v-model="fatherData.guardian_name" type="text" class="input-field" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Email Address *</label>
+                                        <input v-model="fatherData.email_address" type="email" class="input-field" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Mobile Number</label>
+                                        <input v-model="fatherData.mobile_number" type="tel" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Alternate Number</label>
+                                        <input v-model="fatherData.alternate_number" type="tel" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Education Level</label>
+                                        <input v-model="fatherData.education" type="text" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Occupation</label>
+                                        <input v-model="fatherData.occupation" type="text" class="input-field">
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Work Address</label>
+                                        <textarea v-model="fatherData.work_address" class="input-field" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Mother Information -->
+                            <div class="bg-pink-50 p-6 rounded-lg">
+                                <h3 class="text-lg font-medium text-pink-900 mb-4">Mother Information</h3>
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Full Name *</label>
+                                        <input v-model="motherData.guardian_name" type="text" class="input-field" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Email Address *</label>
+                                        <input v-model="motherData.email_address" type="email" class="input-field" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Mobile Number</label>
+                                        <input v-model="motherData.mobile_number" type="tel" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Alternate Number</label>
+                                        <input v-model="motherData.alternate_number" type="tel" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Education Level</label>
+                                        <input v-model="motherData.education" type="text" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Occupation</label>
+                                        <input v-model="motherData.occupation" type="text" class="input-field">
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Work Address</label>
+                                        <textarea v-model="motherData.work_address" class="input-field" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Single Guardian Form -->
+                        <div v-else class="space-y-6">
+                            <div class="bg-gray-50 p-6 rounded-lg">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Guardian Information</h3>
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Full Name *</label>
+                                        <input v-model="guardianData.guardian_name" type="text" class="input-field" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Email Address *</label>
+                                        <input v-model="guardianData.email_address" type="email" class="input-field" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Mobile Number</label>
+                                        <input v-model="guardianData.mobile_number" type="tel" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Alternate Number</label>
+                                        <input v-model="guardianData.alternate_number" type="tel" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Education Level</label>
+                                        <input v-model="guardianData.education" type="text" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Occupation</label>
+                                        <input v-model="guardianData.occupation" type="text" class="input-field">
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Work Address</label>
+                                        <textarea v-model="guardianData.work_address" class="input-field" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
-                    <!-- Other steps will be implemented similarly -->
+                    <!-- Step 2: Student Type Selection -->
                     <div v-if="currentStep === 2" class="space-y-6">
                         <div class="text-center">
                             <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Type</h2>
                             <p class="text-gray-600">Is this a new student or an existing student?</p>
                         </div>
-                        <!-- Student type selection content -->
+                        
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <button
+                                @click="studentType = 'new'"
+                                :class="[
+                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
+                                    studentType === 'new' 
+                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                ]"
+                            >
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-lg font-medium">New Student</p>
+                                        <p class="text-sm text-gray-500">First time applying to our school</p>
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <button
+                                @click="studentType = 'existing'"
+                                :class="[
+                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
+                                    studentType === 'existing' 
+                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                ]"
+                            >
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-lg font-medium">Existing Student</p>
+                                        <p class="text-sm text-gray-500">Already has a school ID</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <!-- Branch Selection for New Students -->
+                        <div v-if="studentType === 'new'" class="space-y-4">
+                            <label class="block text-sm font-medium text-gray-700">Select Branch</label>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <button
+                                    @click="selectedBranch = 'M1'"
+                                    :class="[
+                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
+                                        selectedBranch === 'M1' 
+                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                    ]"
+                                >
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                <span class="text-blue-600 font-semibold">M1</span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium">Main Branch</p>
+                                            <p class="text-xs text-gray-500">School ID format: M1/*****/18</p>
+                                        </div>
+                                    </div>
+                                </button>
+                                <button
+                                    @click="selectedBranch = 'M2'"
+                                    :class="[
+                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
+                                        selectedBranch === 'M2' 
+                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                    ]"
+                                >
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                <span class="text-green-600 font-semibold">M2</span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium">Second Branch</p>
+                                            <p class="text-xs text-gray-500">School ID format: M2/*****/18</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- School ID Lookup for Existing Students -->
+                        <div v-if="studentType === 'existing'" class="space-y-4">
+                            <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
+                            <input 
+                                v-model="existingSchoolId" 
+                                type="text" 
+                                class="input-field" 
+                                placeholder="e.g., M1/10001/18"
+                                @blur="lookupStudent"
+                            >
+                            <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
+                                <p class="text-green-800 font-medium">Student Found:</p>
+                                <p class="text-green-700">{{ existingStudent.first_name }} {{ existingStudent.middle_name }} {{ existingStudent.last_name }}</p>
+                            </div>
+                            <div v-if="schoolIdError" class="text-red-600 text-sm">{{ schoolIdError }}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3: Student Details -->
+                    <div v-if="currentStep === 3" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Details</h2>
+                            <p class="text-gray-600">Please provide the student's personal information</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">First Name *</label>
+                                <input v-model="studentData.first_name" type="text" class="input-field" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Middle Name</label>
+                                <input v-model="studentData.middle_name" type="text" class="input-field">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Last Name *</label>
+                                <input v-model="studentData.last_name" type="text" class="input-field" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Date of Birth *</label>
+                                <input v-model="studentData.date_of_birth" type="date" class="input-field" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Gender</label>
+                                <select v-model="studentData.gender" class="input-field">
+                                    <option value="">Select Gender</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                                <input v-model="studentData.student_email_id" type="email" class="input-field">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Mobile Number</label>
+                                <input v-model="studentData.student_mobile_number" type="tel" class="input-field">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Nationality</label>
+                                <input v-model="studentData.nationality" type="text" class="input-field" value="Ethiopian">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Program *</label>
+                                <select v-model="studentData.program" class="input-field" required>
+                                    <option value="">Select Program</option>
+                                    <option v-for="program in programs" :key="program.name" :value="program.name">
+                                        {{ program.program_name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Academic Year</label>
+                                <select v-model="studentData.academic_year" class="input-field">
+                                    <option value="">Select Academic Year</option>
+                                    <option v-for="year in academicYears" :key="year.name" :value="year.name">
+                                        {{ year.name }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 4: Address Information -->
+                    <div v-if="currentStep === 4" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Address Information</h2>
+                            <p class="text-gray-600">Please provide the student's address details</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Address Line 1 *</label>
+                                <input v-model="addressData.address_line_1" type="text" class="input-field" required>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Address Line 2</label>
+                                <input v-model="addressData.address_line_2" type="text" class="input-field">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Subcity</label>
+                                <input v-model="addressData.state" type="text" class="input-field" placeholder="e.g., Bole, Kirkos">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Kebele</label>
+                                <input v-model="addressData.pincode" type="text" class="input-field" placeholder="e.g., 01, 02">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">City</label>
+                                <input v-model="addressData.city" type="text" class="input-field" value="Adama">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Country</label>
+                                <input v-model="addressData.country" type="text" class="input-field" value="Ethiopia" readonly>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 5: Preview -->
+                    <div v-if="currentStep === 5" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Review Application</h2>
+                            <p class="text-gray-600">Please review all information before submitting</p>
+                        </div>
+                        
+                        <!-- Guardian Information Preview -->
+                        <div class="bg-gray-50 p-6 rounded-lg">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Guardian Information</h3>
+                            <div v-if="guardianType === 'parent'" class="space-y-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <h4 class="font-medium text-blue-900">Father</h4>
+                                        <p>{{ fatherData.guardian_name }}</p>
+                                        <p class="text-sm text-gray-600">{{ fatherData.email_address }}</p>
+                                        <p class="text-sm text-gray-600">{{ fatherData.mobile_number }}</p>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-pink-900">Mother</h4>
+                                        <p>{{ motherData.guardian_name }}</p>
+                                        <p class="text-sm text-gray-600">{{ motherData.email_address }}</p>
+                                        <p class="text-sm text-gray-600">{{ motherData.mobile_number }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else>
+                                <p><strong>Guardian:</strong> {{ guardianData.guardian_name }}</p>
+                                <p class="text-sm text-gray-600">{{ guardianData.email_address }}</p>
+                                <p class="text-sm text-gray-600">{{ guardianData.mobile_number }}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Student Information Preview -->
+                        <div class="bg-gray-50 p-6 rounded-lg">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Student Information</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <p><strong>Name:</strong> {{ studentData.first_name }} {{ studentData.middle_name }} {{ studentData.last_name }}</p>
+                                    <p><strong>Date of Birth:</strong> {{ studentData.date_of_birth }}</p>
+                                    <p><strong>Gender:</strong> {{ studentData.gender }}</p>
+                                </div>
+                                <div>
+                                    <p><strong>Email:</strong> {{ studentData.student_email_id }}</p>
+                                    <p><strong>Mobile:</strong> {{ studentData.student_mobile_number }}</p>
+                                    <p><strong>Program:</strong> {{ getSelectedProgramName() }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Address Information Preview -->
+                        <div class="bg-gray-50 p-6 rounded-lg">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
+                            <p>{{ addressData.address_line_1 }}</p>
+                            <p v-if="addressData.address_line_2">{{ addressData.address_line_2 }}</p>
+                            <p>{{ addressData.state }}, {{ addressData.city }} {{ addressData.pincode }}</p>
+                            <p>{{ addressData.country }}</p>
+                        </div>
                     </div>
                     
                     <!-- Navigation Buttons -->
@@ -286,6 +663,9 @@
                     isSubmitting: false,
                     showSuccessModal: false,
                     submittedApplicationId: '',
+                    existingSchoolId: '',
+                    existingStudent: null,
+                    schoolIdError: '',
                     
                     // Form data
                     fatherData: {
@@ -613,6 +993,48 @@
                     };
                     
                     this.validationErrors = {};
+                },
+                
+                async lookupStudent() {
+                    if (!this.existingSchoolId) {
+                        this.existingStudent = null;
+                        this.schoolIdError = '';
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/api/method/education.education.api.search_student_by_school_id', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                school_id: this.existingSchoolId
+                            })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.message) {
+                            this.existingStudent = data.message;
+                            this.schoolIdError = '';
+                            // Pre-fill student data
+                            this.studentData.first_name = data.message.first_name || '';
+                            this.studentData.middle_name = data.message.middle_name || '';
+                            this.studentData.last_name = data.message.last_name || '';
+                            this.studentData.custom_school_id = data.message.custom_school_id;
+                        } else {
+                            this.existingStudent = null;
+                            this.schoolIdError = 'Student not found with this school ID';
+                        }
+                    } catch (error) {
+                        console.error('Error looking up student:', error);
+                        this.schoolIdError = 'Error looking up student';
+                    }
+                },
+                
+                getSelectedProgramName() {
+                    const program = this.programs.find(p => p.name === this.studentData.program);
+                    return program ? program.program_name : this.studentData.program;
                 }
             },
             
