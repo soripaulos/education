@@ -17,6 +17,7 @@
   "program",
   "section_break_xuzu",
   "student_email_id",
+  "custom_school_id",
   "student_admission",
   "student_category",
   "image",
@@ -169,6 +170,12 @@
    "fieldtype": "Data",
    "label": "Student Email Address",
    "options": "Email",
+   "unique": 1
+  },
+  {
+   "fieldname": "custom_school_id",
+   "fieldtype": "Data",
+   "label": "School ID",
    "unique": 1
   },
   {

@@ -1403,3 +1403,287 @@ def calculate_results(calculation_type, academic_year, semester=None, student_gr
 		frappe.db.rollback()
 		frappe.log_error(f"Result calculation failed: {str(e)}")
 		return {"status": "error", "message": str(e)}
+
+# Student Application API endpoints
+
+@frappe.whitelist(allow_guest=True)
+def get_programs_for_application():
+	"""Get all available programs for student application"""
+	programs = frappe.get_all(
+		"Program",
+		fields=["name", "program_name", "program_abbreviation"],
+		filters={"disabled": 0},
+		order_by="program_name"
+	)
+	return programs
+
+@frappe.whitelist(allow_guest=True)
+def get_academic_years():
+	"""Get all available academic years"""
+	years = frappe.get_all(
+		"Academic Year",
+		fields=["name", "year_start_date", "year_end_date"],
+		filters={"disabled": 0},
+		order_by="year_start_date desc"
+	)
+	return years
+
+@frappe.whitelist(allow_guest=True)
+def search_student_by_school_id(school_id):
+	"""Search for existing student by school ID"""
+	if not school_id:
+		return None
+		
+	student = frappe.get_all(
+		"Student",
+		fields=["name", "first_name", "middle_name", "last_name", "custom_school_id"],
+		filters={"custom_school_id": school_id},
+		limit=1
+	)
+	
+	if student:
+		return student[0]
+	return None
+
+@frappe.whitelist(allow_guest=True)
+def generate_school_id(branch="M1"):
+	"""Generate a new school ID with format M1/*****/18 or M2/*****/18"""
+	# Get the last used number for the branch
+	last_id = frappe.db.sql("""
+		SELECT custom_school_id 
+		FROM `tabStudent Applicant` 
+		WHERE custom_school_id LIKE %s 
+		ORDER BY creation DESC 
+		LIMIT 1
+	""", (f"{branch}/%",), as_dict=True)
+	
+	if last_id:
+		# Extract the number from the last ID
+		parts = last_id[0]["custom_school_id"].split("/")
+		if len(parts) == 3:
+			try:
+				last_num = int(parts[1])
+				new_num = last_num + 1
+			except ValueError:
+				new_num = 10001
+		else:
+			new_num = 10001
+	else:
+		new_num = 10001
+	
+	# Format: M1/10001/18
+	return f"{branch}/{new_num:05d}/18"
+
+@frappe.whitelist(allow_guest=True)
+def create_guardian(guardian_data):
+	"""Create a new guardian record"""
+	try:
+		guardian_doc = frappe.new_doc("Guardian")
+		guardian_doc.guardian_name = guardian_data.get("guardian_name")
+		guardian_doc.email_address = guardian_data.get("email_address")
+		guardian_doc.mobile_number = guardian_data.get("mobile_number")
+		guardian_doc.alternate_number = guardian_data.get("alternate_number")
+		guardian_doc.education = guardian_data.get("education")
+		guardian_doc.occupation = guardian_data.get("occupation")
+		guardian_doc.work_address = guardian_data.get("work_address")
+		guardian_doc.insert()
+		return guardian_doc.name
+	except Exception as e:
+		frappe.throw(_("Error creating guardian: {0}").format(str(e)))
+
+@frappe.whitelist(allow_guest=True)
+def create_student_application(application_data):
+	"""Create a new student application"""
+	try:
+		app_doc = frappe.new_doc("Student Applicant")
+		
+		# Basic information
+		app_doc.first_name = application_data.get("first_name")
+		app_doc.middle_name = application_data.get("middle_name")
+		app_doc.last_name = application_data.get("last_name")
+		app_doc.custom_school_id = application_data.get("custom_school_id")
+		app_doc.program = application_data.get("program")
+		app_doc.academic_year = application_data.get("academic_year")
+		
+		# Personal details
+		app_doc.date_of_birth = application_data.get("date_of_birth")
+		app_doc.gender = application_data.get("gender")
+		app_doc.student_email_id = application_data.get("student_email_id")
+		app_doc.student_mobile_number = application_data.get("student_mobile_number")
+		app_doc.nationality = application_data.get("nationality", "Ethiopian")
+		
+		# Address
+		app_doc.address_line_1 = application_data.get("address_line_1")
+		app_doc.address_line_2 = application_data.get("address_line_2")
+		app_doc.city = application_data.get("city", "Adama")
+		app_doc.state = application_data.get("state")
+		app_doc.pincode = application_data.get("pincode")
+		app_doc.country = application_data.get("country", "Ethiopia")
+		
+		# Application status
+		app_doc.application_status = "Applied"
+		
+		# Guardians
+		guardians = application_data.get("guardians", [])
+		for guardian in guardians:
+			guardian_row = app_doc.append("guardians")
+			guardian_row.guardian = guardian.get("guardian")
+			guardian_row.guardian_name = guardian.get("guardian_name")
+			guardian_row.relation = guardian.get("relation")
+		
+		# Siblings
+		siblings = application_data.get("siblings", [])
+		for sibling in siblings:
+			sibling_row = app_doc.append("siblings")
+			sibling_row.student = sibling.get("student")
+			sibling_row.student_name = sibling.get("student_name")
+			sibling_row.program = sibling.get("program")
+			sibling_row.academic_year = sibling.get("academic_year")
+		
+		app_doc.insert()
+		return app_doc.name
+		
+	except Exception as e:
+		frappe.throw(_("Error creating student application: {0}").format(str(e)))
+
+@frappe.whitelist(allow_guest=True)
+def get_application_by_id(application_id):
+	"""Get student application details by ID"""
+	try:
+		app_doc = frappe.get_doc("Student Applicant", application_id)
+		return app_doc.as_dict()
+	except Exception as e:
+		frappe.throw(_("Error fetching application: {0}").format(str(e)))
+
+@frappe.whitelist(allow_guest=True)
+def update_student_application(application_id, application_data):
+	"""Update existing student application"""
+	try:
+		app_doc = frappe.get_doc("Student Applicant", application_id)
+		
+		# Update basic information
+		app_doc.first_name = application_data.get("first_name")
+		app_doc.middle_name = application_data.get("middle_name")
+		app_doc.last_name = application_data.get("last_name")
+		app_doc.custom_school_id = application_data.get("custom_school_id")
+		app_doc.program = application_data.get("program")
+		app_doc.academic_year = application_data.get("academic_year")
+		
+		# Update personal details
+		app_doc.date_of_birth = application_data.get("date_of_birth")
+		app_doc.gender = application_data.get("gender")
+		app_doc.student_email_id = application_data.get("student_email_id")
+		app_doc.student_mobile_number = application_data.get("student_mobile_number")
+		app_doc.nationality = application_data.get("nationality", "Ethiopian")
+		
+		# Update address
+		app_doc.address_line_1 = application_data.get("address_line_1")
+		app_doc.address_line_2 = application_data.get("address_line_2")
+		app_doc.city = application_data.get("city", "Adama")
+		app_doc.state = application_data.get("state")
+		app_doc.pincode = application_data.get("pincode")
+		app_doc.country = application_data.get("country", "Ethiopia")
+		
+		# Update guardians
+		app_doc.guardians = []
+		guardians = application_data.get("guardians", [])
+		for guardian in guardians:
+			guardian_row = app_doc.append("guardians")
+			guardian_row.guardian = guardian.get("guardian")
+			guardian_row.guardian_name = guardian.get("guardian_name")
+			guardian_row.relation = guardian.get("relation")
+		
+		# Update siblings
+		app_doc.siblings = []
+		siblings = application_data.get("siblings", [])
+		for sibling in siblings:
+			sibling_row = app_doc.append("siblings")
+			sibling_row.student = sibling.get("student")
+			sibling_row.student_name = sibling.get("student_name")
+			sibling_row.program = sibling.get("program")
+			sibling_row.academic_year = sibling.get("academic_year")
+		
+		app_doc.save()
+		return app_doc.name
+		
+	except Exception as e:
+		frappe.throw(_("Error updating student application: {0}").format(str(e)))
+
+@frappe.whitelist(allow_guest=True)
+def get_guardian_by_email(email):
+	"""Get guardian by email address"""
+	guardian = frappe.get_all(
+		"Guardian",
+		fields=["name", "guardian_name", "email_address", "mobile_number"],
+		filters={"email_address": email},
+		limit=1
+	)
+	
+	if guardian:
+		return guardian[0]
+	return None
+
+@frappe.whitelist(allow_guest=True)
+def create_sibling_application(parent_application_id, sibling_data):
+	"""Create a new sibling application using existing guardian information"""
+	try:
+		# Get parent application to copy guardian details
+		parent_app = frappe.get_doc("Student Applicant", parent_application_id)
+		
+		# Create new application for sibling
+		sibling_app = frappe.new_doc("Student Applicant")
+		
+		# Basic information
+		sibling_app.first_name = sibling_data.get("first_name")
+		sibling_app.middle_name = sibling_data.get("middle_name")
+		sibling_app.last_name = sibling_data.get("last_name")
+		sibling_app.custom_school_id = sibling_data.get("custom_school_id")
+		sibling_app.program = sibling_data.get("program")
+		sibling_app.academic_year = sibling_data.get("academic_year")
+		
+		# Personal details
+		sibling_app.date_of_birth = sibling_data.get("date_of_birth")
+		sibling_app.gender = sibling_data.get("gender")
+		sibling_app.student_email_id = sibling_data.get("student_email_id")
+		sibling_app.student_mobile_number = sibling_data.get("student_mobile_number")
+		sibling_app.nationality = sibling_data.get("nationality", "Ethiopian")
+		
+		# Copy address from parent
+		sibling_app.address_line_1 = parent_app.address_line_1
+		sibling_app.address_line_2 = parent_app.address_line_2
+		sibling_app.city = parent_app.city
+		sibling_app.state = parent_app.state
+		sibling_app.pincode = parent_app.pincode
+		sibling_app.country = parent_app.country
+		
+		# Application status
+		sibling_app.application_status = "Applied"
+		
+		# Copy guardians from parent
+		for guardian in parent_app.guardians:
+			guardian_row = sibling_app.append("guardians")
+			guardian_row.guardian = guardian.guardian
+			guardian_row.guardian_name = guardian.guardian_name
+			guardian_row.relation = guardian.relation
+		
+		# Add sibling relationship
+		sibling_row = sibling_app.append("siblings")
+		sibling_row.student = parent_application_id
+		sibling_row.student_name = f"{parent_app.first_name} {parent_app.middle_name or ''} {parent_app.last_name or ''}".strip()
+		sibling_row.program = parent_app.program
+		sibling_row.academic_year = parent_app.academic_year
+		
+		sibling_app.insert()
+		
+		# Update parent application to include this sibling
+		parent_sibling_row = parent_app.append("siblings")
+		parent_sibling_row.student = sibling_app.name
+		parent_sibling_row.student_name = f"{sibling_app.first_name} {sibling_app.middle_name or ''} {sibling_app.last_name or ''}".strip()
+		parent_sibling_row.program = sibling_app.program
+		parent_sibling_row.academic_year = sibling_app.academic_year
+		parent_app.save()
+		
+		return sibling_app.name
+		
+	except Exception as e:
+		frappe.throw(_("Error creating sibling application: {0}").format(str(e)))

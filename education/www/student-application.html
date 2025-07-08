@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <meta name="description" content="{{ description }}">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- Frappe UI CSS -->
+    <link rel="stylesheet" href="/assets/frappe/css/frappe-ui.css">
+    
+    <style>
+        /* Custom styles for the application */
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .step-indicator {
+            transition: width 0.3s ease;
+        }
+        
+        .form-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .btn-primary {
+            background-color: #3B82F6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2563EB;
+        }
+        
+        .btn-secondary {
+            background-color: #6B7280;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #4B5563;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #D1D5DB;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .error-message {
+            color: #EF4444;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        
+        .success-message {
+            color: #10B981;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app">
+        <div v-if="loading" class="min-h-screen flex items-center justify-center">
+            <div class="text-center">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading application...</p>
+            </div>
+        </div>
+        
+        <div v-else class="min-h-screen">
+            <!-- Header -->
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between items-center py-6">
+                        <div class="flex items-center">
+                            <h1 class="text-2xl font-bold text-gray-900">Student Application</h1>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="text-sm text-gray-500">
+                                Step {{ currentStep }} of {{ totalSteps }}
+                            </div>
+                            <div class="w-48 bg-gray-200 rounded-full h-2">
+                                <div 
+                                    class="bg-blue-600 h-2 rounded-full step-indicator"
+                                    :style="{ width: `${(currentStep / totalSteps) * 100}%` }"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div class="bg-white rounded-lg form-card p-6">
+                    
+                    <!-- Step 1: Guardian Information -->
+                    <div v-if="currentStep === 1" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Guardian Information</h2>
+                            <p class="text-gray-600">Please provide information about the parent or guardian</p>
+                        </div>
+                        
+                        <!-- Guardian Type Selection -->
+                        <div class="space-y-4">
+                            <label class="block text-sm font-medium text-gray-700">Guardian Type</label>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <button
+                                    @click="guardianType = 'parent'"
+                                    :class="[
+                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
+                                        guardianType === 'parent' 
+                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                    ]"
+                                >
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium">Parent</p>
+                                            <p class="text-xs text-gray-500">Father and Mother information</p>
+                                        </div>
+                                    </div>
+                                </button>
+                                <button
+                                    @click="guardianType = 'guardian'"
+                                    :class="[
+                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
+                                        guardianType === 'guardian' 
+                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                    ]"
+                                >
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium">Guardian</p>
+                                            <p class="text-xs text-gray-500">Other guardian information</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Guardian Forms placeholder - will be populated by JavaScript -->
+                        <div id="guardian-forms"></div>
+                    </div>
+                    
+                    <!-- Other steps will be implemented similarly -->
+                    <div v-if="currentStep === 2" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Type</h2>
+                            <p class="text-gray-600">Is this a new student or an existing student?</p>
+                        </div>
+                        <!-- Student type selection content -->
+                    </div>
+                    
+                    <!-- Navigation Buttons -->
+                    <div class="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+                        <button
+                            v-if="currentStep > 1"
+                            @click="previousStep"
+                            class="btn-secondary"
+                        >
+                            ← Previous
+                        </button>
+                        <div v-else></div>
+                        
+                        <div class="flex space-x-3">
+                            <button
+                                v-if="currentStep < totalSteps"
+                                @click="nextStep"
+                                :disabled="!canProceed"
+                                class="btn-primary"
+                                :class="{ 'opacity-50 cursor-not-allowed': !canProceed }"
+                            >
+                                Next →
+                            </button>
+                            
+                            <button
+                                v-if="currentStep === totalSteps"
+                                @click="submitApplication"
+                                :disabled="isSubmitting"
+                                class="btn-primary"
+                                :class="{ 'opacity-50 cursor-not-allowed': isSubmitting }"
+                            >
+                                {{ isSubmitting ? 'Submitting...' : 'Submit Application' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        
+        <!-- Success Modal -->
+        <div v-if="showSuccessModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                        <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Application Submitted Successfully!</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p class="text-sm text-gray-500">
+                            Your application has been submitted with ID: <strong>{{ submittedApplicationId }}</strong>
+                        </p>
+                    </div>
+                    <div class="items-center px-4 py-3 space-y-2">
+                        <button
+                            @click="addSibling"
+                            class="btn-primary w-full"
+                        >
+                            Add Another Child
+                        </button>
+                        <button
+                            @click="resetForm"
+                            class="btn-secondary w-full"
+                        >
+                            Start New Application
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    loading: true,
+                    currentStep: 1,
+                    totalSteps: 5,
+                    guardianType: 'parent',
+                    studentType: 'new',
+                    selectedBranch: 'M1',
+                    isSubmitting: false,
+                    showSuccessModal: false,
+                    submittedApplicationId: '',
+                    
+                    // Form data
+                    fatherData: {
+                        guardian_name: '',
+                        email_address: '',
+                        mobile_number: '',
+                        alternate_number: '',
+                        education: '',
+                        occupation: '',
+                        work_address: ''
+                    },
+                    motherData: {
+                        guardian_name: '',
+                        email_address: '',
+                        mobile_number: '',
+                        alternate_number: '',
+                        education: '',
+                        occupation: '',
+                        work_address: ''
+                    },
+                    guardianData: {
+                        guardian_name: '',
+                        email_address: '',
+                        mobile_number: '',
+                        alternate_number: '',
+                        education: '',
+                        occupation: '',
+                        work_address: ''
+                    },
+                    studentData: {
+                        first_name: '',
+                        middle_name: '',
+                        last_name: '',
+                        date_of_birth: '',
+                        gender: '',
+                        student_email_id: '',
+                        student_mobile_number: '',
+                        program: '',
+                        academic_year: '',
+                        nationality: 'Ethiopian'
+                    },
+                    addressData: {
+                        address_line_1: '',
+                        address_line_2: '',
+                        city: 'Adama',
+                        state: '',
+                        pincode: '',
+                        country: 'Ethiopia'
+                    },
+                    
+                    programs: [],
+                    academicYears: [],
+                    validationErrors: {}
+                }
+            },
+            
+            computed: {
+                canProceed() {
+                    switch (this.currentStep) {
+                        case 1:
+                            return this.guardianType === 'parent' 
+                                ? (this.fatherData.guardian_name && this.fatherData.email_address && this.motherData.guardian_name && this.motherData.email_address)
+                                : (this.guardianData.guardian_name && this.guardianData.email_address)
+                        case 2:
+                            return this.studentType === 'new' ? this.selectedBranch : true
+                        case 3:
+                            return this.studentData.first_name && this.studentData.last_name && this.studentData.date_of_birth && this.studentData.program
+                        case 4:
+                            return this.addressData.address_line_1 && this.addressData.city
+                        case 5:
+                            return true
+                        default:
+                            return false
+                    }
+                }
+            },
+            
+            methods: {
+                async loadInitialData() {
+                    try {
+                        // Load programs and academic years
+                        const response = await fetch('/api/method/education.education.api.get_programs_for_application');
+                        const data = await response.json();
+                        if (data.message) {
+                            this.programs = data.message;
+                        }
+                        
+                        const yearsResponse = await fetch('/api/method/education.education.api.get_academic_years');
+                        const yearsData = await yearsResponse.json();
+                        if (yearsData.message) {
+                            this.academicYears = yearsData.message;
+                        }
+                        
+                        this.loading = false;
+                    } catch (error) {
+                        console.error('Error loading initial data:', error);
+                        this.loading = false;
+                    }
+                },
+                
+                nextStep() {
+                    if (this.currentStep < this.totalSteps) {
+                        this.currentStep++;
+                    }
+                },
+                
+                previousStep() {
+                    if (this.currentStep > 1) {
+                        this.currentStep--;
+                    }
+                },
+                
+                async submitApplication() {
+                    this.isSubmitting = true;
+                    
+                    try {
+                        // Create guardians first
+                        const guardians = [];
+                        
+                        if (this.guardianType === 'parent') {
+                            // Create father guardian
+                            const fatherResponse = await fetch('/api/method/education.education.api.create_guardian', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    guardian_data: this.fatherData
+                                })
+                            });
+                            const fatherData = await fatherResponse.json();
+                            
+                            if (fatherData.message) {
+                                guardians.push({
+                                    guardian: fatherData.message,
+                                    guardian_name: this.fatherData.guardian_name,
+                                    relation: 'Father'
+                                });
+                            }
+                            
+                            // Create mother guardian
+                            const motherResponse = await fetch('/api/method/education.education.api.create_guardian', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    guardian_data: this.motherData
+                                })
+                            });
+                            const motherData = await motherResponse.json();
+                            
+                            if (motherData.message) {
+                                guardians.push({
+                                    guardian: motherData.message,
+                                    guardian_name: this.motherData.guardian_name,
+                                    relation: 'Mother'
+                                });
+                            }
+                        } else {
+                            // Create guardian
+                            const guardianResponse = await fetch('/api/method/education.education.api.create_guardian', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    guardian_data: this.guardianData
+                                })
+                            });
+                            const guardianData = await guardianResponse.json();
+                            
+                            if (guardianData.message) {
+                                guardians.push({
+                                    guardian: guardianData.message,
+                                    guardian_name: this.guardianData.guardian_name,
+                                    relation: 'Others'
+                                });
+                            }
+                        }
+                        
+                        // Generate school ID for new students
+                        let schoolId = '';
+                        if (this.studentType === 'new') {
+                            const schoolIdResponse = await fetch('/api/method/education.education.api.generate_school_id', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    branch: this.selectedBranch
+                                })
+                            });
+                            const schoolIdData = await schoolIdResponse.json();
+                            if (schoolIdData.message) {
+                                schoolId = schoolIdData.message;
+                            }
+                        }
+                        
+                        // Prepare application data
+                        const applicationData = {
+                            ...this.studentData,
+                            ...this.addressData,
+                            custom_school_id: schoolId,
+                            guardians: guardians,
+                            siblings: []
+                        };
+                        
+                        // Create application
+                        const applicationResponse = await fetch('/api/method/education.education.api.create_student_application', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                application_data: applicationData
+                            })
+                        });
+                        const applicationResult = await applicationResponse.json();
+                        
+                        if (applicationResult.message) {
+                            this.submittedApplicationId = applicationResult.message;
+                            this.showSuccessModal = true;
+                        } else {
+                            throw new Error('Failed to create application');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Error submitting application:', error);
+                        alert('Error submitting application. Please try again.');
+                    } finally {
+                        this.isSubmitting = false;
+                    }
+                },
+                
+                addSibling() {
+                    this.showSuccessModal = false;
+                    // Reset only student-specific data, keep guardian data
+                    this.studentData = {
+                        first_name: '',
+                        middle_name: '',
+                        last_name: '',
+                        date_of_birth: '',
+                        gender: '',
+                        student_email_id: '',
+                        student_mobile_number: '',
+                        program: '',
+                        academic_year: '',
+                        nationality: 'Ethiopian'
+                    };
+                    
+                    this.currentStep = 2;
+                    this.studentType = 'new';
+                    this.selectedBranch = 'M1';
+                },
+                
+                resetForm() {
+                    this.showSuccessModal = false;
+                    this.currentStep = 1;
+                    this.guardianType = 'parent';
+                    this.studentType = 'new';
+                    this.selectedBranch = 'M1';
+                    this.submittedApplicationId = '';
+                    
+                    // Reset all form data
+                    this.fatherData = {
+                        guardian_name: '',
+                        email_address: '',
+                        mobile_number: '',
+                        alternate_number: '',
+                        education: '',
+                        occupation: '',
+                        work_address: ''
+                    };
+                    
+                    this.motherData = {
+                        guardian_name: '',
+                        email_address: '',
+                        mobile_number: '',
+                        alternate_number: '',
+                        education: '',
+                        occupation: '',
+                        work_address: ''
+                    };
+                    
+                    this.guardianData = {
+                        guardian_name: '',
+                        email_address: '',
+                        mobile_number: '',
+                        alternate_number: '',
+                        education: '',
+                        occupation: '',
+                        work_address: ''
+                    };
+                    
+                    this.studentData = {
+                        first_name: '',
+                        middle_name: '',
+                        last_name: '',
+                        date_of_birth: '',
+                        gender: '',
+                        student_email_id: '',
+                        student_mobile_number: '',
+                        program: '',
+                        academic_year: '',
+                        nationality: 'Ethiopian'
+                    };
+                    
+                    this.addressData = {
+                        address_line_1: '',
+                        address_line_2: '',
+                        city: 'Adama',
+                        state: '',
+                        pincode: '',
+                        country: 'Ethiopia'
+                    };
+                    
+                    this.validationErrors = {};
+                }
+            },
+            
+            mounted() {
+                this.loadInitialData();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html> 

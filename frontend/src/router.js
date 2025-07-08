@@ -46,6 +46,12 @@ const routes = [
     component: () => import('@/pages/Courses.vue'),
   },
   {
+    path: '/student-application',
+    name: 'StudentApplication',
+    component: () => import('@/pages/StudentApplication.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/:catchAll(.*)',
     redirect: '/schedule',
   },
@@ -60,6 +66,11 @@ router.beforeEach(async (to, from) => {
   const { isLoggedIn, user: sessionUser } = sessionStore()
   const { user } = usersStore()
   const { student } = studentStore()
+
+  // Allow access to public routes without authentication
+  if (to.meta.requiresAuth === false) {
+    return true
+  }
 
   if (!isLoggedIn) {
     window.location.href = '/login'
