@@ -1433,17 +1433,36 @@ def search_student_by_school_id(school_id):
 	"""Search for existing student by school ID"""
 	if not school_id:
 		return None
-		
-	student = frappe.get_all(
-		"Student",
-		fields=["name", "first_name", "middle_name", "last_name", "custom_school_id"],
-		filters={"custom_school_id": school_id},
-		limit=1
-	)
 	
-	if student:
-		return student[0]
-	return None
+	try:
+		# First try to search in Student table
+		student = frappe.get_all(
+			"Student",
+			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id"],
+			filters={"custom_school_id": school_id},
+			limit=1
+		)
+		
+		if student:
+			return student[0]
+		
+		# If not found in Student table, try Student Applicant table
+		applicant = frappe.get_all(
+			"Student Applicant",
+			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id"],
+			filters={"custom_school_id": school_id},
+			limit=1
+		)
+		
+		if applicant:
+			return applicant[0]
+			
+		return None
+		
+	except Exception as e:
+		# If there are permission issues, return None
+		frappe.log_error(f"Error searching student by school ID: {str(e)}")
+		return None
 
 @frappe.whitelist(allow_guest=True)
 def generate_school_id(branch="M1"):

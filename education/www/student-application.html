@@ -411,9 +411,9 @@
                             >
                             <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
                                 <p class="text-green-800 font-medium">Student Found:</p>
-                                <p class="text-green-700">{{ existingStudent.first_name }} {{ existingStudent.middle_name }} {{ existingStudent.last_name }}</p>
+                                <p class="text-green-700" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
                             </div>
-                            <div v-if="schoolIdError" class="text-red-600 text-sm">{{ schoolIdError }}</div>
+                            <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
                         </div>
                     </div>
                     
@@ -465,18 +465,14 @@
                                 <label class="block text-sm font-medium text-gray-700">Program *</label>
                                 <select v-model="studentData.program" class="input-field" required>
                                     <option value="">Select Program</option>
-                                    <option v-for="program in programs" :key="program.name" :value="program.name">
-                                        {{ program.program_name }}
-                                    </option>
+                                    <option v-for="program in programs" :key="program.name" :value="program.name" v-text="program.program_name"></option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Academic Year</label>
                                 <select v-model="studentData.academic_year" class="input-field">
                                     <option value="">Select Academic Year</option>
-                                    <option v-for="year in academicYears" :key="year.name" :value="year.name">
-                                        {{ year.name }}
-                                    </option>
+                                    <option v-for="year in academicYears" :key="year.name" :value="year.name" v-text="year.name"></option>
                                 </select>
                             </div>
                         </div>
@@ -531,22 +527,22 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <h4 class="font-medium text-blue-900">Father</h4>
-                                        <p>{{ fatherData.guardian_name }}</p>
-                                        <p class="text-sm text-gray-600">{{ fatherData.email_address }}</p>
-                                        <p class="text-sm text-gray-600">{{ fatherData.mobile_number }}</p>
+                                        <p v-text="fatherData.guardian_name"></p>
+                                        <p class="text-sm text-gray-600" v-text="fatherData.email_address"></p>
+                                        <p class="text-sm text-gray-600" v-text="fatherData.mobile_number"></p>
                                     </div>
                                     <div>
                                         <h4 class="font-medium text-pink-900">Mother</h4>
-                                        <p>{{ motherData.guardian_name }}</p>
-                                        <p class="text-sm text-gray-600">{{ motherData.email_address }}</p>
-                                        <p class="text-sm text-gray-600">{{ motherData.mobile_number }}</p>
+                                        <p v-text="motherData.guardian_name"></p>
+                                        <p class="text-sm text-gray-600" v-text="motherData.email_address"></p>
+                                        <p class="text-sm text-gray-600" v-text="motherData.mobile_number"></p>
                                     </div>
                                 </div>
                             </div>
                             <div v-else>
-                                <p><strong>Guardian:</strong> {{ guardianData.guardian_name }}</p>
-                                <p class="text-sm text-gray-600">{{ guardianData.email_address }}</p>
-                                <p class="text-sm text-gray-600">{{ guardianData.mobile_number }}</p>
+                                <p><strong>Guardian:</strong> <span v-text="guardianData.guardian_name"></span></p>
+                                <p class="text-sm text-gray-600" v-text="guardianData.email_address"></p>
+                                <p class="text-sm text-gray-600" v-text="guardianData.mobile_number"></p>
                             </div>
                         </div>
                         
@@ -555,14 +551,14 @@
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Student Information</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <p><strong>Name:</strong> {{ studentData.first_name }} {{ studentData.middle_name }} {{ studentData.last_name }}</p>
-                                    <p><strong>Date of Birth:</strong> {{ studentData.date_of_birth }}</p>
-                                    <p><strong>Gender:</strong> {{ studentData.gender }}</p>
+                                    <p><strong>Name:</strong> <span v-text="studentData.first_name + ' ' + (studentData.middle_name || '') + ' ' + studentData.last_name"></span></p>
+                                    <p><strong>Date of Birth:</strong> <span v-text="studentData.date_of_birth"></span></p>
+                                    <p><strong>Gender:</strong> <span v-text="studentData.gender"></span></p>
                                 </div>
                                 <div>
-                                    <p><strong>Email:</strong> {{ studentData.student_email_id }}</p>
-                                    <p><strong>Mobile:</strong> {{ studentData.student_mobile_number }}</p>
-                                    <p><strong>Program:</strong> {{ getSelectedProgramName() }}</p>
+                                    <p><strong>Email:</strong> <span v-text="studentData.student_email_id"></span></p>
+                                    <p><strong>Mobile:</strong> <span v-text="studentData.student_mobile_number"></span></p>
+                                    <p><strong>Program:</strong> <span v-text="getSelectedProgramName()"></span></p>
                                 </div>
                             </div>
                         </div>
@@ -570,10 +566,10 @@
                         <!-- Address Information Preview -->
                         <div class="bg-gray-50 p-6 rounded-lg">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
-                            <p>{{ addressData.address_line_1 }}</p>
-                            <p v-if="addressData.address_line_2">{{ addressData.address_line_2 }}</p>
-                            <p>{{ addressData.state }}, {{ addressData.city }} {{ addressData.pincode }}</p>
-                            <p>{{ addressData.country }}</p>
+                            <p v-text="addressData.address_line_1"></p>
+                            <p v-if="addressData.address_line_2" v-text="addressData.address_line_2"></p>
+                            <p v-text="addressData.state + ', ' + addressData.city + ' ' + addressData.pincode"></p>
+                            <p v-text="addressData.country"></p>
                         </div>
                     </div>
                     
@@ -626,7 +622,7 @@
                     <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Application Submitted Successfully!</h3>
                     <div class="mt-2 px-7 py-3">
                         <p class="text-sm text-gray-500">
-                            Your application has been submitted with ID: <strong>{{ submittedApplicationId }}</strong>
+                            Your application has been submitted with ID: <strong v-text="submittedApplicationId"></strong>
                         </p>
                     </div>
                     <div class="items-center px-4 py-3 space-y-2">
