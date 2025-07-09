@@ -734,6 +734,10 @@
                     studentType: 'new',
                     branchSelection: 'M1',
                     existingStudent: null,
+                    existingSchoolId: '',
+                    schoolIdError: '',
+                    showSuccessModal: false,
+                    submittedApplicationId: '',
                     fatherData: {
                         guardian_name: '',
                         email_address: '',
@@ -827,6 +831,58 @@
                         }
                     }
                     return numbers;
+                },
+                
+                canProceed() {
+                    switch (this.currentStep) {
+                        case 1: // Guardian Information
+                            if (this.guardianType === 'parent') {
+                                return (
+                                    this.fatherData.guardian_name && 
+                                    this.fatherData.mobile_number && 
+                                    this.motherData.guardian_name && 
+                                    this.motherData.mobile_number &&
+                                    !this.phoneErrors.father &&
+                                    !this.phoneErrors.mother
+                                );
+                            } else {
+                                return (
+                                    this.guardianData.guardian_name && 
+                                    this.guardianData.mobile_number &&
+                                    !this.phoneErrors.guardian
+                                );
+                            }
+                        case 2: // Student Type Selection
+                            if (this.studentType === 'new') {
+                                return this.branchSelection;
+                            } else if (this.studentType === 'existing') {
+                                return this.existingStudent !== null;
+                            }
+                            return false;
+                        case 3: // Student Details
+                            return (
+                                this.studentData.first_name && 
+                                this.studentData.last_name && 
+                                this.studentData.date_of_birth && 
+                                this.studentData.program
+                            );
+                        case 4: // Address Information
+                            return (
+                                this.studentData.address_line_1 && 
+                                this.studentData.city
+                            );
+                        case 5: // Preview
+                            return true;
+                        default:
+                            return false;
+                    }
+                },
+                
+                submitButtonText() {
+                    if (this.isSubmitting) {
+                        return 'Submitting...';
+                    }
+                    return 'Submit Application';
                 }
             },
             
