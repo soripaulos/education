@@ -1410,12 +1410,36 @@ def calculate_results(calculation_type, academic_year, semester=None, student_gr
 @frappe.whitelist(allow_guest=True)
 def get_programs_for_application():
 	"""Get all available programs for student application"""
-	programs = frappe.get_all(
-		"Program",
-		fields=["name", "program_name", "program_abbreviation"],
-		filters={"disabled": 0},
-		order_by="program_name"
-	)
+	programs = [
+		{"name": "Grade 1", "program_name": "Grade 1", "program_abbreviation": "GR1"},
+		{"name": "Grade 2", "program_name": "Grade 2", "program_abbreviation": "GR2"},
+		{"name": "Grade 3", "program_name": "Grade 3", "program_abbreviation": "GR3"},
+		{"name": "Grade 4", "program_name": "Grade 4", "program_abbreviation": "GR4"},
+		{"name": "Grade 5", "program_name": "Grade 5", "program_abbreviation": "GR5"},
+		{"name": "Grade 6", "program_name": "Grade 6", "program_abbreviation": "GR6"},
+		{"name": "Grade 7", "program_name": "Grade 7", "program_abbreviation": "GR7"},
+		{"name": "Grade 8", "program_name": "Grade 8", "program_abbreviation": "GR8"},
+		{"name": "Grade 1 AO", "program_name": "Grade 1 AO", "program_abbreviation": "GR1 AO"},
+		{"name": "Grade 2 AO", "program_name": "Grade 2 AO", "program_abbreviation": "GR2 AO"},
+		{"name": "Grade 3 AO", "program_name": "Grade 3 AO", "program_abbreviation": "GR3 AO"},
+		{"name": "Grade 4 AO", "program_name": "Grade 4 AO", "program_abbreviation": "GR4 AO"},
+		{"name": "Grade 5 AO", "program_name": "Grade 5 AO", "program_abbreviation": "GR5 AO"},
+		{"name": "Grade 6 AO", "program_name": "Grade 6 AO", "program_abbreviation": "GR6 AO"},
+		{"name": "Grade 7 AO", "program_name": "Grade 7 AO", "program_abbreviation": "GR7 AO"},
+		{"name": "Grade 8 AO", "program_name": "Grade 8 AO", "program_abbreviation": "GR8 AO"},
+		{"name": "Grade 9", "program_name": "Grade 9", "program_abbreviation": "GR9"},
+		{"name": "Grade 10", "program_name": "Grade 10", "program_abbreviation": "GR10"},
+		{"name": "Grade 11 NS", "program_name": "Grade 11 NS", "program_abbreviation": "GR11 NS"},
+		{"name": "Grade 11 SS", "program_name": "Grade 11 SS", "program_abbreviation": "GR11 SS"},
+		{"name": "Grade 12 NS", "program_name": "Grade 12 NS", "program_abbreviation": "GR12 NS"},
+		{"name": "Grade 12 SS", "program_name": "Grade 12 SS", "program_abbreviation": "GR12 SS"},
+		{"name": "LKG", "program_name": "LKG", "program_abbreviation": "LKG"},
+		{"name": "UKG", "program_name": "UKG", "program_abbreviation": "UKG"},
+		{"name": "LKG AO", "program_name": "LKG AO", "program_abbreviation": "LKG AO"},
+		{"name": "UKG AO", "program_name": "UKG AO", "program_abbreviation": "UKG AO"},
+		{"name": "Nursery", "program_name": "Nursery", "program_abbreviation": "NUR"},
+		{"name": "Nursery AO", "program_name": "Nursery AO", "program_abbreviation": "NUR AO"},
+	]
 	return programs
 
 @frappe.whitelist(allow_guest=True)
