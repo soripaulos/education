@@ -41,6 +41,7 @@ def enroll_student(source_name):
 				"doctype": "Student",
 				"field_map": {
 					"name": "student_applicant",
+					"image": "image",
 				},
 			}
 		},
@@ -1418,6 +1419,52 @@ def get_programs_for_application():
 	return programs
 
 @frappe.whitelist(allow_guest=True)
+def get_education_levels():
+	"""Get education level options"""
+	return [
+		"No Formal Education",
+		"Primary School (1-8)",
+		"Secondary School (9-10)",
+		"Preparatory School (11-12)",
+		"Certificate",
+		"Diploma",
+		"Bachelor's Degree",
+		"Master's Degree",
+		"PhD",
+		"Other"
+	]
+
+@frappe.whitelist(allow_guest=True)
+def get_occupation_options():
+	"""Get occupation options"""
+	return [
+		"Government Employee",
+		"Private Sector Employee",
+		"Self-Employed/Business Owner",
+		"Farmer",
+		"Teacher",
+		"Doctor",
+		"Nurse",
+		"Engineer",
+		"Lawyer",
+		"Accountant",
+		"Driver",
+		"Security Guard",
+		"Shopkeeper",
+		"Mechanic",
+		"Electrician",
+		"Carpenter",
+		"Tailor",
+		"Hairdresser",
+		"Chef/Cook",
+		"Cleaner",
+		"Student",
+		"Retired",
+		"Unemployed",
+		"Other"
+	]
+
+@frappe.whitelist(allow_guest=True)
 def get_academic_years():
 	"""Get all available academic years"""
 	years = frappe.get_all(
@@ -1522,7 +1569,7 @@ def create_student_application(application_data):
 		app_doc.last_name = application_data.get("last_name")
 		app_doc.custom_school_id = application_data.get("custom_school_id")
 		app_doc.program = application_data.get("program")
-		app_doc.academic_year = application_data.get("academic_year")
+		app_doc.academic_year = application_data.get("academic_year", "2018 E.C.")
 		
 		# Personal details
 		app_doc.date_of_birth = application_data.get("date_of_birth")
@@ -1706,3 +1753,33 @@ def create_sibling_application(parent_application_id, sibling_data):
 		
 	except Exception as e:
 		frappe.throw(_("Error creating sibling application: {0}").format(str(e)))
+
+@frappe.whitelist(allow_guest=True)
+def validate_phone_number(phone_number):
+	"""Validate Ethiopian phone number format"""
+	if not phone_number:
+		return {"valid": False, "message": "Phone number is required"}
+	
+	# Remove any spaces or special characters
+	phone_clean = ''.join(filter(str.isdigit, phone_number))
+	
+	# Check if it's exactly 9 digits
+	if len(phone_clean) == 9:
+		# Check if it starts with valid Ethiopian prefixes
+		if phone_clean.startswith(('9', '7')):
+			return {"valid": True, "message": "Valid phone number", "formatted": f"+251{phone_clean}"}
+		else:
+			return {"valid": False, "message": "Phone number must start with 9 or 7"}
+	
+	# Check if it's 10 digits starting with 0 (common mistake)
+	elif len(phone_clean) == 10 and phone_clean.startswith('0'):
+		return {"valid": False, "message": "Phone number should start with 9, not 0. Remove the leading 0."}
+	
+	# Check if it's too long or too short
+	elif len(phone_clean) < 9:
+		return {"valid": False, "message": "Phone number must be 9 digits long"}
+	elif len(phone_clean) > 9:
+		return {"valid": False, "message": "Phone number must be exactly 9 digits long"}
+	
+	else:
+		return {"valid": False, "message": "Invalid phone number format"}

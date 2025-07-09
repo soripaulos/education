@@ -6,7 +6,7 @@ def get_context(context):
     context.show_sidebar = False
     
     # Set page title and meta
-    context.title = "Student Application"
+    context.title = "Apply for Admission"
     context.description = "Apply for admission to our school"
     
     # Add any additional context data if needed

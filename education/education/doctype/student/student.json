@@ -32,6 +32,8 @@
   "section_break_22",
   "address_line_1",
   "address_line_2",
+  "kebele",
+  "sub_city",
   "pincode",
   "column_break_20",
   "city",
@@ -186,6 +188,16 @@
    "fieldname": "address_line_2",
    "fieldtype": "Data",
    "label": "Address Line 2"
+  },
+  {
+   "fieldname": "kebele",
+   "fieldtype": "Data",
+   "label": "Kebele"
+  },
+  {
+   "fieldname": "sub_city",
+   "fieldtype": "Data",
+   "label": "Sub City"
   },
   {
    "fieldname": "pincode",
