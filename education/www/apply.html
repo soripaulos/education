@@ -843,13 +843,16 @@
                                     this.motherData.guardian_name && 
                                     this.motherData.mobile_number &&
                                     !this.phoneErrors.father &&
-                                    !this.phoneErrors.mother
+                                    !this.phoneErrors.mother &&
+                                    !this.phoneErrors.father_alt &&
+                                    !this.phoneErrors.mother_alt
                                 );
                             } else {
                                 return (
                                     this.guardianData.guardian_name && 
                                     this.guardianData.mobile_number &&
-                                    !this.phoneErrors.guardian
+                                    !this.phoneErrors.guardian &&
+                                    !this.phoneErrors.guardian_alt
                                 );
                             }
                         case 2: // Student Type Selection
@@ -1208,8 +1211,17 @@
 
                 // New methods for phone validation and education/occupation handling
                 async validatePhone(guardianType, phone) {
+                    // Check if this is an alternate number field
+                    const isAlternateNumber = guardianType.includes('_alt');
+                    
                     if (!phone) {
-                        this.phoneErrors[guardianType] = 'Mobile number is required';
+                        if (isAlternateNumber) {
+                            // Alternate numbers are optional, clear any existing error
+                            this.phoneErrors[guardianType] = '';
+                        } else {
+                            // Primary mobile numbers are required
+                            this.phoneErrors[guardianType] = 'Mobile number is required';
+                        }
                         return;
                     }
                     
