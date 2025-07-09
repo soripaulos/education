@@ -553,36 +553,22 @@
                         
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700">Address Line 1 *</label>
-                                <input v-model="studentData.address_line_1" type="text" class="input-field" required>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700">Address Line 2</label>
-                                <input v-model="studentData.address_line_2" type="text" class="input-field">
+                                <label class="block text-sm font-medium text-gray-700">Home Address *</label>
+                                <input v-model="studentData.address_line_1" type="text" class="input-field" required placeholder="Enter your home address">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Sub-city</label>
-                                <input v-model="studentData.sub_city" type="text" class="input-field" placeholder="e.g., Bole, Kirkos">
+                                <label class="block text-sm font-medium text-gray-700">Sub-city *</label>
+                                <select v-model="studentData.sub_city" class="input-field" required @change="onSubCityChange">
+                                    <option value="">Select Sub-city</option>
+                                    <option v-for="subCity in subCities" :key="subCity" :value="subCity">{{ subCity }}</option>
+                                </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Kebele</label>
-                                <input v-model="studentData.kebele" type="text" class="input-field" placeholder="e.g., 01, 02">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">City</label>
-                                <input v-model="studentData.city" type="text" class="input-field" value="Adama">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">State/Region</label>
-                                <input v-model="studentData.state" type="text" class="input-field" placeholder="e.g., Oromia">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Postal Code</label>
-                                <input v-model="studentData.pincode" type="text" class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Country</label>
-                                <input v-model="studentData.country" type="text" class="input-field" value="Ethiopia" readonly>
+                                <label class="block text-sm font-medium text-gray-700">Kebele *</label>
+                                <select v-model="studentData.kebele" class="input-field" required :disabled="!studentData.sub_city">
+                                    <option value="">Select Kebele</option>
+                                    <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name">{{ kebele.name }}</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -640,11 +626,10 @@
                         <!-- Address Information Preview -->
                         <div class="bg-gray-50 p-6 rounded-lg">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
-                            <p v-text="studentData.address_line_1"></p>
-                            <p v-if="studentData.address_line_2" v-text="studentData.address_line_2"></p>
-                            <p v-text="studentData.sub_city + ', ' + studentData.city + ' ' + studentData.pincode"></p>
-                            <p v-text="studentData.state"></p>
-                            <p v-text="studentData.country"></p>
+                            <p><strong>Home Address:</strong> <span v-text="studentData.address_line_1"></span></p>
+                            <p><strong>Sub-city:</strong> <span v-text="studentData.sub_city"></span></p>
+                            <p><strong>Kebele:</strong> <span v-text="studentData.kebele"></span></p>
+                            <p><strong>City:</strong> Adama, Ethiopia</p>
                         </div>
                     </div>
                     
@@ -783,11 +768,10 @@
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
                         address_line_1: '',
-                        address_line_2: '',
                         kebele: '',
                         sub_city: '',
                         city: 'Adama',
-                        state: '',
+                        state: 'Oromia',
                         pincode: '',
                         country: 'Ethiopia'
                     },
@@ -797,7 +781,10 @@
                     occupations: [],
                     validationErrors: {},
                     phoneErrors: {},
-                    availableMobileNumbers: []
+                    availableMobileNumbers: [],
+                    kebeleSubCityData: {},
+                    subCities: [],
+                    availableKebeles: []
                 }
             },
             
@@ -872,7 +859,8 @@
                         case 4: // Address Information
                             return (
                                 this.studentData.address_line_1 && 
-                                this.studentData.city
+                                this.studentData.sub_city &&
+                                this.studentData.kebele
                             );
                         case 5: // Preview
                             return true;
@@ -917,6 +905,12 @@
                         const occData = await occResponse.json();
                         this.occupations = occData.message || [];
                         
+                        // Load kebele and sub-city data
+                        const kebeleResponse = await fetch('/api/method/education.education.api.get_kebele_subcity_data');
+                        const kebeleData = await kebeleResponse.json();
+                        this.kebeleSubCityData = kebeleData.message || {};
+                        this.subCities = Object.keys(this.kebeleSubCityData);
+                        
                     } catch (error) {
                         console.error('Error loading initial data:', error);
                     }
@@ -938,16 +932,19 @@
                     this.isSubmitting = true;
                     
                     try {
-                        // Validate phone numbers
+                        // Validate phone numbers based on guardian type
                         this.phoneErrors = {};
-                        if (!this.fatherData.mobile_number) {
-                            this.phoneErrors.father = 'Father\'s mobile number is required.';
-                        }
-                        if (!this.motherData.mobile_number) {
-                            this.phoneErrors.mother = 'Mother\'s mobile number is required.';
-                        }
-                        if (!this.guardianData.mobile_number) {
-                            this.phoneErrors.guardian = 'Guardian\'s mobile number is required.';
+                        if (this.guardianType === 'parent') {
+                            if (!this.fatherData.mobile_number) {
+                                this.phoneErrors.father = 'Father\'s mobile number is required.';
+                            }
+                            if (!this.motherData.mobile_number) {
+                                this.phoneErrors.mother = 'Mother\'s mobile number is required.';
+                            }
+                        } else {
+                            if (!this.guardianData.mobile_number) {
+                                this.phoneErrors.guardian = 'Guardian\'s mobile number is required.';
+                            }
                         }
 
                         if (Object.keys(this.phoneErrors).length > 0) {
@@ -1042,7 +1039,6 @@
                         // Prepare application data
                         const applicationData = {
                             ...this.studentData,
-                            ...this.addressData,
                             custom_school_id: schoolId,
                             guardians: guardians,
                             siblings: []
@@ -1082,13 +1078,20 @@
                         first_name: '',
                         middle_name: '',
                         last_name: '',
-                        date_of_birth: '',
                         gender: '',
-                        student_email_id: '',
-                        student_mobile_number: '',
+                        date_of_birth: '',
                         program: '',
-                        academic_year: '',
-                        nationality: 'Ethiopian'
+                        primary_mobile_number: '',
+                        nationality: 'Ethiopian',
+                        academic_year: '2018 E.C.',
+                        custom_school_id: '',
+                        address_line_1: '',
+                        kebele: '',
+                        sub_city: '',
+                        city: 'Adama',
+                        state: 'Oromia',
+                        pincode: '',
+                        country: 'Ethiopia'
                     };
                     
                     this.currentStep = 2;
@@ -1145,26 +1148,25 @@
                         first_name: '',
                         middle_name: '',
                         last_name: '',
-                        date_of_birth: '',
                         gender: '',
-                        student_email_id: '',
-                        student_mobile_number: '',
+                        date_of_birth: '',
                         program: '',
-                        academic_year: '',
-                        nationality: 'Ethiopian'
-                    };
-                    
-                    this.addressData = {
+                        primary_mobile_number: '',
+                        nationality: 'Ethiopian',
+                        academic_year: '2018 E.C.',
+                        custom_school_id: '',
                         address_line_1: '',
-                        address_line_2: '',
+                        kebele: '',
+                        sub_city: '',
                         city: 'Adama',
-                        state: '',
+                        state: 'Oromia',
                         pincode: '',
                         country: 'Ethiopia'
                     };
                     
                     this.validationErrors = {};
                     this.phoneErrors = {}; // Reset phone errors
+                    this.availableKebeles = []; // Reset kebele options
                 },
                 
                 async lookupStudent() {
@@ -1287,6 +1289,13 @@
                     if (guardianType === 'father') return 'Father';
                     if (guardianType === 'mother') return 'Mother';
                     return 'Guardian';
+                },
+
+                onSubCityChange() {
+                    // Reset kebele when sub-city changes
+                    this.studentData.kebele = '';
+                    // Update available kebeles based on selected sub-city
+                    this.availableKebeles = this.kebeleSubCityData[this.studentData.sub_city] || [];
                 }
             }
         }).mount('#app');

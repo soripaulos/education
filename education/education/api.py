@@ -1807,3 +1807,39 @@ def validate_phone_number(phone_number):
 	
 	else:
 		return {"valid": False, "message": "Invalid phone number format"}
+
+@frappe.whitelist(allow_guest=True)
+def get_kebele_subcity_data():
+	"""Get kebele and sub-city hierarchical data"""
+	return {
+		"Bole": [
+			{"id": 1, "name": "Dhaka Adil"},
+			{"id": 2, "name": "Gooro (01)"},
+			{"id": 3, "name": "Dhadacha Araara (04)"}
+		],
+		"Gadaa": [
+			{"id": 4, "name": "Badhatu (07)"},
+			{"id": 5, "name": "Abba Gadaa (12)"},
+			{"id": 6, "name": "Odaa (08)"},
+			{"id": 7, "name": "Gurmuu (06)"}
+		],
+		"Bokkuu": [
+			{"id": 8, "name": "Barreecha (11)"},
+			{"id": 14, "name": "Migiiraa (02)"},
+			{"id": 17, "name": "Bokku shanan"}
+		],
+		"Luugoo": [
+			{"id": 9, "name": "Biqqa (10)"},
+			{"id": 11, "name": "Gaara Luugo (03)"}
+		],
+		"Dambalaa": [
+			{"id": 10, "name": "Dagaaga (05)"},
+			{"id": 12, "name": "Irrechaa (09)"},
+			{"id": 18, "name": "Malka"}
+		],
+		"Daabe": [
+			{"id": 13, "name": "Caffee (13)"},
+			{"id": 15, "name": "Daabe Solloqqe"},
+			{"id": 16, "name": "Hangaatu (14)"}
+		]
+	}
