@@ -887,32 +887,58 @@
                     try {
                         // Load programs
                         const programResponse = await fetch('/api/method/education.education.api.get_programs_for_application');
-                        const programData = await programResponse.json();
-                        this.programs = programData.message || [];
+                        if (!programResponse.ok) {
+                            const errorData = await programResponse.json();
+                            console.error('Failed to load programs:', errorData);
+                        } else {
+                            const programData = await programResponse.json();
+                            this.programs = programData.message || [];
+                        }
                         
                         // Load academic years
                         const yearResponse = await fetch('/api/method/education.education.api.get_academic_years');
-                        const yearData = await yearResponse.json();
-                        this.academicYears = yearData.message || [];
+                        if (!yearResponse.ok) {
+                            const errorData = await yearResponse.json();
+                            console.error('Failed to load academic years:', errorData);
+                        } else {
+                            const yearData = await yearResponse.json();
+                            this.academicYears = yearData.message || [];
+                        }
                         
                         // Load education levels
                         const eduResponse = await fetch('/api/method/education.education.api.get_education_levels');
-                        const eduData = await eduResponse.json();
-                        this.educationLevels = eduData.message || [];
+                        if (!eduResponse.ok) {
+                            const errorData = await eduResponse.json();
+                            console.error('Failed to load education levels:', errorData);
+                        } else {
+                            const eduData = await eduResponse.json();
+                            this.educationLevels = eduData.message || [];
+                        }
                         
                         // Load occupations
                         const occResponse = await fetch('/api/method/education.education.api.get_occupation_options');
-                        const occData = await occResponse.json();
-                        this.occupations = occData.message || [];
+                        if (!occResponse.ok) {
+                            const errorData = await occResponse.json();
+                            console.error('Failed to load occupations:', errorData);
+                        } else {
+                            const occData = await occResponse.json();
+                            this.occupations = occData.message || [];
+                        }
                         
                         // Load kebele and sub-city data
                         const kebeleResponse = await fetch('/api/method/education.education.api.get_kebele_subcity_data');
-                        const kebeleData = await kebeleResponse.json();
-                        this.kebeleSubCityData = kebeleData.message || {};
-                        this.subCities = Object.keys(this.kebeleSubCityData);
+                        if (!kebeleResponse.ok) {
+                            const errorData = await kebeleResponse.json();
+                            console.error('Failed to load kebele data:', errorData);
+                        } else {
+                            const kebeleData = await kebeleResponse.json();
+                            this.kebeleSubCityData = kebeleData.message || {};
+                            this.subCities = Object.keys(this.kebeleSubCityData);
+                        }
                         
                     } catch (error) {
                         console.error('Error loading initial data:', error);
+                        alert('Error loading application data. Some features may not work properly. Please refresh the page and try again.');
                     }
                 },
                 
@@ -967,6 +993,12 @@
                                     guardian_data: this.fatherData
                                 })
                             });
+                            
+                            if (!fatherResponse.ok) {
+                                const errorData = await fatherResponse.json();
+                                throw new Error(`Failed to create father guardian: ${errorData.message || errorData.exc || fatherResponse.statusText}`);
+                            }
+                            
                             const fatherData = await fatherResponse.json();
                             
                             if (fatherData.message) {
@@ -975,6 +1007,8 @@
                                     guardian_name: this.fatherData.guardian_name,
                                     relation: 'Father'
                                 });
+                            } else {
+                                throw new Error(`Failed to get father guardian ID: ${fatherData.exc || 'Unknown error'}`);
                             }
                             
                             // Create mother guardian
@@ -987,6 +1021,12 @@
                                     guardian_data: this.motherData
                                 })
                             });
+                            
+                            if (!motherResponse.ok) {
+                                const errorData = await motherResponse.json();
+                                throw new Error(`Failed to create mother guardian: ${errorData.message || errorData.exc || motherResponse.statusText}`);
+                            }
+                            
                             const motherData = await motherResponse.json();
                             
                             if (motherData.message) {
@@ -995,6 +1035,8 @@
                                     guardian_name: this.motherData.guardian_name,
                                     relation: 'Mother'
                                 });
+                            } else {
+                                throw new Error(`Failed to get mother guardian ID: ${motherData.exc || 'Unknown error'}`);
                             }
                         } else {
                             // Create guardian
@@ -1007,6 +1049,12 @@
                                     guardian_data: this.guardianData
                                 })
                             });
+                            
+                            if (!guardianResponse.ok) {
+                                const errorData = await guardianResponse.json();
+                                throw new Error(`Failed to create guardian: ${errorData.message || errorData.exc || guardianResponse.statusText}`);
+                            }
+                            
                             const guardianData = await guardianResponse.json();
                             
                             if (guardianData.message) {
@@ -1015,6 +1063,8 @@
                                     guardian_name: this.guardianData.guardian_name,
                                     relation: 'Others'
                                 });
+                            } else {
+                                throw new Error(`Failed to get guardian ID: ${guardianData.exc || 'Unknown error'}`);
                             }
                         }
                         
@@ -1030,9 +1080,17 @@
                                     branch: this.branchSelection
                                 })
                             });
+                            
+                            if (!schoolIdResponse.ok) {
+                                const errorData = await schoolIdResponse.json();
+                                throw new Error(`Failed to generate school ID: ${errorData.message || errorData.exc || schoolIdResponse.statusText}`);
+                            }
+                            
                             const schoolIdData = await schoolIdResponse.json();
                             if (schoolIdData.message) {
                                 schoolId = schoolIdData.message;
+                            } else {
+                                throw new Error(`Failed to get school ID: ${schoolIdData.exc || 'Unknown error'}`);
                             }
                         }
                         
@@ -1054,18 +1112,40 @@
                                 application_data: applicationData
                             })
                         });
+                        
+                        if (!applicationResponse.ok) {
+                            const errorData = await applicationResponse.json();
+                            throw new Error(`Failed to create application: ${errorData.message || errorData.exc || applicationResponse.statusText}`);
+                        }
+                        
                         const applicationResult = await applicationResponse.json();
                         
                         if (applicationResult.message) {
                             this.submittedApplicationId = applicationResult.message;
                             this.showSuccessModal = true;
                         } else {
-                            throw new Error('Failed to create application');
+                            throw new Error(`Failed to create application: ${applicationResult.exc || 'Unknown error'}`);
                         }
                         
                     } catch (error) {
                         console.error('Error submitting application:', error);
-                        alert('Error submitting application. Please try again.');
+                        
+                        // Show detailed error message
+                        let errorMessage = 'Error submitting application: ';
+                        if (error.message) {
+                            errorMessage += error.message;
+                        } else {
+                            errorMessage += 'Unknown error occurred. Please try again.';
+                        }
+                        
+                        alert(errorMessage);
+                        
+                        // Log detailed error for debugging
+                        console.log('Detailed error information:', {
+                            message: error.message,
+                            stack: error.stack,
+                            name: error.name
+                        });
                     } finally {
                         this.isSubmitting = false;
                     }

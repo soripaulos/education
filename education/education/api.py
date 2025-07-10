@@ -1491,13 +1491,18 @@ def get_occupation_options():
 @frappe.whitelist(allow_guest=True)
 def get_academic_years():
 	"""Get all available academic years"""
-	years = frappe.get_all(
-		"Academic Year",
-		fields=["name", "year_start_date", "year_end_date"],
-		filters={"disabled": 0},
-		order_by="year_start_date desc"
-	)
-	return years
+	try:
+		years = frappe.get_all(
+			"Academic Year",
+			fields=["name", "year_start_date", "year_end_date"],
+			filters={"disabled": 0},
+			order_by="year_start_date desc"
+		)
+		return years
+	except Exception as e:
+		frappe.log_error(message=str(e), title="Academic Years API Error")
+		# Return a fallback list with the current academic year
+		return [{"name": "2018 E.C.", "year_start_date": "2024-09-01", "year_end_date": "2025-08-31"}]
 
 @frappe.whitelist(allow_guest=True)
 def search_student_by_school_id(school_id):
@@ -1568,6 +1573,9 @@ def generate_school_id(branch="M1"):
 def create_guardian(guardian_data):
 	"""Create a new guardian record"""
 	try:
+		# Log the incoming data for debugging
+		frappe.log_error(message=f"Guardian data received: {guardian_data}", title="Guardian Creation Debug")
+		
 		# Check if guardian already exists by name and mobile number
 		mobile_check = guardian_data.get("mobile_number")
 		if mobile_check and not mobile_check.startswith("+251"):
@@ -1586,6 +1594,13 @@ def create_guardian(guardian_data):
 			return existing_guardian[0].name
 			
 		guardian_doc = frappe.new_doc("Guardian")
+		
+		# Check required fields
+		if not guardian_data.get("guardian_name"):
+			frappe.throw(_("Guardian name is required"))
+		if not guardian_data.get("mobile_number"):
+			frappe.throw(_("Mobile number is required"))
+			
 		guardian_doc.guardian_name = guardian_data.get("guardian_name")
 		guardian_doc.email_address = guardian_data.get("email_address")
 		
@@ -1622,14 +1637,26 @@ def create_guardian(guardian_data):
 		guardian_doc.insert()
 		return guardian_doc.name
 	except Exception as e:
-		frappe.log_error(message=str(e), title="Guardian Creation Error")
-		frappe.throw(_("Error creating guardian: {0}").format(str(e)))
+		error_msg = str(e)
+		frappe.log_error(message=f"Guardian creation failed: {error_msg}\nData: {guardian_data}", title="Guardian Creation Error")
+		frappe.throw(_("Error creating guardian: {0}").format(error_msg))
 
 @frappe.whitelist(allow_guest=True)
 def create_student_application(application_data):
 	"""Create a new student application"""
 	try:
+		# Log the incoming data for debugging
+		frappe.log_error(message=f"Application data received: {application_data}", title="Student Application Creation Debug")
+		
 		app_doc = frappe.new_doc("Student Applicant")
+		
+		# Check required fields
+		if not application_data.get("first_name"):
+			frappe.throw(_("First name is required"))
+		if not application_data.get("last_name"):
+			frappe.throw(_("Last name is required"))
+		if not application_data.get("program"):
+			frappe.throw(_("Program is required"))
 		
 		# Basic information
 		app_doc.first_name = application_data.get("first_name")
@@ -1684,8 +1711,9 @@ def create_student_application(application_data):
 		return app_doc.name
 		
 	except Exception as e:
-		frappe.log_error(message=str(e), title="Student Application Creation Error")
-		frappe.throw(_("Error creating student application: {0}").format(str(e)))
+		error_msg = str(e)
+		frappe.log_error(message=f"Student application creation failed: {error_msg}\nData: {application_data}", title="Student Application Creation Error")
+		frappe.throw(_("Error creating student application: {0}").format(error_msg))
 
 @frappe.whitelist(allow_guest=True)
 def get_application_by_id(application_id):
