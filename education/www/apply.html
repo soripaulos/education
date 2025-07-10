@@ -493,11 +493,11 @@
                             <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
                             <div class="flex space-x-2">
                                 <div class="relative flex-1">
-                                    <input 
-                                        v-model="existingSchoolId" 
-                                        type="text" 
-                                        class="input-field" 
-                                        placeholder="e.g., M1/10001/18"
+                            <input 
+                                v-model="existingSchoolId" 
+                                type="text" 
+                                class="input-field" 
+                                placeholder="e.g., M1/10001/18"
                                         :disabled="isCheckingSchoolId"
                                         @keydown.enter="lookupStudent"
                                     >
@@ -619,11 +619,11 @@
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
                                     Uploading...
-                                </div>
+                            </div>
                                 <div v-if="studentData.image" class="mt-2 text-sm text-green-600">
                                     ✓ Photo uploaded successfully
-                                </div>
-                            </div>
+                        </div>
+                    </div>
                         </div>
                     </div>
                     
@@ -776,7 +776,7 @@
                 </div>
             </transition-group>
         </div>
-
+        
         <!-- Success Modal -->
         <div v-if="showSuccessModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -796,20 +796,25 @@
                         <button
                             @click="addSibling"
                             class="btn-primary w-full"
+                            :disabled="isGeneratingPDF"
                         >
-                            Add Another Child
+                            <span v-if="isGeneratingPDF">Processing...</span>
+                            <span v-else>Add Another Child</span>
                         </button>
                         <button
                             @click="resetForm"
                             class="btn-secondary w-full"
+                            :disabled="isGeneratingPDF"
                         >
                             Start New Application
                         </button>
                         <button
                             @click="finishAndDownload"
-                            class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 w-full"
+                            class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 w-full disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            :disabled="isGeneratingPDF"
                         >
-                            Finish & Download PDF
+                            <span v-if="isGeneratingPDF">Generating PDF...</span>
+                            <span v-else>Finish & Download PDF</span>
                         </button>
                     </div>
                 </div>
@@ -951,6 +956,7 @@
                     // Loading states
                     isCheckingSchoolId: false,
                     isUploadingFile: false,
+                    isGeneratingPDF: false,
                     
                     // Notifications
                     notifications: []
@@ -1510,7 +1516,7 @@
                     }
                 },
                 
-                addSibling() {
+                async addSibling() {
                     // Save current application to sessionApplications
                     this.sessionApplications.push({
                         guardianType: this.guardianType,
@@ -1522,13 +1528,16 @@
                         studentType: this.studentType,
                         branchSelection: this.branchSelection
                     });
+                    
                     // Download PDF for current child
-                    this.finishAndDownload(true);
+                    await this.finishAndDownload(true);
+                    
                     // Pre-fill parent images for next child
                     this.fatherData.photo = this.sessionParentImages.father;
                     this.motherData.photo = this.sessionParentImages.mother;
                     this.guardianData.photo = this.sessionParentImages.guardian;
-                    // ... existing code to reset studentData and go to next step ...
+                    
+                    // Reset student data for next child
                     this.studentData = {
                         first_name: '',
                         middle_name: '',
@@ -1537,20 +1546,24 @@
                         date_of_birth: '',
                         program: '',
                         primary_mobile_number: '',
+                        student_email_id: '',
                         nationality: 'Ethiopian',
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
-                        address_line_1: '',
-                        kebele: '',
-                        sub_city: '',
+                        address_line_1: this.studentData.address_line_1, // Keep same address
+                        kebele: this.studentData.kebele,
+                        sub_city: this.studentData.sub_city,
                         city: 'Adama',
                         state: 'Oromia',
                         pincode: '',
-                        country: 'Ethiopia'
+                        country: 'Ethiopia',
+                        image: ''
                     };
+                    
                     this.currentStep = 4;
                     this.studentType = 'new';
                     this.branchSelection = 'M1';
+                    this.showSuccessModal = false;
                 },
                 
                 resetForm() {
@@ -1624,7 +1637,7 @@
                 },
                 
                 // Notification system
-                showNotification(message, type = 'info', duration = 5000) {
+                showNotification(message, type = 'info', duration = 10000) {
                     const id = Date.now();
                     const notification = { id, message, type };
                     this.notifications.push(notification);
@@ -1882,6 +1895,7 @@
                 },
                 
                 async finishAndDownload(isSibling = false) {
+                    this.isGeneratingPDF = true;
                     try {
                         let applications = this.sessionApplications;
                         if (!isSibling) {
@@ -1897,6 +1911,9 @@
                                 branchSelection: this.branchSelection
                             }];
                         }
+                        
+                        this.showNotification('Generating PDF...', 'info');
+                        
                         const response = await fetch('/api/method/education.education.api.generate_application_pdf', {
                             method: 'POST',
                             headers: {
@@ -1906,6 +1923,7 @@
                                 session_applications: applications
                             })
                         });
+                        
                         if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -1916,15 +1934,23 @@
                             a.click();
                             window.URL.revokeObjectURL(url);
                             document.body.removeChild(a);
-                            this.showSuccessModal = false;
-                            if (!isSibling) this.resetForm();
+                            
+                            this.showNotification('PDF downloaded successfully!', 'success');
+                            
+                            if (!isSibling) {
+                                this.showSuccessModal = false;
+                                this.resetForm();
+                            }
                         } else {
-                            console.error('PDF generation failed');
-                            alert('Error generating PDF. Please try again.');
+                            const errorText = await response.text();
+                            console.error('PDF generation failed:', errorText);
+                            this.showNotification('Error generating PDF. Please try again.', 'error');
                         }
                     } catch (error) {
                         console.error('Error generating PDF:', error);
-                        alert('Error generating PDF. Please try again.');
+                        this.showNotification('Network error generating PDF. Please try again.', 'error');
+                    } finally {
+                        this.isGeneratingPDF = false;
                     }
                 }
             }

@@ -1630,8 +1630,9 @@ def create_guardian(guardian_data):
 			guardian_doc.work_address = guardian_data.get("work_address")
 		
 		# Handle image/photo field if present
-		if guardian_data.get("photo"):
-			guardian_doc.image = guardian_data.get("photo")
+		image_url = guardian_data.get("photo") or guardian_data.get("image")
+		if image_url:
+			guardian_doc.image = image_url
 			
 		guardian_doc.insert()
 		return guardian_doc.name
