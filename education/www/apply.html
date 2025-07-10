@@ -567,7 +567,7 @@
                                 <label class="block text-sm font-medium text-gray-700">Kebele *</label>
                                 <select v-model="studentData.kebele" class="input-field" required :disabled="!studentData.sub_city">
                                     <option value="">Select Kebele</option>
-                                    <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name">{{ kebele.name }}</option>
+                                    <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name" v-text="kebele.name"></option>
                                 </select>
                             </div>
                         </div>
