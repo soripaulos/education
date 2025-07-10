@@ -1931,106 +1931,270 @@ def generate_application_pdf(session_applications):
     """Generate PDF for one or more student applications"""
     try:
         from frappe.utils.pdf import get_pdf
-        import base64
-        from io import BytesIO
         import json
+        
+        # Parse session_applications if it's a string
         if isinstance(session_applications, str):
             session_applications = json.loads(session_applications)
-        logo_url = "https://app.makkobillischool.com/files/school_logo.png"
+            
+        # Ensure session_applications is a list
+        if not isinstance(session_applications, list):
+            session_applications = [session_applications]
+        
+        # School information
         school_name = "Makko Billi School"
-        html_pages = []
-        for app in session_applications:
-            student_img = app.get('studentData', {}).get('image', '')
-            father_img = app.get('fatherData', {}).get('image', '')
-            mother_img = app.get('motherData', {}).get('image', '')
-            guardian_img = app.get('guardianData', {}).get('image', '')
-            html = f"""
-            <html><head><meta charset='utf-8'>
+        school_address = "Adama, Ethiopia"
+        
+        html_content = """
+        <html>
+        <head>
+            <meta charset='utf-8'>
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                .header {{ text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }}
-                .logo {{ width: 80px; height: 80px; }}
-                .school-name {{ font-size: 24px; font-weight: bold; color: #2563eb; margin: 10px 0; }}
-                .section {{ margin: 20px 0; }}
-                .section-title {{ font-size: 18px; font-weight: bold; color: #1f2937; margin-bottom: 10px; border-bottom: 1px solid #d1d5db; padding-bottom: 5px; }}
-                .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }}
-                .info-item {{ margin: 5px 0; }}
-                .label {{ font-weight: bold; color: #374151; }}
-                .value {{ color: #1f2937; }}
-                .student-photo, .parent-photo {{ width: 120px; height: 150px; object-fit: cover; border: 1px solid #d1d5db; }}
-                .page-break {{ page-break-before: always; }}
-            </style></head><body>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    margin: 20px; 
+                    line-height: 1.4;
+                }
+                .header { 
+                    text-align: center; 
+                    margin-bottom: 30px; 
+                    border-bottom: 2px solid #333; 
+                    padding-bottom: 20px; 
+                }
+                .school-name { 
+                    font-size: 24px; 
+                    font-weight: bold; 
+                    color: #2563eb; 
+                    margin: 10px 0; 
+                }
+                .section { 
+                    margin: 20px 0; 
+                    page-break-inside: avoid;
+                }
+                .section-title { 
+                    font-size: 16px; 
+                    font-weight: bold; 
+                    color: #1f2937; 
+                    margin-bottom: 10px; 
+                    border-bottom: 1px solid #d1d5db; 
+                    padding-bottom: 5px; 
+                }
+                .info-row { 
+                    display: flex; 
+                    margin: 8px 0; 
+                }
+                .label { 
+                    font-weight: bold; 
+                    color: #374151; 
+                    width: 150px; 
+                    flex-shrink: 0;
+                }
+                .value { 
+                    color: #1f2937; 
+                    flex: 1;
+                }
+                .page-break { 
+                    page-break-before: always; 
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 10px 0;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+        """
+        
+        for i, app in enumerate(session_applications):
+            if i > 0:
+                html_content += "<div class='page-break'></div>"
+                
+            # Extract data safely
+            student_data = app.get('studentData', {})
+            father_data = app.get('fatherData', {})
+            mother_data = app.get('motherData', {})
+            guardian_data = app.get('guardianData', {})
+            guardian_type = app.get('guardianType', 'parent')
+            student_type = app.get('studentType', 'new')
+            application_id = app.get('submittedApplicationId', 'N/A')
+            
+            html_content += f"""
             <div class='header'>
-                <img src='{logo_url}' alt='School Logo' class='logo'>
                 <div class='school-name'>{school_name}</div>
                 <div style='font-size: 16px; color: #6b7280;'>Student Application Form</div>
-                <div style='font-size: 14px; color: #9ca3af;'>Application ID: {app.get('submittedApplicationId', 'N/A')}</div>
+                <div style='font-size: 14px; color: #9ca3af;'>Application ID: {application_id}</div>
+                <div style='font-size: 12px; color: #9ca3af;'>{school_address}</div>
             </div>
+            
             <div class='section'>
                 <div class='section-title'>Student Information</div>
-                <div class='info-grid'>
-                    <div class='info-item'><span class='label'>Full Name:</span> <span class='value'>{app.get('studentData', {}).get('first_name', '')} {app.get('studentData', {}).get('middle_name', '')} {app.get('studentData', {}).get('last_name', '')}</span></div>
-                    <div class='info-item'><span class='label'>Date of Birth:</span> <span class='value'>{app.get('studentData', {}).get('date_of_birth', '')}</span></div>
-                    <div class='info-item'><span class='label'>Gender:</span> <span class='value'>{app.get('studentData', {}).get('gender', '')}</span></div>
-                    <div class='info-item'><span class='label'>Email:</span> <span class='value'>{app.get('studentData', {}).get('student_email_id', '')}</span></div>
-                    <div class='info-item'><span class='label'>Mobile:</span> <span class='value'>{app.get('studentData', {}).get('primary_mobile_number', '')}</span></div>
-                    <div class='info-item'><span class='label'>Program/Grade:</span> <span class='value'>{app.get('studentData', {}).get('program', '')}</span></div>
-                    <div class='info-item'><span class='label'>Student Type:</span> <span class='value'>{app.get('studentType', '').title()}</span></div>
-                    <div class='info-item'><span class='label'>School ID:</span> <span class='value'>{app.get('studentData', {}).get('custom_school_id', '')}</span></div>
+                <div class='info-row'>
+                    <span class='label'>Full Name:</span>
+                    <span class='value'>{student_data.get('first_name', '')} {student_data.get('middle_name', '')} {student_data.get('last_name', '')}</span>
                 </div>
-                {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else ''}
+                <div class='info-row'>
+                    <span class='label'>Date of Birth:</span>
+                    <span class='value'>{student_data.get('date_of_birth', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Gender:</span>
+                    <span class='value'>{student_data.get('gender', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Email:</span>
+                    <span class='value'>{student_data.get('student_email_id', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Mobile:</span>
+                    <span class='value'>{student_data.get('primary_mobile_number', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Program/Grade:</span>
+                    <span class='value'>{student_data.get('program', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Student Type:</span>
+                    <span class='value'>{student_type.title()}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>School ID:</span>
+                    <span class='value'>{student_data.get('custom_school_id', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Academic Year:</span>
+                    <span class='value'>{student_data.get('academic_year', '2018 E.C.')}</span>
+                </div>
             </div>
+            
             <div class='section'>
                 <div class='section-title'>Address Information</div>
-                <div class='info-grid'>
-                    <div class='info-item'><span class='label'>Home Address:</span> <span class='value'>{app.get('studentData', {}).get('address_line_1', '')}</span></div>
-                    <div class='info-item'><span class='label'>Sub-city:</span> <span class='value'>{app.get('studentData', {}).get('sub_city', '')}</span></div>
-                    <div class='info-item'><span class='label'>Kebele:</span> <span class='value'>{app.get('studentData', {}).get('kebele', '')}</span></div>
-                    <div class='info-item'><span class='label'>City:</span> <span class='value'>{app.get('studentData', {}).get('city', 'Adama')}</span></div>
+                <div class='info-row'>
+                    <span class='label'>Home Address:</span>
+                    <span class='value'>{student_data.get('address_line_1', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Sub-city:</span>
+                    <span class='value'>{student_data.get('sub_city', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Kebele:</span>
+                    <span class='value'>{student_data.get('kebele', '')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>City:</span>
+                    <span class='value'>{student_data.get('city', 'Adama')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>State:</span>
+                    <span class='value'>{student_data.get('state', 'Oromia')}</span>
+                </div>
+                <div class='info-row'>
+                    <span class='label'>Country:</span>
+                    <span class='value'>{student_data.get('country', 'Ethiopia')}</span>
                 </div>
             </div>
             """
-            # Guardian/parent info
-            if app.get('guardianType') == 'parent':
-                html += f"""
+            
+            # Guardian information
+            if guardian_type == 'parent':
+                html_content += f"""
                 <div class='section'>
                     <div class='section-title'>Guardian Information</div>
-                    <div class='info-grid'>
-                        <div class='info-item'><span class='label'>Father's Name:</span> <span class='value'>{app.get('fatherData', {}).get('guardian_name', '')}</span></div>
-                        <div class='info-item'><span class='label'>Father's Mobile:</span> <span class='value'>{app.get('fatherData', {}).get('mobile_number', '')}</span></div>
-                        <div class='info-item'><span class='label'>Father's Email:</span> <span class='value'>{app.get('fatherData', {}).get('email_address', '')}</span></div>
-                        <div class='info-item'><span class='label'>Father's Occupation:</span> <span class='value'>{app.get('fatherData', {}).get('occupation', '')}</span></div>
-                        <div class='info-item'>{f"<img src='{father_img}' class='parent-photo' alt='Father Photo'>" if father_img else ''}</div>
-                        <div class='info-item'><span class='label'>Mother's Name:</span> <span class='value'>{app.get('motherData', {}).get('guardian_name', '')}</span></div>
-                        <div class='info-item'><span class='label'>Mother's Mobile:</span> <span class='value'>{app.get('motherData', {}).get('mobile_number', '')}</span></div>
-                        <div class='info-item'><span class='label'>Mother's Email:</span> <span class='value'>{app.get('motherData', {}).get('email_address', '')}</span></div>
-                        <div class='info-item'><span class='label'>Mother's Occupation:</span> <span class='value'>{app.get('motherData', {}).get('occupation', '')}</span></div>
-                        <div class='info-item'>{f"<img src='{mother_img}' class='parent-photo' alt='Mother Photo'>" if mother_img else ''}</div>
-                    </div>
+                    <table>
+                        <tr>
+                            <th>Information</th>
+                            <th>Father</th>
+                            <th>Mother</th>
+                        </tr>
+                        <tr>
+                            <td><strong>Name</strong></td>
+                            <td>{father_data.get('guardian_name', '')}</td>
+                            <td>{mother_data.get('guardian_name', '')}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Mobile Number</strong></td>
+                            <td>+251{father_data.get('mobile_number', '')}</td>
+                            <td>+251{mother_data.get('mobile_number', '')}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Email Address</strong></td>
+                            <td>{father_data.get('email_address', '')}</td>
+                            <td>{mother_data.get('email_address', '')}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Education</strong></td>
+                            <td>{father_data.get('education', '')}</td>
+                            <td>{mother_data.get('education', '')}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Occupation</strong></td>
+                            <td>{father_data.get('occupation', '')}</td>
+                            <td>{mother_data.get('occupation', '')}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Work Address</strong></td>
+                            <td>{father_data.get('work_address', '')}</td>
+                            <td>{mother_data.get('work_address', '')}</td>
+                        </tr>
+                    </table>
                 </div>
                 """
             else:
-                html += f"""
+                html_content += f"""
                 <div class='section'>
                     <div class='section-title'>Guardian Information</div>
-                    <div class='info-grid'>
-                        <div class='info-item'><span class='label'>Guardian Name:</span> <span class='value'>{app.get('guardianData', {}).get('guardian_name', '')}</span></div>
-                        <div class='info-item'><span class='label'>Mobile Number:</span> <span class='value'>{app.get('guardianData', {}).get('mobile_number', '')}</span></div>
-                        <div class='info-item'><span class='label'>Email Address:</span> <span class='value'>{app.get('guardianData', {}).get('email_address', '')}</span></div>
-                        <div class='info-item'><span class='label'>Occupation:</span> <span class='value'>{app.get('guardianData', {}).get('occupation', '')}</span></div>
-                        <div class='info-item'>{f"<img src='{guardian_img}' class='parent-photo' alt='Guardian Photo'>" if guardian_img else ''}</div>
+                    <div class='info-row'>
+                        <span class='label'>Guardian Name:</span>
+                        <span class='value'>{guardian_data.get('guardian_name', '')}</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='label'>Mobile Number:</span>
+                        <span class='value'>+251{guardian_data.get('mobile_number', '')}</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='label'>Email Address:</span>
+                        <span class='value'>{guardian_data.get('email_address', '')}</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='label'>Education:</span>
+                        <span class='value'>{guardian_data.get('education', '')}</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='label'>Occupation:</span>
+                        <span class='value'>{guardian_data.get('occupation', '')}</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='label'>Work Address:</span>
+                        <span class='value'>{guardian_data.get('work_address', '')}</span>
                     </div>
                 </div>
                 """
-            html += "</body></html>"
-            html_pages.append(html)
-        # Join pages with page breaks
-        full_html = ("<div class='page-break'></div>").join(html_pages)
-        pdf_content = get_pdf(full_html)
+        
+        html_content += """
+        </body>
+        </html>
+        """
+        
+        # Generate PDF
+        pdf_content = get_pdf(html_content)
+        
+        # Set response headers for download
         frappe.local.response.filename = "student_application.pdf"
         frappe.local.response.filecontent = pdf_content
         frappe.local.response.type = "download"
+        
         return pdf_content
+        
     except Exception as e:
         frappe.log_error(message=str(e), title="PDF Generation Error")
         frappe.throw(_("Error generating PDF: {0}").format(str(e)))
@@ -2071,6 +2235,8 @@ def upload_file_guest():
 		import frappe
 		from frappe.utils.file_manager import save_file
 		import os
+		import uuid
+		import base64
 		
 		if 'file' not in frappe.request.files:
 			frappe.throw(_("No file was uploaded"))
@@ -2093,19 +2259,21 @@ def upload_file_guest():
 			frappe.throw(_("Only image files (PNG, JPG, JPEG, GIF, WEBP) are allowed"))
 		
 		# Create a unique filename
-		import uuid
 		unique_name = str(uuid.uuid4())[:8]
 		new_filename = f"{unique_name}_{file.filename}"
 		
-		# Save file using a more direct approach
+		# Save file using the working method
 		try:
-			# Create File document
-			file_doc = frappe.new_doc("File")
-			file_doc.file_name = new_filename
-			file_doc.is_private = 0
-			file_doc.folder = "Home/Student Applications"
-			file_doc.content = file_content
-			file_doc.save()
+			# Use save_file method which handles permissions properly
+			file_doc = save_file(
+				new_filename,
+				file_content,
+				"",  # dt - not attached to any doctype
+				"",  # dn - not attached to any document
+				folder="Home/Student Applications",
+				decode=False,
+				is_private=0  # Make it public
+			)
 			
 			# Return file information
 			return {
@@ -2113,28 +2281,10 @@ def upload_file_guest():
 				"file_url": file_doc.file_url,
 				"name": file_doc.name
 			}
+			
 		except Exception as e:
 			frappe.log_error(message=str(e), title="File Upload Error")
-			# Try alternative method using save_file
-			try:
-				file_doc = save_file(
-					new_filename,
-					file_content,
-					"",  # dt
-					"",  # dn
-					folder="Home/Student Applications",
-					decode=False,
-					is_private=0  # Make it public
-				)
-				
-				return {
-					"file_name": file_doc.file_name,
-					"file_url": file_doc.file_url,
-					"name": file_doc.name
-				}
-			except Exception as e2:
-				frappe.log_error(message=str(e2), title="File Upload Error Alternative")
-				frappe.throw(_("Error saving file: {0}").format(str(e2)))
+			frappe.throw(_("Error saving file: {0}").format(str(e)))
 			
 	except Exception as e:
 		frappe.log_error(message=str(e), title="File Upload Error")

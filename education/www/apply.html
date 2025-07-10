@@ -472,27 +472,74 @@
                         <!-- School ID Lookup for Existing Students -->
                         <div v-if="studentType === 'existing'" class="space-y-4">
                             <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
-                            <div class="relative">
-                                <input 
-                                    v-model="existingSchoolId" 
-                                    type="text" 
-                                    class="input-field pr-10" 
-                                    placeholder="e.g., M1/10001/18"
-                                    @blur="lookupStudent"
-                                    :disabled="isCheckingSchoolId"
+                            <div class="flex space-x-2">
+                                <div class="relative flex-1">
+                                    <input 
+                                        v-model="existingSchoolId" 
+                                        type="text" 
+                                        class="input-field pr-10" 
+                                        placeholder="e.g., M1/10001/18"
+                                        @keyup.enter="lookupStudent"
+                                        :disabled="isCheckingSchoolId"
+                                    >
+                                    <div v-if="isCheckingSchoolId" class="absolute inset-y-0 right-0 flex items-center pr-3">
+                                        <svg class="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <button
+                                    @click="lookupStudent"
+                                    :disabled="!existingSchoolId || isCheckingSchoolId"
+                                    class="btn-primary px-4 py-2 flex items-center space-x-2"
+                                    :class="{ 'opacity-50 cursor-not-allowed': !existingSchoolId || isCheckingSchoolId }"
                                 >
-                                <div v-if="isCheckingSchoolId" class="absolute inset-y-0 right-0 flex items-center pr-3">
-                                    <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                                    <svg v-if="!isCheckingSchoolId" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                    <span>{{ isCheckingSchoolId ? 'Searching...' : 'Search' }}</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Loading Component -->
+                            <div v-if="isCheckingSchoolId" class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                <div class="flex items-center space-x-3">
+                                    <svg class="animate-spin h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
+                                    <div>
+                                        <p class="text-blue-800 font-medium">Searching for student...</p>
+                                        <p class="text-blue-600 text-sm">Please wait while we look up the school ID</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
-                                <p class="text-green-800 font-medium">Student Found:</p>
-                                <p class="text-green-700" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
+                            
+                            <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg border border-green-200">
+                                <div class="flex items-center space-x-3">
+                                    <svg class="h-6 w-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <div>
+                                        <p class="text-green-800 font-medium">Student Found!</p>
+                                        <p class="text-green-700 text-lg font-semibold" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
+                                        <p class="text-green-600 text-sm">School ID: {{ existingSchoolId }}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
+                            
+                            <div v-if="schoolIdError" class="bg-red-50 p-4 rounded-lg border border-red-200">
+                                <div class="flex items-center space-x-3">
+                                    <svg class="h-6 w-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <div>
+                                        <p class="text-red-800 font-medium">Student Not Found</p>
+                                        <p class="text-red-700 text-sm" v-text="schoolIdError"></p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -691,12 +738,12 @@
         </div>
         
         <!-- Notification System -->
-        <div class="fixed top-4 right-4 z-50 space-y-2">
+        <div class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 space-y-2 w-full max-w-md">
             <div
                 v-for="notification in notifications"
                 :key="notification.id"
                 :class="[
-                    'max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 transition-all duration-300',
+                    'w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 transition-all duration-300',
                     notification.type === 'success' ? 'border-l-4 border-green-500' : '',
                     notification.type === 'error' ? 'border-l-4 border-red-500' : '',
                     notification.type === 'info' ? 'border-l-4 border-blue-500' : '',
@@ -1126,15 +1173,13 @@
                     
                     const formData = new FormData();
                     formData.append('file', file);
-                    formData.append('is_private', '0'); // Make files public
-                    formData.append('folder', 'Home/Student Applications'); // Organize in folder
                     
                     this.isUploadingFile = true;
                     this.showNotification('Uploading image...', 'info');
                     
                     try {
-                        // Try custom guest upload endpoint first
-                        let response = await fetch('/api/method/education.education.api.upload_file_guest', {
+                        // Use only custom guest upload endpoint
+                        const response = await fetch('/api/method/education.education.api.upload_file_guest', {
                             method: 'POST',
                             body: formData,
                             credentials: 'include'
@@ -1147,25 +1192,7 @@
                                 return result.message.file_url;
                             } else {
                                 this.showNotification('Upload failed: Invalid response format', 'error');
-                                return null;
-                            }
-                        }
-                        
-                        // If custom endpoint fails, try standard Frappe upload endpoint
-                        console.log('Custom upload failed, trying standard endpoint...');
-                        response = await fetch('/api/method/upload_file', {
-                            method: 'POST',
-                            body: formData,
-                            credentials: 'include' // Important for guest users
-                        });
-                        
-                        if (response.ok) {
-                            const result = await response.json();
-                            if (result.message && result.message.file_url) {
-                                this.showNotification('Image uploaded successfully!', 'success');
-                                return result.message.file_url;
-                            } else {
-                                this.showNotification('Upload failed: Invalid response format', 'error');
+                                console.error('Upload response:', result);
                                 return null;
                             }
                         } else {
@@ -1177,10 +1204,10 @@
                                 if (errorData.message) {
                                     errorMessage = errorData.message;
                                 } else if (errorData.exc) {
-                                    errorMessage = errorData.exc;
+                                    errorMessage = 'File upload error - please try again';
                                 }
                             } catch (e) {
-                                errorMessage = `${response.statusText} (${response.status})`;
+                                errorMessage = `Upload failed (${response.status})`;
                             }
                             
                             this.showNotification(errorMessage, 'error');
@@ -1189,7 +1216,7 @@
                         }
                     } catch (error) {
                         console.error('File upload failed:', error);
-                        this.showNotification(`Upload failed: ${error.message}`, 'error');
+                        this.showNotification('Upload failed: Network error', 'error');
                         return null;
                     } finally {
                         this.isUploadingFile = false;
