@@ -485,39 +485,157 @@
                             </div>
                             <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
                         </div>
+                    </div>
+                    
+                    <!-- Step 2: Home Address -->
+                    <div v-if="currentStep === 2" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Home Address</h2>
+                            <p class="text-gray-600">Please provide your home address details</p>
+                        </div>
                         
-                        <!-- Address Information (Shared for all children) -->
-                        <div class="space-y-6 mt-8">
-                            <div class="border-t pt-6">
-                                <h3 class="text-lg font-medium text-gray-900 mb-4">Home Address (Shared)</h3>
-                                <p class="text-gray-600 text-sm mb-4">This address will be used for all children in the family</p>
-                                
-                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div class="sm:col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700">Home Address *</label>
-                                        <input v-model="studentData.address_line_1" type="text" class="input-field" required placeholder="Enter your home address">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Sub-city *</label>
-                                        <select v-model="studentData.sub_city" class="input-field" required @change="onSubCityChange">
-                                            <option value="">Select Sub-city</option>
-                                            <option v-for="subCity in subCities" :key="subCity" :value="subCity">{{ subCity }}</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Kebele *</label>
-                                        <select v-model="studentData.kebele" class="input-field" required :disabled="!studentData.sub_city">
-                                            <option value="">Select Kebele</option>
-                                            <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name" v-text="kebele.name"></option>
-                                        </select>
-                                    </div>
-                                </div>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Home Address *</label>
+                                <input v-model="studentData.address_line_1" type="text" class="input-field" required placeholder="Enter your home address">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Sub-city *</label>
+                                <select v-model="studentData.sub_city" class="input-field" required @change="onSubCityChange">
+                                    <option value="">Select Sub-city</option>
+                                    <option v-for="subCity in subCities" :key="subCity" :value="subCity">{{ subCity }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Kebele *</label>
+                                <select v-model="studentData.kebele" class="input-field" required :disabled="!studentData.sub_city">
+                                    <option value="">Select Kebele</option>
+                                    <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name" v-text="kebele.name"></option>
+                                </select>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Step 3: Student Details -->
+                    <!-- Step 3: Student Type Selection -->
                     <div v-if="currentStep === 3" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Type</h2>
+                            <p class="text-gray-600">Is this a new student or an existing student?</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <button
+                                @click="studentType = 'new'"
+                                :class="[
+                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
+                                    studentType === 'new' 
+                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                ]"
+                            >
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-lg font-medium">New Student</p>
+                                        <p class="text-sm text-gray-500">First time applying to our school</p>
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <button
+                                @click="studentType = 'existing'"
+                                :class="[
+                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
+                                    studentType === 'existing' 
+                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                ]"
+                            >
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-lg font-medium">Existing Student</p>
+                                        <p class="text-sm text-gray-500">Already has a school ID</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <!-- Branch Selection for New Students -->
+                        <div v-if="studentType === 'new'" class="space-y-4">
+                            <label class="block text-sm font-medium text-gray-700">Select Branch</label>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <button
+                                    @click="branchSelection = 'M1'"
+                                    :class="[
+                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
+                                        branchSelection === 'M1' 
+                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                    ]"
+                                >
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                <span class="text-blue-600 font-semibold">M1</span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium">Main Branch</p>
+                                        </div>
+                                    </div>
+                                </button>
+                                <button
+                                    @click="branchSelection = 'M2'"
+                                    :class="[
+                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
+                                        branchSelection === 'M2' 
+                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                    ]"
+                                >
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                <span class="text-green-600 font-semibold">M2</span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium">Second Branch</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- School ID Lookup for Existing Students -->
+                        <div v-if="studentType === 'existing'" class="space-y-4">
+                            <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
+                            <input 
+                                v-model="existingSchoolId" 
+                                type="text" 
+                                class="input-field" 
+                                placeholder="e.g., M1/10001/18"
+                                @blur="lookupStudent"
+                            >
+                            <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
+                                <p class="text-green-800 font-medium">Student Found:</p>
+                                <p class="text-green-700" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
+                            </div>
+                            <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 4: Student Details -->
+                    <div v-if="currentStep === 4" class="space-y-6">
                         <div class="text-center">
                             <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Details</h2>
                             <p class="text-gray-600">Please provide the student's personal information</p>
@@ -573,8 +691,8 @@
                         </div>
                     </div>
                     
-                    <!-- Step 4: Preview -->
-                    <div v-if="currentStep === 4" class="space-y-6">
+                    <!-- Step 5: Preview -->
+                    <div v-if="currentStep === 5" class="space-y-6">
                         <div class="text-center">
                             <h2 class="text-xl font-semibold text-gray-900 mb-4">Review Application</h2>
                             <p class="text-gray-600">Please review all information before submitting</p>
@@ -712,7 +830,7 @@
             data() {
                 return {
                     currentStep: 1,
-                    totalSteps: 4,
+                    totalSteps: 5,
                     loading: true,
                     isSubmitting: false,
                     guardianType: 'parent',
@@ -883,24 +1001,27 @@
                                     !this.phoneErrors.guardian_alt
                                 );
                             }
-                        case 2: // Student Type Selection + Address
-                            const studentTypeValid = this.studentType === 'new' 
-                                ? this.branchSelection 
-                                : this.existingStudent !== null;
-                            const addressValid = (
+                        case 2: // Home Address
+                            return (
                                 this.studentData.address_line_1 && 
                                 this.studentData.sub_city &&
                                 this.studentData.kebele
                             );
-                            return studentTypeValid && addressValid;
-                        case 3: // Student Details
+                        case 3: // Student Type Selection
+                            if (this.studentType === 'new') {
+                                return this.branchSelection;
+                            } else if (this.studentType === 'existing') {
+                                return this.existingStudent !== null;
+                            }
+                            return false;
+                        case 4: // Student Details
                             return (
                                 this.studentData.first_name && 
                                 this.studentData.last_name && 
                                 this.studentData.date_of_birth && 
                                 this.studentData.program
                             );
-                        case 4: // Preview
+                        case 5: // Preview
                             return true;
                         default:
                             return false;
@@ -979,18 +1100,22 @@
                     if (!file) return null;
                     
                     const formData = new FormData();
-                    formData.append('file', file);
-                    formData.append('is_private', 0);
+                    formData.append('image', file);
+                    formData.append('key', 'fa98a09b99b561dd8106d46442f91847');
                     
                     try {
-                        const response = await fetch('/api/method/upload_file', {
+                        const response = await fetch('https://api.imgbb.com/1/upload', {
                             method: 'POST',
                             body: formData
                         });
                         
                         if (response.ok) {
                             const result = await response.json();
-                            return result.message.file_url;
+                            if (result.success) {
+                                return result.data.url;
+                            } else {
+                                console.error('ImgBB upload failed:', result.error);
+                            }
                         }
                     } catch (error) {
                         console.error('File upload failed:', error);
@@ -1298,7 +1423,7 @@
                         pincode: ''
                     };
                     
-                    this.currentStep = 2;
+                    this.currentStep = 3;
                     this.studentType = 'new';
                     this.branchSelection = 'M1';
                 },
@@ -1485,7 +1610,7 @@
                 handleStudentImageUpload(event) {
                     const file = event.target.files[0];
                     if (file) {
-                        this.studentData.photo = file;
+                        this.studentData.image = file;
                     }
                 },
 
