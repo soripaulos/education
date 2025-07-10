@@ -1859,6 +1859,10 @@ def create_sibling_application(parent_application_id, sibling_data):
 @frappe.whitelist(allow_guest=True)
 def validate_phone_number(phone_number):
 	"""Validate Ethiopian phone number format"""
+	# Handle both direct parameter and JSON body
+	if isinstance(phone_number, dict):
+		phone_number = phone_number.get("phone_number", "")
+	
 	if not phone_number:
 		return {"valid": False, "message": "Phone number is required"}
 	

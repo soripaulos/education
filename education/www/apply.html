@@ -1442,11 +1442,17 @@
                             })
                         });
                         
+                        if (!response.ok) {
+                            console.error('Phone validation API error:', response.status, response.statusText);
+                            this.phoneErrors[guardianType] = 'Error validating phone number';
+                            return;
+                        }
+                        
                         const data = await response.json();
-                        if (data.message.valid) {
+                        if (data.message && data.message.valid) {
                             this.phoneErrors[guardianType] = '';
                         } else {
-                            this.phoneErrors[guardianType] = data.message.message;
+                            this.phoneErrors[guardianType] = data.message ? data.message.message : 'Error validating phone number';
                         }
                     } catch (error) {
                         console.error('Error validating phone:', error);
