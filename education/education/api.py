@@ -10,7 +10,6 @@ from frappe.email.doctype.email_group.email_group import add_subscribers
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import cstr, flt, getdate
 from frappe.utils.dateutils import get_dates_from_timegrain
-from frappe.utils import get_url
 
 
 def get_course(program):
@@ -1935,35 +1934,18 @@ def generate_application_pdf(session_applications):
         import base64
         from io import BytesIO
         import json
-
         if isinstance(session_applications, str):
             session_applications = json.loads(session_applications)
-
-        # Get site's base URL to build absolute URLs for images
-        base_url = get_url()
         logo_url = "https://app.makkobillischool.com/files/school_logo.png"
         school_name = "Makko Billi School"
-
         html_pages = []
-
         for app in session_applications:
-            # Helper to create absolute URL for images
-            def get_absolute_url(url):
-                if not url:
-                    return ""
-                if url.startswith(('http://', 'https://')):
-                    return url
-                return base_url + url if url.startswith('/') else base_url + '/' + url
-
-            student_img = get_absolute_url(app.get('studentData', {}).get('image', ''))
-            father_img = get_absolute_url(app.get('fatherData', {}).get('image', ''))
-            mother_img = get_absolute_url(app.get('motherData', {}).get('image', ''))
-            guardian_img = get_absolute_url(app.get('guardianData', {}).get('image', ''))
-            
-            # Revert to the stable HTML structure
+            student_img = app.get('studentData', {}).get('image', '')
+            father_img = app.get('fatherData', {}).get('image', '')
+            mother_img = app.get('motherData', {}).get('image', '')
+            guardian_img = app.get('guardianData', {}).get('image', '')
             html = f"""
-            <html>
-            <head><meta charset='utf-8'>
+            <html><head><meta charset='utf-8'>
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 20px; }}
                 .header {{ text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }}
@@ -1984,30 +1966,20 @@ def generate_application_pdf(session_applications):
                 <div style='font-size: 16px; color: #6b7280;'>Student Application Form</div>
                 <div style='font-size: 14px; color: #9ca3af;'>Application ID: {app.get('submittedApplicationId', 'N/A')}</div>
             </div>
-            
-            <table width="100%">
-                <tr>
-                    <td style="vertical-align: top;">
-                        <div class='section'>
-                            <div class='section-title'>Student Information</div>
-                            <div class='info-grid'>
-                                <div class='info-item'><span class='label'>Full Name:</span> <span class='value'>{app.get('studentData', {}).get('first_name', '')} {app.get('studentData', {}).get('middle_name', '')} {app.get('studentData', {}).get('last_name', '')}</span></div>
-                                <div class='info-item'><span class='label'>Date of Birth:</span> <span class='value'>{app.get('studentData', {}).get('date_of_birth', '')}</span></div>
-                                <div class='info-item'><span class='label'>Gender:</span> <span class='value'>{app.get('studentData', {}).get('gender', '')}</span></div>
-                                <div class='info-item'><span class='label'>Email:</span> <span class='value'>{app.get('studentData', {}).get('student_email_id', '')}</span></div>
-                                <div class='info-item'><span class='label'>Mobile:</span> <span class='value'>{app.get('studentData', {}).get('primary_mobile_number', '')}</span></div>
-                                <div class='info-item'><span class='label'>Program/Grade:</span> <span class='value'>{app.get('studentData', {}).get('program', '')}</span></div>
-                                <div class='info-item'><span class='label'>Student Type:</span> <span class='value'>{app.get('studentType', '').title()}</span></div>
-                                <div class='info-item'><span class='label'>School ID:</span> <span class='value'>{app.get('studentData', {}).get('custom_school_id', '')}</span></div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="vertical-align: top; text-align: right;">
-                        {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else ''}
-                    </td>
-                </tr>
-            </table>
-
+            <div class='section'>
+                <div class='section-title'>Student Information</div>
+                <div class='info-grid'>
+                    <div class='info-item'><span class='label'>Full Name:</span> <span class='value'>{app.get('studentData', {}).get('first_name', '')} {app.get('studentData', {}).get('middle_name', '')} {app.get('studentData', {}).get('last_name', '')}</span></div>
+                    <div class='info-item'><span class='label'>Date of Birth:</span> <span class='value'>{app.get('studentData', {}).get('date_of_birth', '')}</span></div>
+                    <div class='info-item'><span class='label'>Gender:</span> <span class='value'>{app.get('studentData', {}).get('gender', '')}</span></div>
+                    <div class='info-item'><span class='label'>Email:</span> <span class='value'>{app.get('studentData', {}).get('student_email_id', '')}</span></div>
+                    <div class='info-item'><span class='label'>Mobile:</span> <span class='value'>{app.get('studentData', {}).get('primary_mobile_number', '')}</span></div>
+                    <div class='info-item'><span class='label'>Program/Grade:</span> <span class='value'>{app.get('studentData', {}).get('program', '')}</span></div>
+                    <div class='info-item'><span class='label'>Student Type:</span> <span class='value'>{app.get('studentType', '').title()}</span></div>
+                    <div class='info-item'><span class='label'>School ID:</span> <span class='value'>{app.get('studentData', {}).get('custom_school_id', '')}</span></div>
+                </div>
+                {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else ''}
+            </div>
             <div class='section'>
                 <div class='section-title'>Address Information</div>
                 <div class='info-grid'>
@@ -2094,46 +2066,76 @@ def check_duplicate_application():
 
 @frappe.whitelist(allow_guest=True)
 def upload_file_guest():
-    """Upload file for guest users and return public URL"""
-    import frappe
-    from frappe.utils.file_manager import save_file
-
-    try:
-        if 'file' not in frappe.request.files:
-            frappe.throw(_("No file was uploaded"))
-
-        uploaded_file = frappe.request.files['file']
-        file_content = uploaded_file.read()
-        file_name = uploaded_file.filename
-
-        if file_name == '':
-            frappe.throw(_("No file selected"))
-
-        # File validation
-        if len(file_content) > 5 * 1024 * 1024:
-            frappe.throw(_("File size cannot exceed 5MB"))
-        
-        allowed_types = ('image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp')
-        if uploaded_file.content_type not in allowed_types:
-            frappe.throw(_("Only image files (PNG, JPG, GIF, WEBP) are allowed."))
-
-        # Use save_file utility, which is the correct and safe way for guests
-        file_doc = save_file(
-            fname=file_name,
-            content=file_content,
-            dt=None,
-            dn=None,
-            folder="Home/Student Applications",
-            is_private=0,
-            decode=False
-        )
-
-        frappe.response['message'] = {
-            "file_url": file_doc.file_url,
-            "file_name": file_doc.file_name,
-            "name": file_doc.name
-        }
-
-    except Exception as e:
-        frappe.log_error(frappe.get_traceback(), 'Guest File Upload Error')
-        frappe.throw(str(e))
+	"""Upload file for guest users (student application images)"""
+	try:
+		import frappe
+		from frappe.utils.file_manager import save_file
+		import os
+		
+		if 'file' not in frappe.request.files:
+			frappe.throw(_("No file was uploaded"))
+		
+		file = frappe.request.files['file']
+		if file.filename == '':
+			frappe.throw(_("No file selected"))
+		
+		# Read file content
+		file_content = file.read()
+		
+		# Check file size (limit to 5MB)
+		if len(file_content) > 5 * 1024 * 1024:
+			frappe.throw(_("File size should not exceed 5MB"))
+		
+		# Check file type
+		allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+		file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+		if file_ext not in allowed_extensions:
+			frappe.throw(_("Only image files (PNG, JPG, JPEG, GIF, WEBP) are allowed"))
+		
+		# Create a unique filename
+		import uuid
+		unique_name = str(uuid.uuid4())[:8]
+		new_filename = f"{unique_name}_{file.filename}"
+		
+		# Save file using a more direct approach
+		try:
+			# Create File document
+			file_doc = frappe.new_doc("File")
+			file_doc.file_name = new_filename
+			file_doc.is_private = 0
+			file_doc.folder = "Home/Student Applications"
+			file_doc.content = file_content
+			file_doc.save()
+			
+			# Return file information
+			return {
+				"file_name": file_doc.file_name,
+				"file_url": file_doc.file_url,
+				"name": file_doc.name
+			}
+		except Exception as e:
+			frappe.log_error(message=str(e), title="File Upload Error")
+			# Try alternative method using save_file
+			try:
+				file_doc = save_file(
+					new_filename,
+					file_content,
+					"",  # dt
+					"",  # dn
+					folder="Home/Student Applications",
+					decode=False,
+					is_private=0  # Make it public
+				)
+				
+				return {
+					"file_name": file_doc.file_name,
+					"file_url": file_doc.file_url,
+					"name": file_doc.name
+				}
+			except Exception as e2:
+				frappe.log_error(message=str(e2), title="File Upload Error Alternative")
+				frappe.throw(_("Error saving file: {0}").format(str(e2)))
+			
+	except Exception as e:
+		frappe.log_error(message=str(e), title="File Upload Error")
+		frappe.throw(_("Error uploading file: {0}").format(str(e)))
