@@ -1573,9 +1573,6 @@ def generate_school_id(branch="M1"):
 def create_guardian(guardian_data):
 	"""Create a new guardian record"""
 	try:
-		# Log the incoming data for debugging
-		frappe.log_error(message=f"Guardian data received: {guardian_data}", title="Guardian Creation Debug")
-		
 		# Check if guardian already exists by name and mobile number
 		mobile_check = guardian_data.get("mobile_number")
 		if mobile_check and not mobile_check.startswith("+251"):
@@ -1645,9 +1642,6 @@ def create_guardian(guardian_data):
 def create_student_application(application_data):
 	"""Create a new student application"""
 	try:
-		# Log the incoming data for debugging
-		frappe.log_error(message=f"Application data received: {application_data}", title="Student Application Creation Debug")
-		
 		app_doc = frappe.new_doc("Student Applicant")
 		
 		# Check required fields
