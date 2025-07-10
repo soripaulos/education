@@ -2036,11 +2036,41 @@ def generate_application_pdf(session_applications):
         frappe.throw(_("Error generating PDF: {0}").format(str(e)))
 
 @frappe.whitelist(allow_guest=True)
+def check_duplicate_application():
+	"""Check if an application already exists with the given email or mobile number"""
+	try:
+		email = frappe.form_dict.get('email')
+		mobile = frappe.form_dict.get('mobile')
+		
+		if not email and not mobile:
+			return {"exists": False}
+		
+		filters = []
+		if email:
+			filters.append(['Student Applicant', 'student_email_id', '=', email])
+		if mobile:
+			filters.append(['Student Applicant', 'guardian_mobile_number', '=', mobile])
+		
+		# Check if any student applicant exists with the given criteria
+		existing = frappe.get_all('Student Applicant', 
+			filters=filters, 
+			limit=1,
+			or_filters=True
+		)
+		
+		return {"exists": len(existing) > 0}
+		
+	except Exception as e:
+		frappe.log_error(f"Error checking duplicate application: {str(e)}")
+		return {"exists": False, "error": str(e)}
+
+@frappe.whitelist(allow_guest=True)
 def upload_file_guest():
 	"""Upload file for guest users (student application images)"""
 	try:
 		import frappe
 		from frappe.utils.file_manager import save_file
+		import os
 		
 		if 'file' not in frappe.request.files:
 			frappe.throw(_("No file was uploaded"))
@@ -2049,12 +2079,12 @@ def upload_file_guest():
 		if file.filename == '':
 			frappe.throw(_("No file selected"))
 		
-		# Check file size (limit to 5MB)
-		if len(file.read()) > 5 * 1024 * 1024:
-			frappe.throw(_("File size should not exceed 5MB"))
+		# Read file content
+		file_content = file.read()
 		
-		# Reset file pointer
-		file.seek(0)
+		# Check file size (limit to 5MB)
+		if len(file_content) > 5 * 1024 * 1024:
+			frappe.throw(_("File size should not exceed 5MB"))
 		
 		# Check file type
 		allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -2062,18 +2092,22 @@ def upload_file_guest():
 		if file_ext not in allowed_extensions:
 			frappe.throw(_("Only image files (PNG, JPG, JPEG, GIF, WEBP) are allowed"))
 		
-		# Save file
+		# Create a unique filename
+		import uuid
+		unique_name = str(uuid.uuid4())[:8]
+		new_filename = f"{unique_name}_{file.filename}"
+		
+		# Save file using a more direct approach
 		try:
-			file_doc = save_file(
-				file.filename,
-				file.read(),
-				"",  # dt
-				"",  # dn
-				folder="Home/Student Applications",
-				decode=False,
-				is_private=0  # Make it public
-			)
+			# Create File document
+			file_doc = frappe.new_doc("File")
+			file_doc.file_name = new_filename
+			file_doc.is_private = 0
+			file_doc.folder = "Home/Student Applications"
+			file_doc.content = file_content
+			file_doc.save()
 			
+			# Return file information
 			return {
 				"file_name": file_doc.file_name,
 				"file_url": file_doc.file_url,
@@ -2081,7 +2115,26 @@ def upload_file_guest():
 			}
 		except Exception as e:
 			frappe.log_error(message=str(e), title="File Upload Error")
-			frappe.throw(_("Error saving file: {0}").format(str(e)))
+			# Try alternative method using save_file
+			try:
+				file_doc = save_file(
+					new_filename,
+					file_content,
+					"",  # dt
+					"",  # dn
+					folder="Home/Student Applications",
+					decode=False,
+					is_private=0  # Make it public
+				)
+				
+				return {
+					"file_name": file_doc.file_name,
+					"file_url": file_doc.file_url,
+					"name": file_doc.name
+				}
+			except Exception as e2:
+				frappe.log_error(message=str(e2), title="File Upload Error Alternative")
+				frappe.throw(_("Error saving file: {0}").format(str(e2)))
 			
 	except Exception as e:
 		frappe.log_error(message=str(e), title="File Upload Error")

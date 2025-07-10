@@ -472,13 +472,22 @@
                         <!-- School ID Lookup for Existing Students -->
                         <div v-if="studentType === 'existing'" class="space-y-4">
                             <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
-                            <input 
-                                v-model="existingSchoolId" 
-                                type="text" 
-                                class="input-field" 
-                                placeholder="e.g., M1/10001/18"
-                                @blur="lookupStudent"
-                            >
+                            <div class="relative">
+                                <input 
+                                    v-model="existingSchoolId" 
+                                    type="text" 
+                                    class="input-field pr-10" 
+                                    placeholder="e.g., M1/10001/18"
+                                    @blur="lookupStudent"
+                                    :disabled="isCheckingSchoolId"
+                                >
+                                <div v-if="isCheckingSchoolId" class="absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                            </div>
                             <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
                                 <p class="text-green-800 font-medium">Student Found:</p>
                                 <p class="text-green-700" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
@@ -513,124 +522,6 @@
                                     <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name" v-text="kebele.name"></option>
                                 </select>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Step 4: Student Details -->
-                    <div v-if="currentStep === 4" class="space-y-6">
-                        <div class="text-center">
-                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Details</h2>
-                            <p class="text-gray-600">Please provide the student's personal information</p>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <button
-                                @click="studentType = 'new'"
-                                :class="[
-                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
-                                    studentType === 'new' 
-                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                ]"
-                            >
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-4">
-                                        <p class="text-lg font-medium">New Student</p>
-                                        <p class="text-sm text-gray-500">First time applying to our school</p>
-                                    </div>
-                                </div>
-                            </button>
-                            
-                            <button
-                                @click="studentType = 'existing'"
-                                :class="[
-                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
-                                    studentType === 'existing' 
-                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                ]"
-                            >
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-4">
-                                        <p class="text-lg font-medium">Existing Student</p>
-                                        <p class="text-sm text-gray-500">Already has a school ID</p>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-                        
-                        <!-- Branch Selection for New Students -->
-                        <div v-if="studentType === 'new'" class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">Select Branch</label>
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <button
-                                    @click="branchSelection = 'M1'"
-                                    :class="[
-                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
-                                        branchSelection === 'M1' 
-                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                    ]"
-                                >
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0">
-                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                <span class="text-blue-600 font-semibold">M1</span>
-                                            </div>
-                                        </div>
-                                        <div class="ml-3">
-                                            <p class="text-sm font-medium">Main Branch</p>
-                                        </div>
-                                    </div>
-                                </button>
-                                <button
-                                    @click="branchSelection = 'M2'"
-                                    :class="[
-                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
-                                        branchSelection === 'M2' 
-                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                    ]"
-                                >
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0">
-                                            <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                                                <span class="text-green-600 font-semibold">M2</span>
-                                            </div>
-                                        </div>
-                                        <div class="ml-3">
-                                            <p class="text-sm font-medium">Second Branch</p>
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- School ID Lookup for Existing Students -->
-                        <div v-if="studentType === 'existing'" class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
-                            <input 
-                                v-model="existingSchoolId" 
-                                type="text" 
-                                class="input-field" 
-                                placeholder="e.g., M1/10001/18"
-                                @blur="lookupStudent"
-                            >
-                            <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
-                                <p class="text-green-800 font-medium">Student Found:</p>
-                                <p class="text-green-700" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
-                            </div>
-                            <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
                         </div>
                     </div>
                     
@@ -688,6 +579,16 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Student Photo *</label>
                                 <input type="file" @change="handleStudentImageUpload" accept="image/*" class="input-field" required>
+                                <div v-if="isUploadingFile" class="mt-2 text-sm text-blue-600">
+                                    <svg class="animate-spin inline h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Uploading...
+                                </div>
+                                <div v-if="studentData.image" class="mt-2 text-sm text-green-600">
+                                    ✓ Photo uploaded successfully
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -789,6 +690,58 @@
             </main>
         </div>
         
+        <!-- Notification System -->
+        <div class="fixed top-4 right-4 z-50 space-y-2">
+            <div
+                v-for="notification in notifications"
+                :key="notification.id"
+                :class="[
+                    'max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 transition-all duration-300',
+                    notification.type === 'success' ? 'border-l-4 border-green-500' : '',
+                    notification.type === 'error' ? 'border-l-4 border-red-500' : '',
+                    notification.type === 'info' ? 'border-l-4 border-blue-500' : '',
+                    notification.type === 'warning' ? 'border-l-4 border-yellow-500' : ''
+                ]"
+            >
+                <div class="p-4">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <!-- Success Icon -->
+                            <svg v-if="notification.type === 'success'" class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <!-- Error Icon -->
+                            <svg v-if="notification.type === 'error'" class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                            <!-- Info Icon -->
+                            <svg v-if="notification.type === 'info'" class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                            <!-- Warning Icon -->
+                            <svg v-if="notification.type === 'warning'" class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3 w-0 flex-1 pt-0.5">
+                            <p class="text-sm font-medium text-gray-900" v-text="notification.message"></p>
+                        </div>
+                        <div class="ml-4 flex-shrink-0 flex">
+                            <button
+                                @click="removeNotification(notification.id)"
+                                class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                <span class="sr-only">Close</span>
+                                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Success Modal -->
         <div v-if="showSuccessModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -889,6 +842,7 @@
                         date_of_birth: '',
                         program: '',
                         primary_mobile_number: '',
+                        student_email_id: '',
                         nationality: 'Ethiopian',
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
@@ -898,7 +852,8 @@
                         city: 'Adama',
                         state: 'Oromia',
                         pincode: '',
-                        country: 'Ethiopia'
+                        country: 'Ethiopia',
+                        image: ''
                     },
                                     programs: [
                     {name: 'Nursery', program_name: 'Nursery'},
@@ -956,7 +911,14 @@
                         mother: null,
                         guardian: null
                     },
-                    sessionApplications: []
+                    sessionApplications: [],
+                    
+                    // Loading states
+                    isCheckingSchoolId: false,
+                    isUploadingFile: false,
+                    
+                    // Notifications
+                    notifications: []
                 }
             },
             
@@ -1096,70 +1058,151 @@
                 },
                 
                 // File upload handling
+                // File upload handling
                 handleImageUpload(type, event) {
                     const file = event.target.files[0];
                     if (file) {
-                        if (type === 'father') {
-                            this.fatherData.photo = file;
-                        } else if (type === 'mother') {
-                            this.motherData.photo = file;
-                        } else if (type === 'guardian') {
-                            this.guardianData.photo = file;
-                        } else if (type === 'student') {
-                            this.studentData.image = file;
+                        // Validate file type
+                        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                        if (!allowedTypes.includes(file.type)) {
+                            this.showNotification('Please select a valid image file (JPG, PNG, GIF, WEBP)', 'error');
+                            event.target.value = ''; // Clear the input
+                            return;
                         }
+                        
+                        // Validate file size (5MB max)
+                        if (file.size > 5 * 1024 * 1024) {
+                            this.showNotification('File size must be less than 5MB', 'error');
+                            event.target.value = ''; // Clear the input
+                            return;
+                        }
+                        
+                        // Upload the file
+                        this.uploadAndAssignImage(type, file);
+                    }
+                },
+                
+                async uploadAndAssignImage(type, file) {
+                    try {
+                        const fileUrl = await this.uploadFile(file);
+                        if (fileUrl) {
+                            // Store the URL for session reuse if it's a parent image
+                            if (type === 'father' || type === 'mother' || type === 'guardian') {
+                                if (!this.sessionParentImages[type]) {
+                                    this.sessionParentImages[type] = fileUrl;
+                                }
+                            }
+                            
+                            // Assign to the appropriate data object
+                            if (type === 'father') {
+                                this.fatherData.image = fileUrl;
+                            } else if (type === 'mother') {
+                                this.motherData.image = fileUrl;
+                            } else if (type === 'guardian') {
+                                this.guardianData.image = fileUrl;
+                            } else if (type === 'student') {
+                                this.studentData.image = fileUrl;
+                            }
+                        }
+                    } catch (error) {
+                        this.showNotification(`Failed to upload ${type} image: ${error.message}`, 'error');
                     }
                 },
                 
                 async uploadFile(file) {
                     if (!file) return null;
                     
+                    // Validate file before upload
+                    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                    if (!allowedTypes.includes(file.type)) {
+                        this.showNotification('Please select a valid image file (JPG, PNG, GIF, WEBP)', 'error');
+                        return null;
+                    }
+                    
+                    if (file.size > 5 * 1024 * 1024) {
+                        this.showNotification('File size must be less than 5MB', 'error');
+                        return null;
+                    }
+                    
                     const formData = new FormData();
                     formData.append('file', file);
                     formData.append('is_private', '0'); // Make files public
                     formData.append('folder', 'Home/Student Applications'); // Organize in folder
                     
+                    this.isUploadingFile = true;
+                    this.showNotification('Uploading image...', 'info');
+                    
                     try {
-                        // Try standard Frappe upload endpoint first
-                        let response = await fetch('/api/method/upload_file', {
+                        // Try custom guest upload endpoint first
+                        let response = await fetch('/api/method/education.education.api.upload_file_guest', {
                             method: 'POST',
-                            body: formData
+                            body: formData,
+                            credentials: 'include'
                         });
                         
                         if (response.ok) {
                             const result = await response.json();
                             if (result.message && result.message.file_url) {
+                                this.showNotification('Image uploaded successfully!', 'success');
                                 return result.message.file_url;
+                            } else {
+                                this.showNotification('Upload failed: Invalid response format', 'error');
+                                return null;
                             }
                         }
                         
-                        // If standard endpoint fails, try custom guest upload endpoint
-                        console.log('Standard upload failed, trying custom guest endpoint...');
-                        response = await fetch('/api/method/education.education.api.upload_file_guest', {
+                        // If custom endpoint fails, try standard Frappe upload endpoint
+                        console.log('Custom upload failed, trying standard endpoint...');
+                        response = await fetch('/api/method/upload_file', {
                             method: 'POST',
-                            body: formData
+                            body: formData,
+                            credentials: 'include' // Important for guest users
                         });
                         
                         if (response.ok) {
                             const result = await response.json();
                             if (result.message && result.message.file_url) {
+                                this.showNotification('Image uploaded successfully!', 'success');
                                 return result.message.file_url;
                             } else {
-                                console.error('Custom upload failed:', result);
+                                this.showNotification('Upload failed: Invalid response format', 'error');
+                                return null;
                             }
                         } else {
-                            console.error('Upload response error:', response.status, response.statusText);
+                            const errorText = await response.text();
+                            let errorMessage = 'Upload failed';
+                            
+                            try {
+                                const errorData = JSON.parse(errorText);
+                                if (errorData.message) {
+                                    errorMessage = errorData.message;
+                                } else if (errorData.exc) {
+                                    errorMessage = errorData.exc;
+                                }
+                            } catch (e) {
+                                errorMessage = `${response.statusText} (${response.status})`;
+                            }
+                            
+                            this.showNotification(errorMessage, 'error');
+                            console.error('Upload response error:', response.status, response.statusText, errorText);
+                            return null;
                         }
                     } catch (error) {
                         console.error('File upload failed:', error);
+                        this.showNotification(`Upload failed: ${error.message}`, 'error');
+                        return null;
+                    } finally {
+                        this.isUploadingFile = false;
                     }
-                    return null;
                 },
                 
-                handleStudentImageUpload(event) {
+                async handleStudentImageUpload(event) {
                     const file = event.target.files[0];
                     if (file) {
-                        this.studentData.image = file;
+                        const uploadedUrl = await this.uploadFile(file);
+                        if (uploadedUrl) {
+                            this.studentData.image = uploadedUrl;
+                        }
                     }
                 },
                 
@@ -1176,28 +1219,36 @@
                 },
                 
                 async submitApplication() {
+                    // Validate the form first
+                    if (!this.validateForm()) {
+                        const errorCount = Object.keys(this.validationErrors).length;
+                        this.showNotification(`Please fix ${errorCount} validation error${errorCount > 1 ? 's' : ''} before submitting`, 'error');
+                        return;
+                    }
+                    
                     this.isSubmitting = true;
+                    this.showNotification('Submitting application...', 'info');
                     
                     try {
-                        // Validate phone numbers based on guardian type
-                        this.phoneErrors = {};
-                        if (this.guardianType === 'parent') {
-                            if (!this.fatherData.mobile_number) {
-                                this.phoneErrors.father = 'Father\'s mobile number is required.';
+                        // Check for duplicate applications
+                        const checkResponse = await fetch('/api/method/education.education.api.check_duplicate_application', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                email: this.studentData.student_email_id,
+                                mobile: this.guardianType === 'parent' ? this.fatherData.mobile_number : this.guardianData.mobile_number
+                            })
+                        });
+                        
+                        if (checkResponse.ok) {
+                            const checkData = await checkResponse.json();
+                            if (checkData.message && checkData.message.exists) {
+                                this.showNotification('An application with this email or mobile number already exists', 'error');
+                                this.isSubmitting = false;
+                                return;
                             }
-                            if (!this.motherData.mobile_number) {
-                                this.phoneErrors.mother = 'Mother\'s mobile number is required.';
-                            }
-                        } else {
-                            if (!this.guardianData.mobile_number) {
-                                this.phoneErrors.guardian = 'Guardian\'s mobile number is required.';
-                            }
-                        }
-
-                        if (Object.keys(this.phoneErrors).length > 0) {
-                            alert('Please fill in all required phone numbers.');
-                            this.isSubmitting = false;
-                            return;
                         }
 
                         // Create guardians first
@@ -1544,12 +1595,41 @@
                     this.availableKebeles = []; // Reset kebele options
                 },
                 
+                // Notification system
+                showNotification(message, type = 'info', duration = 5000) {
+                    const id = Date.now();
+                    const notification = { id, message, type };
+                    this.notifications.push(notification);
+                    
+                    setTimeout(() => {
+                        this.removeNotification(id);
+                    }, duration);
+                },
+                
+                removeNotification(id) {
+                    const index = this.notifications.findIndex(n => n.id === id);
+                    if (index !== -1) {
+                        this.notifications.splice(index, 1);
+                    }
+                },
+                
+                // Email validation
+                validateEmail(email) {
+                    if (!email) return false;
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    return emailRegex.test(email);
+                },
+                
+                // Enhanced school ID lookup with loading state
                 async lookupStudent() {
                     if (!this.existingSchoolId) {
                         this.existingStudent = null;
                         this.schoolIdError = '';
                         return;
                     }
+                    
+                    this.isCheckingSchoolId = true;
+                    this.schoolIdError = '';
                     
                     try {
                         const response = await fetch('/api/method/education.education.api.search_student_by_school_id', {
@@ -1561,6 +1641,11 @@
                                 school_id: this.existingSchoolId
                             })
                         });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        
                         const data = await response.json();
                         
                         if (data.message) {
@@ -1571,14 +1656,103 @@
                             this.studentData.middle_name = data.message.middle_name || '';
                             this.studentData.last_name = data.message.last_name || '';
                             this.studentData.custom_school_id = data.message.custom_school_id;
+                            this.showNotification('Student found successfully!', 'success');
                         } else {
                             this.existingStudent = null;
                             this.schoolIdError = 'Student not found with this school ID';
+                            this.showNotification('Student not found with this school ID', 'error');
                         }
                     } catch (error) {
                         console.error('Error looking up student:', error);
-                        this.schoolIdError = 'Error looking up student';
+                        this.existingStudent = null;
+                        this.schoolIdError = 'Error connecting to server. Please try again.';
+                        this.showNotification('Error looking up student. Please try again.', 'error');
+                    } finally {
+                        this.isCheckingSchoolId = false;
                     }
+                },
+                
+                // Enhanced form validation
+                validateForm() {
+                    const errors = {};
+                    
+                    // Validate guardian information
+                    if (this.guardianType === 'parent') {
+                        // Father validation
+                        if (!this.fatherData.guardian_name) {
+                            errors.father_name = 'Father\'s name is required';
+                        }
+                        if (!this.fatherData.mobile_number) {
+                            errors.father_mobile = 'Father\'s mobile number is required';
+                        } else if (!/^9\d{8}$/.test(this.fatherData.mobile_number)) {
+                            errors.father_mobile = 'Father\'s mobile number must be 9 digits starting with 9';
+                        }
+                        if (this.fatherData.email_address && !this.validateEmail(this.fatherData.email_address)) {
+                            errors.father_email = 'Father\'s email address is invalid';
+                        }
+                        
+                        // Mother validation
+                        if (!this.motherData.guardian_name) {
+                            errors.mother_name = 'Mother\'s name is required';
+                        }
+                        if (!this.motherData.mobile_number) {
+                            errors.mother_mobile = 'Mother\'s mobile number is required';
+                        } else if (!/^9\d{8}$/.test(this.motherData.mobile_number)) {
+                            errors.mother_mobile = 'Mother\'s mobile number must be 9 digits starting with 9';
+                        }
+                        if (this.motherData.email_address && !this.validateEmail(this.motherData.email_address)) {
+                            errors.mother_email = 'Mother\'s email address is invalid';
+                        }
+                    } else {
+                        // Guardian validation
+                        if (!this.guardianData.guardian_name) {
+                            errors.guardian_name = 'Guardian\'s name is required';
+                        }
+                        if (!this.guardianData.mobile_number) {
+                            errors.guardian_mobile = 'Guardian\'s mobile number is required';
+                        } else if (!/^9\d{8}$/.test(this.guardianData.mobile_number)) {
+                            errors.guardian_mobile = 'Guardian\'s mobile number must be 9 digits starting with 9';
+                        }
+                        if (this.guardianData.email_address && !this.validateEmail(this.guardianData.email_address)) {
+                            errors.guardian_email = 'Guardian\'s email address is invalid';
+                        }
+                    }
+                    
+                    // Student validation
+                    if (!this.studentData.first_name) {
+                        errors.student_first_name = 'Student\'s first name is required';
+                    }
+                    if (!this.studentData.last_name) {
+                        errors.student_last_name = 'Student\'s last name is required';
+                    }
+                    if (!this.studentData.date_of_birth) {
+                        errors.student_dob = 'Student\'s date of birth is required';
+                    }
+                    if (!this.studentData.student_email_id) {
+                        errors.student_email = 'Student/Parent email is required';
+                    } else if (!this.validateEmail(this.studentData.student_email_id)) {
+                        errors.student_email = 'Student/Parent email address is invalid';
+                    }
+                    if (!this.studentData.program) {
+                        errors.student_program = 'Grade/Program is required';
+                    }
+                    if (!this.studentData.image) {
+                        errors.student_image = 'Student photo is required';
+                    }
+                    
+                    // Address validation
+                    if (!this.studentData.address_line_1) {
+                        errors.address = 'Home address is required';
+                    }
+                    if (!this.studentData.sub_city) {
+                        errors.sub_city = 'Sub-city is required';
+                    }
+                    if (!this.studentData.kebele) {
+                        errors.kebele = 'Kebele is required';
+                    }
+                    
+                    this.validationErrors = errors;
+                    return Object.keys(errors).length === 0;
                 },
                 
                 getSelectedProgramName() {
