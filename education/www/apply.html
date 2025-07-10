@@ -92,6 +92,25 @@
             font-size: 0.875rem;
             margin-top: 0.25rem;
         }
+        
+        /* Notification animations */
+        .notification-enter-active, .notification-leave-active {
+            transition: all 0.3s ease;
+        }
+        
+        .notification-enter-from {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+        
+        .notification-leave-to {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+        
+        .notification-move {
+            transition: transform 0.3s ease;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -472,21 +491,36 @@
                         <!-- School ID Lookup for Existing Students -->
                         <div v-if="studentType === 'existing'" class="space-y-4">
                             <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
-                            <div class="relative">
-                                <input 
-                                    v-model="existingSchoolId" 
-                                    type="text" 
-                                    class="input-field pr-10" 
-                                    placeholder="e.g., M1/10001/18"
-                                    @blur="lookupStudent"
-                                    :disabled="isCheckingSchoolId"
-                                >
-                                <div v-if="isCheckingSchoolId" class="absolute inset-y-0 right-0 flex items-center pr-3">
-                                    <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
+                            <div class="flex space-x-2">
+                                <div class="relative flex-1">
+                                    <input 
+                                        v-model="existingSchoolId" 
+                                        type="text" 
+                                        class="input-field" 
+                                        placeholder="e.g., M1/10001/18"
+                                        :disabled="isCheckingSchoolId"
+                                        @keydown.enter="lookupStudent"
+                                    >
                                 </div>
+                                <button 
+                                    @click="lookupStudent"
+                                    :disabled="isCheckingSchoolId || !existingSchoolId.trim()"
+                                    :class="[
+                                        'px-4 py-2 rounded-md font-medium transition-colors',
+                                        isCheckingSchoolId || !existingSchoolId.trim() 
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                    ]"
+                                >
+                                    <span v-if="isCheckingSchoolId" class="flex items-center">
+                                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Checking...
+                                    </span>
+                                    <span v-else>Check ID</span>
+                                </button>
                             </div>
                             <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
                                 <p class="text-green-800 font-medium">Student Found:</p>
@@ -691,18 +725,19 @@
         </div>
         
         <!-- Notification System -->
-        <div class="fixed top-4 right-4 z-50 space-y-2">
-            <div
-                v-for="notification in notifications"
-                :key="notification.id"
-                :class="[
-                    'max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 transition-all duration-300',
-                    notification.type === 'success' ? 'border-l-4 border-green-500' : '',
-                    notification.type === 'error' ? 'border-l-4 border-red-500' : '',
-                    notification.type === 'info' ? 'border-l-4 border-blue-500' : '',
-                    notification.type === 'warning' ? 'border-l-4 border-yellow-500' : ''
-                ]"
-            >
+        <div class="fixed top-4 right-4 z-[9999] space-y-2 max-w-sm w-full sm:max-w-md pointer-events-none">
+            <transition-group name="notification" tag="div" class="space-y-2">
+                <div
+                    v-for="notification in notifications"
+                    :key="notification.id"
+                    :class="[
+                        'w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 transform transition-all duration-300',
+                        notification.type === 'success' ? 'border-l-4 border-green-500' : '',
+                        notification.type === 'error' ? 'border-l-4 border-red-500' : '',
+                        notification.type === 'info' ? 'border-l-4 border-blue-500' : '',
+                        notification.type === 'warning' ? 'border-l-4 border-yellow-500' : ''
+                    ]"
+                >
                 <div class="p-4">
                     <div class="flex items-start">
                         <div class="flex-shrink-0">
@@ -739,7 +774,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </transition-group>
         </div>
 
         <!-- Success Modal -->

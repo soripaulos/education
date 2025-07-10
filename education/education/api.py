@@ -1940,10 +1940,19 @@ def generate_application_pdf(session_applications):
         school_name = "Makko Billi School"
         html_pages = []
         for app in session_applications:
-            student_img = app.get('studentData', {}).get('image', '')
-            father_img = app.get('fatherData', {}).get('image', '')
-            mother_img = app.get('motherData', {}).get('image', '')
-            guardian_img = app.get('guardianData', {}).get('image', '')
+            # Helper function to ensure absolute URLs for images
+            def make_absolute_url(img_url):
+                if not img_url:
+                    return ''
+                if img_url.startswith('http'):
+                    return img_url
+                site_url = frappe.utils.get_url()
+                return site_url + img_url
+            
+            student_img = make_absolute_url(app.get('studentData', {}).get('image', ''))
+            father_img = make_absolute_url(app.get('fatherData', {}).get('image', ''))
+            mother_img = make_absolute_url(app.get('motherData', {}).get('image', ''))
+            guardian_img = make_absolute_url(app.get('guardianData', {}).get('image', ''))
             html = f"""
             <html><head><meta charset='utf-8'>
             <style>
@@ -2097,44 +2106,34 @@ def upload_file_guest():
 		unique_name = str(uuid.uuid4())[:8]
 		new_filename = f"{unique_name}_{file.filename}"
 		
-		# Save file using a more direct approach
+		# Use Frappe's built-in save_file function for better compatibility
 		try:
-			# Create File document
-			file_doc = frappe.new_doc("File")
-			file_doc.file_name = new_filename
-			file_doc.is_private = 0
-			file_doc.folder = "Home/Student Applications"
-			file_doc.content = file_content
-			file_doc.save()
+			file_doc = save_file(
+				new_filename,
+				file_content,
+				"",  # dt (doctype) - empty for standalone file
+				"",  # dn (document name) - empty for standalone file
+				folder="Home/Student Applications",
+				decode=False,
+				is_private=0  # Make it public so it can be accessed in PDFs
+			)
 			
-			# Return file information
+			# Ensure the file URL is accessible
+			file_url = file_doc.file_url
+			if not file_url.startswith('http'):
+				# Make sure we have a full URL for PDF generation
+				site_url = frappe.utils.get_url()
+				file_url = site_url + file_url
+			
 			return {
 				"file_name": file_doc.file_name,
-				"file_url": file_doc.file_url,
+				"file_url": file_url,
 				"name": file_doc.name
 			}
+			
 		except Exception as e:
 			frappe.log_error(message=str(e), title="File Upload Error")
-			# Try alternative method using save_file
-			try:
-				file_doc = save_file(
-					new_filename,
-					file_content,
-					"",  # dt
-					"",  # dn
-					folder="Home/Student Applications",
-					decode=False,
-					is_private=0  # Make it public
-				)
-				
-				return {
-					"file_name": file_doc.file_name,
-					"file_url": file_doc.file_url,
-					"name": file_doc.name
-				}
-			except Exception as e2:
-				frappe.log_error(message=str(e2), title="File Upload Error Alternative")
-				frappe.throw(_("Error saving file: {0}").format(str(e2)))
+			frappe.throw(_("Error saving file: {0}").format(str(e)))
 			
 	except Exception as e:
 		frappe.log_error(message=str(e), title="File Upload Error")
