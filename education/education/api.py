@@ -1543,9 +1543,6 @@ def search_student_by_school_id(school_id):
 @frappe.whitelist(allow_guest=True)
 def generate_school_id(branch="M1"):
 	"""Generate a new school ID with format M1/*****/18 or M2/*****/18"""
-	# Bypass permissions for guest users
-	frappe.flags.ignore_permissions = True
-	
 	# Get the last used number for the branch
 	last_id = frappe.db.sql("""
 		SELECT custom_school_id 
@@ -1576,9 +1573,6 @@ def generate_school_id(branch="M1"):
 def create_guardian(guardian_data):
 	"""Create a new guardian record"""
 	try:
-		# Bypass permissions for guest users
-		frappe.flags.ignore_permissions = True
-		
 		# Check required fields first
 		if not guardian_data.get("guardian_name"):
 			frappe.throw(_("Guardian name is required"))
@@ -1650,9 +1644,6 @@ def create_guardian(guardian_data):
 def create_student_application(application_data):
 	"""Create a new student application"""
 	try:
-		# Bypass permissions for guest users
-		frappe.flags.ignore_permissions = True
-		
 		app_doc = frappe.new_doc("Student Applicant")
 		
 		# Check required fields

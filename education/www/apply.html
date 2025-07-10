@@ -1005,13 +1005,17 @@
                         if (this.guardianType === 'parent') {
                             // Create father guardian
                             console.log('Creating father guardian with data:', this.fatherData);
+                            // Exclude photo field from JSON data (files need special handling)
+                            const fatherDataForAPI = { ...this.fatherData };
+                            delete fatherDataForAPI.photo;
+                            
                             const fatherResponse = await fetch('/api/method/education.education.api.create_guardian', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
                                 body: JSON.stringify({
-                                    guardian_data: this.fatherData
+                                    guardian_data: fatherDataForAPI
                                 })
                             });
                             
@@ -1034,13 +1038,17 @@
                             
                             // Create mother guardian
                             console.log('Creating mother guardian with data:', this.motherData);
+                            // Exclude photo field from JSON data (files need special handling)
+                            const motherDataForAPI = { ...this.motherData };
+                            delete motherDataForAPI.photo;
+                            
                             const motherResponse = await fetch('/api/method/education.education.api.create_guardian', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
                                 body: JSON.stringify({
-                                    guardian_data: this.motherData
+                                    guardian_data: motherDataForAPI
                                 })
                             });
                             
@@ -1062,13 +1070,18 @@
                             }
                         } else {
                             // Create guardian
+                            console.log('Creating guardian with data:', this.guardianData);
+                            // Exclude photo field from JSON data (files need special handling)
+                            const guardianDataForAPI = { ...this.guardianData };
+                            delete guardianDataForAPI.photo;
+                            
                             const guardianResponse = await fetch('/api/method/education.education.api.create_guardian', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
                                 body: JSON.stringify({
-                                    guardian_data: this.guardianData
+                                    guardian_data: guardianDataForAPI
                                 })
                             });
                             

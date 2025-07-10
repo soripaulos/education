@@ -331,6 +331,19 @@
    "role": "Academics User",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "import": 0,
+   "print": 0,
+   "read": 1,
+   "report": 0,
+   "role": "Guest",
+   "share": 0,
+   "write": 1
   }
  ],
  "show_name_in_global_search": 1,
