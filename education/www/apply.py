@@ -12,4 +12,14 @@ def get_context(context):
     # Add any additional context data if needed
     context.base_url = frappe.utils.get_url()
     
+    # Initialize variables that might be referenced in template to prevent undefined errors
+    context.kebele = ''
+    context.sub_city = ''
+    context.custom_school_id = ''
+    context.image = ''
+    context.nationality = 'Ethiopian'
+    context.city = 'Adama'
+    context.state = 'Oromia'
+    context.country = 'Ethiopia'
+    
     return context 
