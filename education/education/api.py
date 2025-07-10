@@ -1543,6 +1543,9 @@ def search_student_by_school_id(school_id):
 @frappe.whitelist(allow_guest=True)
 def generate_school_id(branch="M1"):
 	"""Generate a new school ID with format M1/*****/18 or M2/*****/18"""
+	# Bypass permissions for guest users
+	frappe.flags.ignore_permissions = True
+	
 	# Get the last used number for the branch
 	last_id = frappe.db.sql("""
 		SELECT custom_school_id 
@@ -1573,16 +1576,26 @@ def generate_school_id(branch="M1"):
 def create_guardian(guardian_data):
 	"""Create a new guardian record"""
 	try:
+		# Bypass permissions for guest users
+		frappe.flags.ignore_permissions = True
+		
+		# Check required fields first
+		if not guardian_data.get("guardian_name"):
+			frappe.throw(_("Guardian name is required"))
+		if not guardian_data.get("mobile_number"):
+			frappe.throw(_("Mobile number is required"))
+		
+		# Format mobile number properly
+		mobile_number = guardian_data.get("mobile_number", "").strip()
+		if mobile_number and not mobile_number.startswith("+251"):
+			mobile_number = f"+251{mobile_number}"
+		
 		# Check if guardian already exists by name and mobile number
-		mobile_check = guardian_data.get("mobile_number")
-		if mobile_check and not mobile_check.startswith("+251"):
-			mobile_check = f"+251{mobile_check}"
-			
 		existing_guardian = frappe.get_all(
 			"Guardian",
 			filters={
 				"guardian_name": guardian_data.get("guardian_name"),
-				"mobile_number": mobile_check
+				"mobile_number": mobile_number
 			},
 			limit=1
 		)
@@ -1591,41 +1604,36 @@ def create_guardian(guardian_data):
 			return existing_guardian[0].name
 			
 		guardian_doc = frappe.new_doc("Guardian")
-		
-		# Check required fields
-		if not guardian_data.get("guardian_name"):
-			frappe.throw(_("Guardian name is required"))
-		if not guardian_data.get("mobile_number"):
-			frappe.throw(_("Mobile number is required"))
-			
 		guardian_doc.guardian_name = guardian_data.get("guardian_name")
-		guardian_doc.email_address = guardian_data.get("email_address")
-		
-		# Format mobile number properly
-		mobile_number = guardian_data.get("mobile_number")
-		if mobile_number and not mobile_number.startswith("+251"):
-			mobile_number = f"+251{mobile_number}"
 		guardian_doc.mobile_number = mobile_number
 		
+		# Optional fields
+		if guardian_data.get("email_address"):
+			guardian_doc.email_address = guardian_data.get("email_address")
+		
 		# Handle alternate number
-		alternate_number = guardian_data.get("alternate_number")
+		alternate_number = guardian_data.get("alternate_number", "").strip()
 		if alternate_number and not alternate_number.startswith("+251"):
 			alternate_number = f"+251{alternate_number}"
-		guardian_doc.alternate_number = alternate_number
+		if alternate_number:
+			guardian_doc.alternate_number = alternate_number
 		
 		# Handle education field
 		education = guardian_data.get("education")
 		if education == "Other":
 			education = guardian_data.get("education_other", education)
-		guardian_doc.education = education
+		if education:
+			guardian_doc.education = education
 		
 		# Handle occupation field
 		occupation = guardian_data.get("occupation")
 		if occupation == "Other":
 			occupation = guardian_data.get("occupation_other", occupation)
-		guardian_doc.occupation = occupation
+		if occupation:
+			guardian_doc.occupation = occupation
 		
-		guardian_doc.work_address = guardian_data.get("work_address")
+		if guardian_data.get("work_address"):
+			guardian_doc.work_address = guardian_data.get("work_address")
 		
 		# Handle image/photo field if present
 		if guardian_data.get("photo"):
@@ -1642,6 +1650,9 @@ def create_guardian(guardian_data):
 def create_student_application(application_data):
 	"""Create a new student application"""
 	try:
+		# Bypass permissions for guest users
+		frappe.flags.ignore_permissions = True
+		
 		app_doc = frappe.new_doc("Student Applicant")
 		
 		# Check required fields

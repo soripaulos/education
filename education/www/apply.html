@@ -1004,6 +1004,7 @@
                         
                         if (this.guardianType === 'parent') {
                             // Create father guardian
+                            console.log('Creating father guardian with data:', this.fatherData);
                             const fatherResponse = await fetch('/api/method/education.education.api.create_guardian', {
                                 method: 'POST',
                                 headers: {
@@ -1032,6 +1033,7 @@
                             }
                             
                             // Create mother guardian
+                            console.log('Creating mother guardian with data:', this.motherData);
                             const motherResponse = await fetch('/api/method/education.education.api.create_guardian', {
                                 method: 'POST',
                                 headers: {
