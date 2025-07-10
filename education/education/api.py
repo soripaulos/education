@@ -1925,3 +1925,190 @@ def get_kebele_subcity_data():
 			{"id": 16, "name": "Hangaatu (14)"}
 		]
 	}
+
+@frappe.whitelist(allow_guest=True)
+def generate_application_pdf(session_data):
+	"""Generate PDF for student application"""
+	try:
+		from frappe.utils.pdf import get_pdf
+		import base64
+		from io import BytesIO
+		
+		# Get school information
+		school_name = "Makko Billi School"
+		school_logo = "/assets/education/images/school_logo.png"  # Adjust path as needed
+		
+		# Create HTML content for PDF
+		html_content = f"""
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<meta charset="utf-8">
+			<style>
+				body {{ font-family: Arial, sans-serif; margin: 20px; }}
+				.header {{ text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }}
+				.logo {{ width: 80px; height: 80px; }}
+				.school-name {{ font-size: 24px; font-weight: bold; color: #2563eb; margin: 10px 0; }}
+				.section {{ margin: 20px 0; }}
+				.section-title {{ font-size: 18px; font-weight: bold; color: #1f2937; margin-bottom: 10px; border-bottom: 1px solid #d1d5db; padding-bottom: 5px; }}
+				.info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }}
+				.info-item {{ margin: 5px 0; }}
+				.label {{ font-weight: bold; color: #374151; }}
+				.value {{ color: #1f2937; }}
+				.student-photo {{ width: 120px; height: 150px; object-fit: cover; border: 1px solid #d1d5db; }}
+				.page-break {{ page-break-before: always; }}
+			</style>
+		</head>
+		<body>
+			<div class="header">
+				<img src="{school_logo}" alt="School Logo" class="logo">
+				<div class="school-name">{school_name}</div>
+				<div style="font-size: 16px; color: #6b7280;">Student Application Form</div>
+				<div style="font-size: 14px; color: #9ca3af;">Application ID: {session_data.get('submittedApplicationId', 'N/A')}</div>
+			</div>
+			
+			<div class="section">
+				<div class="section-title">Student Information</div>
+				<div class="info-grid">
+					<div class="info-item">
+						<span class="label">Full Name:</span>
+						<span class="value">{session_data.get('studentData', {}).get('first_name', '')} {session_data.get('studentData', {}).get('middle_name', '')} {session_data.get('studentData', {}).get('last_name', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Date of Birth:</span>
+						<span class="value">{session_data.get('studentData', {}).get('date_of_birth', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Gender:</span>
+						<span class="value">{session_data.get('studentData', {}).get('gender', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Email:</span>
+						<span class="value">{session_data.get('studentData', {}).get('student_email_id', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Mobile:</span>
+						<span class="value">{session_data.get('studentData', {}).get('primary_mobile_number', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Program/Grade:</span>
+						<span class="value">{session_data.get('studentData', {}).get('program', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Student Type:</span>
+						<span class="value">{session_data.get('studentType', '').title()}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">School ID:</span>
+						<span class="value">{session_data.get('studentData', {}).get('custom_school_id', '')}</span>
+					</div>
+				</div>
+			</div>
+			
+			<div class="section">
+				<div class="section-title">Address Information</div>
+				<div class="info-grid">
+					<div class="info-item">
+						<span class="label">Home Address:</span>
+						<span class="value">{session_data.get('studentData', {}).get('address_line_1', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Sub-city:</span>
+						<span class="value">{session_data.get('studentData', {}).get('sub_city', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Kebele:</span>
+						<span class="value">{session_data.get('studentData', {}).get('kebele', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">City:</span>
+						<span class="value">{session_data.get('studentData', {}).get('city', 'Adama')}</span>
+					</div>
+				</div>
+			</div>
+		"""
+		
+		# Add guardian information based on type
+		if session_data.get('guardianType') == 'parent':
+			html_content += f"""
+			<div class="section">
+				<div class="section-title">Guardian Information</div>
+				<div class="info-grid">
+					<div class="info-item">
+						<span class="label">Father's Name:</span>
+						<span class="value">{session_data.get('fatherData', {}).get('guardian_name', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Father's Mobile:</span>
+						<span class="value">{session_data.get('fatherData', {}).get('mobile_number', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Father's Email:</span>
+						<span class="value">{session_data.get('fatherData', {}).get('email_address', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Father's Occupation:</span>
+						<span class="value">{session_data.get('fatherData', {}).get('occupation', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Mother's Name:</span>
+						<span class="value">{session_data.get('motherData', {}).get('guardian_name', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Mother's Mobile:</span>
+						<span class="value">{session_data.get('motherData', {}).get('mobile_number', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Mother's Email:</span>
+						<span class="value">{session_data.get('motherData', {}).get('email_address', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Mother's Occupation:</span>
+						<span class="value">{session_data.get('motherData', {}).get('occupation', '')}</span>
+					</div>
+				</div>
+			</div>
+			"""
+		else:
+			html_content += f"""
+			<div class="section">
+				<div class="section-title">Guardian Information</div>
+				<div class="info-grid">
+					<div class="info-item">
+						<span class="label">Guardian Name:</span>
+						<span class="value">{session_data.get('guardianData', {}).get('guardian_name', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Mobile Number:</span>
+						<span class="value">{session_data.get('guardianData', {}).get('mobile_number', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Email Address:</span>
+						<span class="value">{session_data.get('guardianData', {}).get('email_address', '')}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Occupation:</span>
+						<span class="value">{session_data.get('guardianData', {}).get('occupation', '')}</span>
+					</div>
+				</div>
+			</div>
+			"""
+		
+		html_content += """
+		</body>
+		</html>
+		"""
+		
+		# Generate PDF
+		pdf_content = get_pdf(html_content)
+		
+		# Return PDF as response
+		frappe.local.response.filename = "student_application.pdf"
+		frappe.local.response.filecontent = pdf_content
+		frappe.local.response.type = "download"
+		
+		return pdf_content
+		
+	except Exception as e:
+		frappe.log_error(message=str(e), title="PDF Generation Error")
+		frappe.throw(_("Error generating PDF: {0}").format(str(e)))
