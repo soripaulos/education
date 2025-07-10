@@ -2034,3 +2034,55 @@ def generate_application_pdf(session_applications):
     except Exception as e:
         frappe.log_error(message=str(e), title="PDF Generation Error")
         frappe.throw(_("Error generating PDF: {0}").format(str(e)))
+
+@frappe.whitelist(allow_guest=True)
+def upload_file_guest():
+	"""Upload file for guest users (student application images)"""
+	try:
+		import frappe
+		from frappe.utils.file_manager import save_file
+		
+		if 'file' not in frappe.request.files:
+			frappe.throw(_("No file was uploaded"))
+		
+		file = frappe.request.files['file']
+		if file.filename == '':
+			frappe.throw(_("No file selected"))
+		
+		# Check file size (limit to 5MB)
+		if len(file.read()) > 5 * 1024 * 1024:
+			frappe.throw(_("File size should not exceed 5MB"))
+		
+		# Reset file pointer
+		file.seek(0)
+		
+		# Check file type
+		allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+		file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+		if file_ext not in allowed_extensions:
+			frappe.throw(_("Only image files (PNG, JPG, JPEG, GIF, WEBP) are allowed"))
+		
+		# Save file
+		try:
+			file_doc = save_file(
+				file.filename,
+				file.read(),
+				"",  # dt
+				"",  # dn
+				folder="Home/Student Applications",
+				decode=False,
+				is_private=0  # Make it public
+			)
+			
+			return {
+				"file_name": file_doc.file_name,
+				"file_url": file_doc.file_url,
+				"name": file_doc.name
+			}
+		except Exception as e:
+			frappe.log_error(message=str(e), title="File Upload Error")
+			frappe.throw(_("Error saving file: {0}").format(str(e)))
+			
+	except Exception as e:
+		frappe.log_error(message=str(e), title="File Upload Error")
+		frappe.throw(_("Error uploading file: {0}").format(str(e)))
