@@ -487,124 +487,6 @@
                         </div>
                     </div>
                     
-                    <!-- Step 2: Student Type Selection -->
-                    <div v-if="currentStep === 2" class="space-y-6">
-                        <div class="text-center">
-                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Type</h2>
-                            <p class="text-gray-600">Is this a new student or an existing student?</p>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <button
-                                @click="studentType = 'new'"
-                                :class="[
-                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
-                                    studentType === 'new' 
-                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                ]"
-                            >
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-4">
-                                        <p class="text-lg font-medium">New Student</p>
-                                        <p class="text-sm text-gray-500">First time applying to our school</p>
-                                    </div>
-                                </div>
-                            </button>
-                            
-                            <button
-                                @click="studentType = 'existing'"
-                                :class="[
-                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
-                                    studentType === 'existing' 
-                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                ]"
-                            >
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-4">
-                                        <p class="text-lg font-medium">Existing Student</p>
-                                        <p class="text-sm text-gray-500">Already has a school ID</p>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-                        
-                        <!-- Branch Selection for New Students -->
-                        <div v-if="studentType === 'new'" class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">Select Branch</label>
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <button
-                                    @click="branchSelection = 'M1'"
-                                    :class="[
-                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
-                                        branchSelection === 'M1' 
-                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                    ]"
-                                >
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0">
-                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                <span class="text-blue-600 font-semibold">M1</span>
-                                            </div>
-                                        </div>
-                                        <div class="ml-3">
-                                            <p class="text-sm font-medium">Main Branch</p>
-                                        </div>
-                                    </div>
-                                </button>
-                                <button
-                                    @click="branchSelection = 'M2'"
-                                    :class="[
-                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
-                                        branchSelection === 'M2' 
-                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                    ]"
-                                >
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0">
-                                            <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                                                <span class="text-green-600 font-semibold">M2</span>
-                                            </div>
-                                        </div>
-                                        <div class="ml-3">
-                                            <p class="text-sm font-medium">Second Branch</p>
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- School ID Lookup for Existing Students -->
-                        <div v-if="studentType === 'existing'" class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
-                            <input 
-                                v-model="existingSchoolId" 
-                                type="text" 
-                                class="input-field" 
-                                placeholder="e.g., M1/10001/18"
-                                @blur="lookupStudent"
-                            >
-                            <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
-                                <p class="text-green-800 font-medium">Student Found:</p>
-                                <p class="text-green-700" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
-                            </div>
-                            <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
-                        </div>
-                    </div>
-                    
                     <!-- Step 3: Home Address -->
                     <div v-if="currentStep === 3" class="space-y-6">
                         <div class="text-center">
@@ -1068,7 +950,13 @@
                     availableMobileNumbers: [],
                     kebeleSubCityData: {},
                     subCities: [],
-                    availableKebeles: []
+                    availableKebeles: [],
+                    sessionParentImages: {
+                        father: null,
+                        mother: null,
+                        guardian: null
+                    },
+                    sessionApplications: []
                 }
             },
             
@@ -1301,10 +1189,11 @@
                             // Create father guardian
                             console.log('Creating father guardian with data:', this.fatherData);
                             
-                            // Upload father's photo if provided
-                            let fatherPhotoUrl = null;
-                            if (this.fatherData.photo) {
+                            // Upload father's photo if provided or reuse from session
+                            let fatherPhotoUrl = this.sessionParentImages.father;
+                            if (this.fatherData.photo && (!fatherPhotoUrl || this.fatherData.photo !== fatherPhotoUrl)) {
                                 fatherPhotoUrl = await this.uploadFile(this.fatherData.photo);
+                                this.sessionParentImages.father = fatherPhotoUrl;
                             }
                             
                             // Prepare father data for API (exclude photo field, add image URL)
@@ -1344,10 +1233,11 @@
                             // Create mother guardian
                             console.log('Creating mother guardian with data:', this.motherData);
                             
-                            // Upload mother's photo if provided
-                            let motherPhotoUrl = null;
-                            if (this.motherData.photo) {
+                            // Upload mother's photo if provided or reuse from session
+                            let motherPhotoUrl = this.sessionParentImages.mother;
+                            if (this.motherData.photo && (!motherPhotoUrl || this.motherData.photo !== motherPhotoUrl)) {
                                 motherPhotoUrl = await this.uploadFile(this.motherData.photo);
+                                this.sessionParentImages.mother = motherPhotoUrl;
                             }
                             
                             // Prepare mother data for API (exclude photo field, add image URL)
@@ -1387,10 +1277,11 @@
                             // Create guardian
                             console.log('Creating guardian with data:', this.guardianData);
                             
-                            // Upload guardian's photo if provided
-                            let guardianPhotoUrl = null;
-                            if (this.guardianData.photo) {
+                            // Upload guardian's photo if provided or reuse from session
+                            let guardianPhotoUrl = this.sessionParentImages.guardian;
+                            if (this.guardianData.photo && (!guardianPhotoUrl || this.guardianData.photo !== guardianPhotoUrl)) {
                                 guardianPhotoUrl = await this.uploadFile(this.guardianData.photo);
+                                this.sessionParentImages.guardian = guardianPhotoUrl;
                             }
                             
                             // Prepare guardian data for API (exclude photo field, add image URL)
@@ -1523,18 +1414,24 @@
                 },
                 
                 addSibling() {
-                    this.showSuccessModal = false;
-                    // Preserve address and basic location data when adding siblings
-                    const preservedAddress = {
-                        address_line_1: this.studentData.address_line_1,
-                        kebele: this.studentData.kebele,
-                        sub_city: this.studentData.sub_city,
-                        city: this.studentData.city,
-                        state: this.studentData.state,
-                        country: this.studentData.country
-                    };
-                    
-                    // Reset only student-specific data, keep guardian data and address
+                    // Save current application to sessionApplications
+                    this.sessionApplications.push({
+                        guardianType: this.guardianType,
+                        fatherData: { ...this.fatherData, image: this.sessionParentImages.father },
+                        motherData: { ...this.motherData, image: this.sessionParentImages.mother },
+                        guardianData: { ...this.guardianData, image: this.sessionParentImages.guardian },
+                        studentData: { ...this.studentData },
+                        submittedApplicationId: this.submittedApplicationId,
+                        studentType: this.studentType,
+                        branchSelection: this.branchSelection
+                    });
+                    // Download PDF for current child
+                    this.finishAndDownload(true);
+                    // Pre-fill parent images for next child
+                    this.fatherData.photo = this.sessionParentImages.father;
+                    this.motherData.photo = this.sessionParentImages.mother;
+                    this.guardianData.photo = this.sessionParentImages.guardian;
+                    // ... existing code to reset studentData and go to next step ...
                     this.studentData = {
                         first_name: '',
                         middle_name: '',
@@ -1546,10 +1443,14 @@
                         nationality: 'Ethiopian',
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
-                        ...preservedAddress,
-                        pincode: ''
+                        address_line_1: '',
+                        kebele: '',
+                        sub_city: '',
+                        city: 'Adama',
+                        state: 'Oromia',
+                        pincode: '',
+                        country: 'Ethiopia'
                     };
-                    
                     this.currentStep = 4;
                     this.studentType = 'new';
                     this.branchSelection = 'M1';
@@ -1760,28 +1661,31 @@
                     this.availableKebeles = this.kebeleSubCityData[this.studentData.sub_city] || [];
                 },
                 
-                async finishAndDownload() {
+                async finishAndDownload(isSibling = false) {
                     try {
-                        // Generate PDF with all session data
+                        let applications = this.sessionApplications;
+                        if (!isSibling) {
+                            // Add current application if finishing
+                            applications = [...this.sessionApplications, {
+                                guardianType: this.guardianType,
+                                fatherData: { ...this.fatherData, image: this.sessionParentImages.father },
+                                motherData: { ...this.motherData, image: this.sessionParentImages.mother },
+                                guardianData: { ...this.guardianData, image: this.sessionParentImages.guardian },
+                                studentData: { ...this.studentData },
+                                submittedApplicationId: this.submittedApplicationId,
+                                studentType: this.studentType,
+                                branchSelection: this.branchSelection
+                            }];
+                        }
                         const response = await fetch('/api/method/education.education.api.generate_application_pdf', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                session_data: {
-                                    guardianType: this.guardianType,
-                                    fatherData: this.fatherData,
-                                    motherData: this.motherData,
-                                    guardianData: this.guardianData,
-                                    studentData: this.studentData,
-                                    submittedApplicationId: this.submittedApplicationId,
-                                    studentType: this.studentType,
-                                    branchSelection: this.branchSelection
-                                }
+                                session_applications: applications
                             })
                         });
-                        
                         if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -1792,10 +1696,8 @@
                             a.click();
                             window.URL.revokeObjectURL(url);
                             document.body.removeChild(a);
-                            
-                            // Close modal and reset form
                             this.showSuccessModal = false;
-                            this.resetForm();
+                            if (!isSibling) this.resetForm();
                         } else {
                             console.error('PDF generation failed');
                             alert('Error generating PDF. Please try again.');
