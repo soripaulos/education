@@ -1568,17 +1568,61 @@ def generate_school_id(branch="M1"):
 def create_guardian(guardian_data):
 	"""Create a new guardian record"""
 	try:
+		# Check if guardian already exists by name and mobile number
+		mobile_check = guardian_data.get("mobile_number")
+		if mobile_check and not mobile_check.startswith("+251"):
+			mobile_check = f"+251{mobile_check}"
+			
+		existing_guardian = frappe.get_all(
+			"Guardian",
+			filters={
+				"guardian_name": guardian_data.get("guardian_name"),
+				"mobile_number": mobile_check
+			},
+			limit=1
+		)
+		
+		if existing_guardian:
+			return existing_guardian[0].name
+			
 		guardian_doc = frappe.new_doc("Guardian")
 		guardian_doc.guardian_name = guardian_data.get("guardian_name")
 		guardian_doc.email_address = guardian_data.get("email_address")
-		guardian_doc.mobile_number = guardian_data.get("mobile_number")
-		guardian_doc.alternate_number = guardian_data.get("alternate_number")
-		guardian_doc.education = guardian_data.get("education")
-		guardian_doc.occupation = guardian_data.get("occupation")
+		
+		# Format mobile number properly
+		mobile_number = guardian_data.get("mobile_number")
+		if mobile_number and not mobile_number.startswith("+251"):
+			mobile_number = f"+251{mobile_number}"
+		guardian_doc.mobile_number = mobile_number
+		
+		# Handle alternate number
+		alternate_number = guardian_data.get("alternate_number")
+		if alternate_number and not alternate_number.startswith("+251"):
+			alternate_number = f"+251{alternate_number}"
+		guardian_doc.alternate_number = alternate_number
+		
+		# Handle education field
+		education = guardian_data.get("education")
+		if education == "Other":
+			education = guardian_data.get("education_other", education)
+		guardian_doc.education = education
+		
+		# Handle occupation field
+		occupation = guardian_data.get("occupation")
+		if occupation == "Other":
+			occupation = guardian_data.get("occupation_other", occupation)
+		guardian_doc.occupation = occupation
+		
 		guardian_doc.work_address = guardian_data.get("work_address")
+		
+		# Handle image/photo field if present
+		if guardian_data.get("photo"):
+			guardian_doc.image = guardian_data.get("photo")
+			
 		guardian_doc.insert()
 		return guardian_doc.name
 	except Exception as e:
+		frappe.log_error(message=str(e), title="Guardian Creation Error")
 		frappe.throw(_("Error creating guardian: {0}").format(str(e)))
 
 @frappe.whitelist(allow_guest=True)
@@ -1599,19 +1643,25 @@ def create_student_application(application_data):
 		app_doc.date_of_birth = application_data.get("date_of_birth")
 		app_doc.gender = application_data.get("gender")
 		app_doc.student_email_id = application_data.get("student_email_id")
-		app_doc.student_mobile_number = application_data.get("student_mobile_number")
+		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
-		# Address
+		# Address - including new fields
 		app_doc.address_line_1 = application_data.get("address_line_1")
 		app_doc.address_line_2 = application_data.get("address_line_2")
+		app_doc.kebele = application_data.get("kebele")
+		app_doc.sub_city = application_data.get("sub_city")
 		app_doc.city = application_data.get("city", "Adama")
-		app_doc.state = application_data.get("state")
+		app_doc.state = application_data.get("state", "Oromia")
 		app_doc.pincode = application_data.get("pincode")
 		app_doc.country = application_data.get("country", "Ethiopia")
 		
 		# Application status
 		app_doc.application_status = "Applied"
+		
+		# Image field
+		if application_data.get("image"):
+			app_doc.image = application_data.get("image")
 		
 		# Guardians
 		guardians = application_data.get("guardians", [])
@@ -1634,6 +1684,7 @@ def create_student_application(application_data):
 		return app_doc.name
 		
 	except Exception as e:
+		frappe.log_error(message=str(e), title="Student Application Creation Error")
 		frappe.throw(_("Error creating student application: {0}").format(str(e)))
 
 @frappe.whitelist(allow_guest=True)
@@ -1663,14 +1714,16 @@ def update_student_application(application_id, application_data):
 		app_doc.date_of_birth = application_data.get("date_of_birth")
 		app_doc.gender = application_data.get("gender")
 		app_doc.student_email_id = application_data.get("student_email_id")
-		app_doc.student_mobile_number = application_data.get("student_mobile_number")
+		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
-		# Update address
+		# Update address - including new fields
 		app_doc.address_line_1 = application_data.get("address_line_1")
 		app_doc.address_line_2 = application_data.get("address_line_2")
+		app_doc.kebele = application_data.get("kebele")
+		app_doc.sub_city = application_data.get("sub_city")
 		app_doc.city = application_data.get("city", "Adama")
-		app_doc.state = application_data.get("state")
+		app_doc.state = application_data.get("state", "Oromia")
 		app_doc.pincode = application_data.get("pincode")
 		app_doc.country = application_data.get("country", "Ethiopia")
 		
@@ -1697,6 +1750,7 @@ def update_student_application(application_id, application_data):
 		return app_doc.name
 		
 	except Exception as e:
+		frappe.log_error(message=str(e), title="Student Application Update Error")
 		frappe.throw(_("Error updating student application: {0}").format(str(e)))
 
 @frappe.whitelist(allow_guest=True)
