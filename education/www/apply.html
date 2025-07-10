@@ -1161,37 +1161,21 @@
                     
                     const formData = new FormData();
                     formData.append('file', file);
-                    formData.append('is_private', '0'); // Make files public
-                    formData.append('folder', 'Home/Student Applications'); // Organize in folder
+                    formData.append('is_private', '0');
+                    formData.append('folder', 'Home/Student Applications');
                     
                     this.isUploadingFile = true;
                     this.showNotification('Uploading image...', 'info');
                     
                     try {
-                        // Try custom guest upload endpoint first
-                        let response = await fetch('/api/method/education.education.api.upload_file_guest', {
+                        // Use our enhanced guest upload endpoint
+                        const response = await fetch('/api/method/education.education.api.upload_file_guest', {
                             method: 'POST',
                             body: formData,
-                            credentials: 'include'
-                        });
-                        
-                        if (response.ok) {
-                            const result = await response.json();
-                            if (result.message && result.message.file_url) {
-                                this.showNotification('Image uploaded successfully!', 'success');
-                                return result.message.file_url;
-                            } else {
-                                this.showNotification('Upload failed: Invalid response format', 'error');
-                                return null;
+                            credentials: 'include',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
                             }
-                        }
-                        
-                        // If custom endpoint fails, try standard Frappe upload endpoint
-                        console.log('Custom upload failed, trying standard endpoint...');
-                        response = await fetch('/api/method/upload_file', {
-                            method: 'POST',
-                            body: formData,
-                            credentials: 'include' // Important for guest users
                         });
                         
                         if (response.ok) {
@@ -1201,30 +1185,39 @@
                                 return result.message.file_url;
                             } else {
                                 this.showNotification('Upload failed: Invalid response format', 'error');
+                                console.error('Invalid response:', result);
                                 return null;
                             }
                         } else {
-                            const errorText = await response.text();
+                            // Handle error response
                             let errorMessage = 'Upload failed';
-                            
                             try {
+                                const errorText = await response.text();
                                 const errorData = JSON.parse(errorText);
                                 if (errorData.message) {
                                     errorMessage = errorData.message;
                                 } else if (errorData.exc) {
-                                    errorMessage = errorData.exc;
+                                    // Extract meaningful error from exception
+                                    const excString = errorData.exc;
+                                    if (excString.includes('PermissionError')) {
+                                        errorMessage = 'Permission denied. Please try again.';
+                                    } else if (excString.includes('ValidationError')) {
+                                        errorMessage = 'Invalid file format or size.';
+                                    } else {
+                                        errorMessage = 'Server error occurred during upload.';
+                                    }
                                 }
                             } catch (e) {
-                                errorMessage = `${response.statusText} (${response.status})`;
+                                errorMessage = `Upload failed (${response.status})`;
                             }
                             
                             this.showNotification(errorMessage, 'error');
-                            console.error('Upload response error:', response.status, response.statusText, errorText);
+                            console.error('Upload error:', response.status, response.statusText);
                             return null;
                         }
                     } catch (error) {
                         console.error('File upload failed:', error);
-                        this.showNotification(`Upload failed: ${error.message}`, 'error');
+                        this.showNotification('Network error during upload. Please check your connection.', 'error');
                         return null;
                     } finally {
                         this.isUploadingFile = false;

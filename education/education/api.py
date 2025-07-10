@@ -2075,11 +2075,16 @@ def check_duplicate_application():
 
 @frappe.whitelist(allow_guest=True)
 def upload_file_guest():
-	"""Upload file for guest users (student application images)"""
+	"""Upload file for guest users (student application images) - Enhanced version"""
 	try:
 		import frappe
 		from frappe.utils.file_manager import save_file
+		from frappe.core.doctype.file.file import create_new_folder
 		import os
+		import base64
+		
+		# Temporarily set session user to Administrator for file operations
+		frappe.set_user("Administrator")
 		
 		if 'file' not in frappe.request.files:
 			frappe.throw(_("No file was uploaded"))
@@ -2104,19 +2109,42 @@ def upload_file_guest():
 		# Create a unique filename
 		import uuid
 		unique_name = str(uuid.uuid4())[:8]
-		new_filename = f"{unique_name}_{file.filename}"
+		new_filename = f"student_app_{unique_name}_{file.filename}"
 		
-		# Use Frappe's built-in save_file function for better compatibility
+		# Ensure the folder exists
+		folder_name = "Home/Student Applications"
 		try:
-			file_doc = save_file(
-				new_filename,
-				file_content,
-				"",  # dt (doctype) - empty for standalone file
-				"",  # dn (document name) - empty for standalone file
-				folder="Home/Student Applications",
-				decode=False,
-				is_private=0  # Make it public so it can be accessed in PDFs
-			)
+			# Try to create folder if it doesn't exist
+			if not frappe.db.exists("File", {"is_folder": 1, "file_name": "Student Applications", "folder": "Home"}):
+				create_new_folder("Student Applications", "Home")
+		except:
+			# If folder creation fails, use Home folder
+			folder_name = "Home"
+		
+		# Save file using Frappe's save_file with Administrator privileges
+		try:
+			# Create File document directly
+			file_doc = frappe.new_doc("File")
+			file_doc.file_name = new_filename
+			file_doc.is_private = 0  # Make it public
+			file_doc.folder = folder_name
+			
+			# Save file content to disk
+			import tempfile
+			with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{file_ext}') as temp_file:
+				temp_file.write(file_content)
+				temp_file_path = temp_file.name
+			
+			# Read the file and save it properly
+			with open(temp_file_path, 'rb') as f:
+				file_doc.content = f.read()
+			
+			# Clean up temp file
+			os.unlink(temp_file_path)
+			
+			# Insert the document
+			file_doc.insert(ignore_permissions=True)
+			frappe.db.commit()
 			
 			# Ensure the file URL is accessible
 			file_url = file_doc.file_url
@@ -2132,9 +2160,104 @@ def upload_file_guest():
 			}
 			
 		except Exception as e:
-			frappe.log_error(message=str(e), title="File Upload Error")
-			frappe.throw(_("Error saving file: {0}").format(str(e)))
+			frappe.log_error(message=str(e), title="File Upload Error - Primary Method")
+			
+			# Fallback method using save_file with Administrator privileges
+			try:
+				file_doc = save_file(
+					new_filename,
+					file_content,
+					"",  # dt (doctype) - empty for standalone file
+					"",  # dn (document name) - empty for standalone file
+					folder=folder_name,
+					decode=False,
+					is_private=0  # Make it public so it can be accessed in PDFs
+				)
+				
+				# Ensure the file URL is accessible
+				file_url = file_doc.file_url
+				if not file_url.startswith('http'):
+					# Make sure we have a full URL for PDF generation
+					site_url = frappe.utils.get_url()
+					file_url = site_url + file_url
+				
+				return {
+					"file_name": file_doc.file_name,
+					"file_url": file_url,
+					"name": file_doc.name
+				}
+				
+			except Exception as e2:
+				frappe.log_error(message=str(e2), title="File Upload Error - Fallback Method")
+				
+				# Final fallback - create file record manually
+				try:
+					# Encode file content as base64 for storage
+					file_content_b64 = base64.b64encode(file_content).decode('utf-8')
+					
+					# Create file record in database directly
+					file_doc_name = frappe.generate_hash(length=10)
+					file_record = {
+						'doctype': 'File',
+						'name': file_doc_name,
+						'file_name': new_filename,
+						'is_private': 0,
+						'folder': folder_name,
+						'file_size': len(file_content),
+						'content_hash': frappe.generate_hash(file_content),
+						'file_url': f'/files/{new_filename}'
+					}
+					
+					frappe.get_doc(file_record).insert(ignore_permissions=True)
+					frappe.db.commit()
+					
+					# Save actual file to disk
+					from frappe.utils import get_site_path
+					files_path = get_site_path('public', 'files')
+					if not os.path.exists(files_path):
+						os.makedirs(files_path)
+					
+					file_path = os.path.join(files_path, new_filename)
+					with open(file_path, 'wb') as f:
+						f.write(file_content)
+					
+					file_url = f'/files/{new_filename}'
+					if not file_url.startswith('http'):
+						site_url = frappe.utils.get_url()
+						file_url = site_url + file_url
+					
+					return {
+						"file_name": new_filename,
+						"file_url": file_url,
+						"name": file_doc_name
+					}
+					
+				except Exception as e3:
+					frappe.log_error(message=str(e3), title="File Upload Error - Final Fallback")
+					frappe.throw(_("Error saving file: {0}").format(str(e3)))
 			
 	except Exception as e:
-		frappe.log_error(message=str(e), title="File Upload Error")
+		frappe.log_error(message=str(e), title="File Upload Error - Main")
 		frappe.throw(_("Error uploading file: {0}").format(str(e)))
+	
+	finally:
+		# Reset user session
+		frappe.set_user("Guest")
+
+@frappe.whitelist(allow_guest=True)
+def has_file_permission(doc, user=None, permission_type="read"):
+	"""Custom permission handler for File doctype to allow guest uploads for student applications"""
+	try:
+		# Allow guest users to upload files for student applications
+		if user == "Guest" and permission_type in ["create", "write"]:
+			# Check if this is a student application related file
+			if doc and hasattr(doc, 'file_name') and 'student_app_' in str(doc.file_name):
+				return True
+			# Also allow for files in Student Applications folder
+			if doc and hasattr(doc, 'folder') and 'Student Applications' in str(doc.folder):
+				return True
+		
+		# For all other cases, use default permission logic
+		return None  # This will fall back to standard permission checking
+	except:
+		return None

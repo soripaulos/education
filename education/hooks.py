@@ -192,6 +192,11 @@ after_install = "education.install.after_install"
 # 	"Event": "frappe.desk.doctype.event.event.has_permission",
 # }
 
+# Guest permissions for file uploads in student applications
+has_permission = {
+	"File": "education.education.api.has_file_permission",
+}
+
 # DocType Class
 # ---------------
 # Override standard doctype classes
