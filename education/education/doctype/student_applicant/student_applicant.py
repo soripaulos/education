@@ -10,24 +10,9 @@ from frappe.utils import add_years, date_diff, getdate, nowdate
 
 class StudentApplicant(Document):
 	def autoname(self):
-		from frappe.model.naming import set_name_by_naming_series
-
-		if self.student_admission:
-			naming_series = None
-			if self.program:
-				# set the naming series from the student admission if provided.
-				student_admission = get_student_admission_data(self.student_admission, self.program)
-				if student_admission:
-					naming_series = student_admission.get("applicant_naming_series")
-				else:
-					naming_series = None
-			else:
-				frappe.throw(_("Select the program first"))
-
-			if naming_series:
-				self.naming_series = naming_series
-
-		set_name_by_naming_series(self)
+		# Use the format naming defined in JSON: SA-{#####}
+		# No custom logic needed as Frappe will handle the format naming automatically
+		pass
 
 	def validate(self):
 		self.set_title()
