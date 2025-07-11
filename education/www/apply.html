@@ -778,7 +778,7 @@
         </div>
         
         <!-- Success Modal -->
-        <div v-if="showSuccessModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div v-if="showSuccessModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[10000]">
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
@@ -794,24 +794,27 @@
                     </div>
                     <div class="items-center px-4 py-3 space-y-2">
                         <button
-                            @click="addSibling"
-                            class="btn-primary w-full"
+                            @click.stop="addSibling"
+                            class="btn-primary w-full relative z-10"
                             :disabled="isGeneratingPDF"
+                            style="pointer-events: auto;"
                         >
                             <span v-if="isGeneratingPDF">Processing...</span>
                             <span v-else>Add Another Child</span>
                         </button>
                         <button
-                            @click="resetForm"
-                            class="btn-secondary w-full"
+                            @click.stop="resetForm"
+                            class="btn-secondary w-full relative z-10"
                             :disabled="isGeneratingPDF"
+                            style="pointer-events: auto;"
                         >
                             Start New Application
                         </button>
                         <button
-                            @click="finishAndDownload"
-                            class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 w-full disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            @click.stop="finishAndDownload"
+                            class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 w-full disabled:bg-gray-400 disabled:cursor-not-allowed relative z-10"
                             :disabled="isGeneratingPDF"
+                            style="pointer-events: auto;"
                         >
                             <span v-if="isGeneratingPDF">Generating PDF...</span>
                             <span v-else>Finish & Download PDF</span>

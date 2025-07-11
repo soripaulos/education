@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_import": 1,
- "autoname": "naming_series:",
+ "autoname": "format:SA-{#####}",
  "creation": "2015-09-11 11:50:09.740807",
  "doctype": "DocType",
  "document_type": "Document",
@@ -11,7 +11,7 @@
   "middle_name",
   "last_name",
   "column_break_8",
-  "naming_series",
+
   "application_date",
   "application_status",
   "program",
@@ -93,14 +93,7 @@
    "fieldname": "column_break_8",
    "fieldtype": "Column Break"
   },
-  {
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "label": "Naming Series",
-   "no_copy": 1,
-   "options": "EDU-APP-.YYYY.-",
-   "set_only_once": 1
-  },
+
   {
    "allow_on_submit": 1,
    "fieldname": "application_status",
