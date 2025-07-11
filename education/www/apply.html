@@ -759,7 +759,7 @@
                             </svg>
                         </div>
                         <div class="ml-3 w-0 flex-1 pt-0.5">
-                            <p class="text-sm font-medium text-gray-900" v-text="notification.message"></p>
+                            <p class="text-sm font-medium text-gray-900" v-html="notification.message"></p>
                         </div>
                         <div class="ml-4 flex-shrink-0 flex">
                             <button
@@ -1455,10 +1455,144 @@
                     
                     this.isGeneratingPDF = true;
                     try {
+                        this.showNotification('Generating PDF document...', 'info', 5000);
+                        
+                        // Use Frappe's standard print API - this is the proven approach
+                        const printUrl = `/api/method/frappe.utils.print_format.download_pdf?doctype=Student Application&name=${encodeURIComponent(this.submittedApplicationId)}&format=Standard&no_letterhead=0`;
+                        
+                        // Try the standard Frappe print approach first
+                        const response = await fetch(printUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/pdf',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            credentials: 'include'
+                        });
+                        
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            
+                            if (blob.size === 0) {
+                                throw new Error('Generated PDF is empty');
+                            }
+                            
+                            this.showNotification('PDF generated successfully! Starting download...', 'success', 3000);
+                            
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `student_application_${this.submittedApplicationId}.pdf`;
+                            a.style.display = 'none';
+                            document.body.appendChild(a);
+                            a.click();
+                            
+                            setTimeout(() => {
+                                try {
+                                    window.URL.revokeObjectURL(url);
+                                    if (document.body.contains(a)) {
+                                        document.body.removeChild(a);
+                                    }
+                                } catch (e) {
+                                    console.warn('Cleanup error:', e);
+                                }
+                            }, 1000);
+                            
+                            this.showNotification('PDF downloaded successfully!', 'success', 3000);
+                            
+                        } else {
+                            // Try direct print URL method (another standard Frappe approach)
+                            console.log('Standard print API failed, trying direct print URL...');
+                            await this.downloadPDFDirectURL();
+                        }
+                    } catch (error) {
+                        console.error('Error with standard PDF generation:', error);
+                        // Fallback to direct URL method
+                        await this.downloadPDFDirectURL();
+                    } finally {
+                        this.isGeneratingPDF = false;
+                    }
+                },
+                
+                async downloadPDFDirectURL() {
+                    try {
+                        this.showNotification('Trying direct print URL method...', 'info', 3000);
+                        
+                        // Frappe's direct print URL format
+                        const directPrintUrl = `/printview?doctype=Student Application&name=${encodeURIComponent(this.submittedApplicationId)}&format=Standard&no_letterhead=0&_lang=en`;
+                        
+                        // Create a hidden iframe to trigger the PDF download
+                        const iframe = document.createElement('iframe');
+                        iframe.style.display = 'none';
+                        iframe.src = directPrintUrl;
+                        document.body.appendChild(iframe);
+                        
+                        // Wait a bit for the iframe to load and attempt download
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        
+                        // Remove the iframe
+                        if (document.body.contains(iframe)) {
+                            document.body.removeChild(iframe);
+                        }
+                        
+                        this.showNotification('Print view opened. If PDF did not download, please try the custom method.', 'info', 5000);
+                        
+                        // Wait a moment then try window.open method
+                        setTimeout(async () => {
+                            if (this.isGeneratingPDF) {
+                                await this.downloadPDFWindowOpen();
+                            }
+                        }, 2000);
+                        
+                    } catch (error) {
+                        console.error('Error with direct URL method:', error);
+                        // Try window.open method
+                        await this.downloadPDFWindowOpen();
+                    }
+                },
+                
+                async downloadPDFWindowOpen() {
+                    try {
+                        this.showNotification('Trying window.open PDF method...', 'info', 3000);
+                        
+                        // Frappe's print URL with PDF format
+                        const pdfUrl = `/api/method/frappe.utils.print_format.download_pdf?doctype=Student Application&name=${encodeURIComponent(this.submittedApplicationId)}&format=Standard&no_letterhead=0&_lang=en`;
+                        
+                        // Open in new window - this often works better than fetch for PDF downloads
+                        const newWindow = window.open(pdfUrl, '_blank');
+                        
+                        // Check if popup was blocked
+                        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                            this.showNotification('Popup blocked. Please allow popups and try again, or trying alternative method...', 'warning', 5000);
+                            // Fallback to custom method
+                            setTimeout(async () => {
+                                if (this.isGeneratingPDF) {
+                                    await this.downloadPDFCustomMethod();
+                                }
+                            }, 1000);
+                        } else {
+                            this.showNotification('PDF should open in new tab. If not, trying alternative method...', 'info', 3000);
+                            // Give it some time, then try custom method as final fallback
+                            setTimeout(async () => {
+                                if (this.isGeneratingPDF) {
+                                    await this.downloadPDFCustomMethod();
+                                }
+                            }, 3000);
+                        }
+                        
+                    } catch (error) {
+                        console.error('Error with window.open method:', error);
+                        // Final fallback to custom method
+                        await this.downloadPDFCustomMethod();
+                    }
+                },
+                
+                async downloadPDFCustomMethod() {
+                    try {
+                        this.showNotification('Trying alternative PDF generation method...', 'info', 3000);
+                        
                         // Ensure application is fully saved before PDF generation
                         await new Promise(resolve => setTimeout(resolve, 2000));
-                        
-                        this.showNotification('Generating PDF document...', 'info', 5000);
                         
                         const response = await fetch('/api/method/education.education.api.generate_application_pdf', {
                             method: 'POST',
@@ -1532,16 +1666,27 @@
                             this.showNotification(errorMessage, 'error', 8000);
                         }
                     } catch (error) {
-                        console.error('Error generating PDF:', error);
-                        let errorMessage = 'PDF generation failed. ';
-                        if (error.message && error.message.includes('network')) {
-                            errorMessage += 'Please check your internet connection and try again.';
-                        } else {
-                            errorMessage += 'Please try again.';
-                        }
-                        this.showNotification(errorMessage, 'error', 5000);
-                    } finally {
-                        this.isGeneratingPDF = false;
+                        console.error('Error generating PDF with custom method:', error);
+                        // Provide manual download link as final option
+                        this.showManualDownloadOption();
+                    }
+                },
+                
+                showManualDownloadOption() {
+                    const manualUrl = `/printview?doctype=Student Application&name=${encodeURIComponent(this.submittedApplicationId)}&format=Standard&no_letterhead=0&_lang=en`;
+                    
+                    this.showNotification(
+                        'All automatic PDF methods failed. Please try this manual link: ' +
+                        `<a href="${manualUrl}" target="_blank" style="color: blue; text-decoration: underline;">Click here to view/download PDF</a>`, 
+                        'warning', 
+                        15000
+                    );
+                    
+                    // Also try to automatically open the manual link
+                    try {
+                        window.open(manualUrl, '_blank');
+                    } catch (e) {
+                        console.error('Could not auto-open manual link:', e);
                     }
                 },
                 
