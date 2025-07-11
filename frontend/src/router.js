@@ -45,12 +45,7 @@ const routes = [
     name: 'Courses',
     component: () => import('@/pages/Courses.vue'),
   },
-  {
-    path: '/student-application',
-    name: 'StudentApplication',
-    component: () => import('@/pages/StudentApplication.vue'),
-    meta: { requiresAuth: false }
-  },
+
   {
     path: '/:catchAll(.*)',
     redirect: '/schedule',
