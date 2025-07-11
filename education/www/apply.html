@@ -1119,13 +1119,6 @@
                     try {
                         const fileUrl = await this.uploadFile(file);
                         if (fileUrl) {
-                            // Store the URL for session reuse if it's a parent image
-                            if (type === 'father' || type === 'mother' || type === 'guardian') {
-                                if (!this.sessionParentImages[type]) {
-                                    this.sessionParentImages[type] = fileUrl;
-                                }
-                            }
-                            
                             // Assign to the appropriate data object
                             if (type === 'father') {
                                 this.fatherData.image = fileUrl;
@@ -1272,19 +1265,9 @@
                             // Create father guardian
                             console.log('Creating father guardian with data:', this.fatherData);
                             
-                            // Upload father's photo if provided or reuse from session
-                            let fatherPhotoUrl = this.sessionParentImages.father;
-                            if (this.fatherData.photo && (!fatherPhotoUrl || this.fatherData.photo !== fatherPhotoUrl)) {
-                                fatherPhotoUrl = await this.uploadFile(this.fatherData.photo);
-                                this.sessionParentImages.father = fatherPhotoUrl;
-                            }
-                            
-                            // Prepare father data for API (exclude photo field, add image URL)
+                            // Prepare father data for API (image URL should already be set from upload)
                             const fatherDataForAPI = { ...this.fatherData };
                             delete fatherDataForAPI.photo;
-                            if (fatherPhotoUrl) {
-                                fatherDataForAPI.image = fatherPhotoUrl;
-                            }
                             
                             const fatherResponse = await fetch('/api/method/education.education.api.create_guardian', {
                                 method: 'POST',
@@ -1316,19 +1299,9 @@
                             // Create mother guardian
                             console.log('Creating mother guardian with data:', this.motherData);
                             
-                            // Upload mother's photo if provided or reuse from session
-                            let motherPhotoUrl = this.sessionParentImages.mother;
-                            if (this.motherData.photo && (!motherPhotoUrl || this.motherData.photo !== motherPhotoUrl)) {
-                                motherPhotoUrl = await this.uploadFile(this.motherData.photo);
-                                this.sessionParentImages.mother = motherPhotoUrl;
-                            }
-                            
-                            // Prepare mother data for API (exclude photo field, add image URL)
+                            // Prepare mother data for API (image URL should already be set from upload)
                             const motherDataForAPI = { ...this.motherData };
                             delete motherDataForAPI.photo;
-                            if (motherPhotoUrl) {
-                                motherDataForAPI.image = motherPhotoUrl;
-                            }
                             
                             const motherResponse = await fetch('/api/method/education.education.api.create_guardian', {
                                 method: 'POST',
@@ -1360,19 +1333,9 @@
                             // Create guardian
                             console.log('Creating guardian with data:', this.guardianData);
                             
-                            // Upload guardian's photo if provided or reuse from session
-                            let guardianPhotoUrl = this.sessionParentImages.guardian;
-                            if (this.guardianData.photo && (!guardianPhotoUrl || this.guardianData.photo !== guardianPhotoUrl)) {
-                                guardianPhotoUrl = await this.uploadFile(this.guardianData.photo);
-                                this.sessionParentImages.guardian = guardianPhotoUrl;
-                            }
-                            
-                            // Prepare guardian data for API (exclude photo field, add image URL)
+                            // Prepare guardian data for API (image URL should already be set from upload)
                             const guardianDataForAPI = { ...this.guardianData };
                             delete guardianDataForAPI.photo;
-                            if (guardianPhotoUrl) {
-                                guardianDataForAPI.image = guardianPhotoUrl;
-                            }
                             
                             const guardianResponse = await fetch('/api/method/education.education.api.create_guardian', {
                                 method: 'POST',
@@ -1428,12 +1391,6 @@
                             }
                         }
                         
-                        // Upload student's photo if provided
-                        let studentPhotoUrl = null;
-                        if (this.studentData.image) {
-                            studentPhotoUrl = await this.uploadFile(this.studentData.image);
-                        }
-                        
                         // Prepare application data
                         const applicationData = {
                             ...this.studentData,
@@ -1441,11 +1398,6 @@
                             guardians: guardians,
                             siblings: []
                         };
-                        
-                        // Add student image URL if uploaded
-                        if (studentPhotoUrl) {
-                            applicationData.image = studentPhotoUrl;
-                        }
                         
                         // Create application
                         const applicationResponse = await fetch('/api/method/education.education.api.create_student_application', {
@@ -1882,7 +1834,6 @@
                     const file = event.target.files[0];
                     if (file) {
                         const guardianData = this.getGuardianData(guardianType);
-                        guardianData.photo = file;
                         
                         // Upload and store URL
                         try {
@@ -1904,10 +1855,7 @@
                 async handleStudentImageUpload(event) {
                     const file = event.target.files[0];
                     if (file) {
-                        // First store the file for immediate use
-                        this.studentData.image = file;
-                        
-                        // Then upload and get URL for PDF generation
+                        // Upload and get URL
                         try {
                             const uploadedUrl = await this.uploadFile(file);
                             if (uploadedUrl) {
