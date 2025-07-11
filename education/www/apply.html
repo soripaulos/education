@@ -1915,7 +1915,10 @@
                             }];
                         }
                         
-                        this.showNotification('Generating PDF...', 'info');
+                        this.showNotification('Generating PDF... Please wait, this may take a moment.', 'info');
+                        
+                        // Add a small delay to ensure all data is ready
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                         
                         const response = await fetch('/api/method/education.education.api.generate_application_pdf', {
                             method: 'POST',
@@ -1929,14 +1932,24 @@
                         
                         if (response.ok) {
                             const blob = await response.blob();
+                            
+                            // Check if blob is not empty
+                            if (blob.size === 0) {
+                                throw new Error('Generated PDF is empty. Please try again.');
+                            }
+                            
                             const url = window.URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = 'student_application.pdf';
+                            a.download = `student_application_${this.submittedApplicationId || 'form'}.pdf`;
                             document.body.appendChild(a);
                             a.click();
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(a);
+                            
+                            // Clean up
+                            setTimeout(() => {
+                                window.URL.revokeObjectURL(url);
+                                document.body.removeChild(a);
+                            }, 100);
                             
                             this.showNotification('PDF downloaded successfully!', 'success');
                             
@@ -1951,7 +1964,7 @@
                         }
                     } catch (error) {
                         console.error('Error generating PDF:', error);
-                        this.showNotification('Network error generating PDF. Please try again.', 'error');
+                        this.showNotification(`PDF generation error: ${error.message}`, 'error');
                     } finally {
                         this.isGeneratingPDF = false;
                     }

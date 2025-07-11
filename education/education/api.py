@@ -2036,7 +2036,27 @@ def generate_application_pdf(session_applications):
             html_pages.append(html)
         # Join pages with page breaks
         full_html = ("<div class='page-break'></div>").join(html_pages)
-        pdf_content = get_pdf(full_html)
+        
+        # Add options for better PDF generation with images
+        pdf_options = {
+            'page-size': 'A4',
+            'margin-top': '0.75in',
+            'margin-right': '0.75in',
+            'margin-bottom': '0.75in',
+            'margin-left': '0.75in',
+            'encoding': "UTF-8",
+            'no-outline': None,
+            'enable-local-file-access': None,
+            'load-error-handling': 'ignore',
+            'load-media-error-handling': 'ignore'
+        }
+        
+        pdf_content = get_pdf(full_html, options=pdf_options)
+        
+        # Ensure we have content
+        if not pdf_content:
+            frappe.throw(_("Failed to generate PDF content"))
+        
         frappe.local.response.filename = "student_application.pdf"
         frappe.local.response.filecontent = pdf_content
         frappe.local.response.type = "download"
