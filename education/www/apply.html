@@ -388,8 +388,37 @@
                         </div>
                     </div>
                     
-                    <!-- Step 2: Student Type Selection -->
+                    <!-- Step 2: Home Address -->
                     <div v-if="currentStep === 2" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Home Address</h2>
+                            <p class="text-gray-600">Please provide your home address details</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Home Address *</label>
+                                <input v-model="studentData.address_line_1" type="text" class="input-field" required placeholder="Enter your home address">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Sub-city *</label>
+                                <select v-model="studentData.sub_city" class="input-field" required @change="onSubCityChange">
+                                    <option value="">Select Sub-city</option>
+                                    <option v-for="subCity in subCities" :key="subCity" :value="subCity">{{ subCity }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Kebele *</label>
+                                <select v-model="studentData.kebele" class="input-field" required :disabled="!studentData.sub_city">
+                                    <option value="">Select Kebele</option>
+                                    <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name" v-text="kebele.name"></option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3: Student Type Selection -->
+                    <div v-if="currentStep === 3" class="space-y-6">
                         <div class="text-center">
                             <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Type</h2>
                             <p class="text-gray-600">Is this a new student or an existing student?</p>
@@ -527,35 +556,6 @@
                                 <p class="text-green-700" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
                             </div>
                             <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Step 3: Home Address -->
-                    <div v-if="currentStep === 3" class="space-y-6">
-                        <div class="text-center">
-                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Home Address</h2>
-                            <p class="text-gray-600">Please provide your home address details</p>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div class="sm:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700">Home Address *</label>
-                                <input v-model="studentData.address_line_1" type="text" class="input-field" required placeholder="Enter your home address">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Sub-city *</label>
-                                <select v-model="studentData.sub_city" class="input-field" required @change="onSubCityChange">
-                                    <option value="">Select Sub-city</option>
-                                    <option v-for="subCity in subCities" :key="subCity" :value="subCity">{{ subCity }}</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Kebele *</label>
-                                <select v-model="studentData.kebele" class="input-field" required :disabled="!studentData.sub_city">
-                                    <option value="">Select Kebele</option>
-                                    <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name" v-text="kebele.name"></option>
-                                </select>
-                            </div>
                         </div>
                     </div>
                     
@@ -1024,19 +1024,19 @@
                                     !this.phoneErrors.guardian_alt
                                 );
                             }
-                        case 2: // Student Type Selection
+                        case 2: // Home Address
+                            return (
+                                this.studentData.address_line_1 && 
+                                this.studentData.sub_city &&
+                                this.studentData.kebele
+                            );
+                        case 3: // Student Type Selection
                             if (this.studentType === 'new') {
                                 return this.branchSelection;
                             } else if (this.studentType === 'existing') {
                                 return this.existingStudent !== null;
                             }
                             return false;
-                        case 3: // Home Address
-                            return (
-                                this.studentData.address_line_1 && 
-                                this.studentData.sub_city &&
-                                this.studentData.kebele
-                            );
                         case 4: // Student Details
                             return (
                                 this.studentData.first_name && 
@@ -1620,7 +1620,7 @@
                 addAnotherChild() {
                     // Preserve guardian and address information, only reset student details
                     this.showSuccessModal = false;
-                    this.currentStep = 2; // Start from student type selection step
+                    this.currentStep = 3; // Start from student type selection step (now step 3)
                     this.submittedApplicationId = '';
                     
                     // Keep guardian type and data intact (don't reset guardian info)
