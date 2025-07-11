@@ -801,13 +801,12 @@
                     </div>
                     <div class="items-center px-4 py-3 space-y-2">
                         <button
-                            @click.stop="addSibling"
+                            @click.stop="resetForm"
                             class="btn-primary w-full relative z-10"
                             :disabled="isGeneratingPDF || isUploadingFile || !submittedApplicationId"
                             style="pointer-events: auto;"
                         >
-                            <span v-if="isGeneratingPDF">Processing...</span>
-                            <span v-else-if="isUploadingFile || !submittedApplicationId">Please wait...</span>
+                            <span v-if="isUploadingFile || !submittedApplicationId">Please wait...</span>
                             <span v-else>Add Another Child</span>
                         </button>
                         <button
@@ -820,14 +819,14 @@
                             <span v-else>Start New Application</span>
                         </button>
                         <button
-                            @click.stop="finishAndDownload"
+                            @click.stop="downloadPDF"
                             class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 w-full disabled:bg-gray-400 disabled:cursor-not-allowed relative z-10"
                             :disabled="isGeneratingPDF || isUploadingFile || !submittedApplicationId"
                             style="pointer-events: auto;"
                         >
                             <span v-if="isGeneratingPDF">Generating PDF...</span>
                             <span v-else-if="isUploadingFile || !submittedApplicationId">Please wait...</span>
-                            <span v-else>Finish & Download PDF</span>
+                            <span v-else>Download PDF</span>
                         </button>
                     </div>
                 </div>
@@ -959,12 +958,7 @@
                     kebeleSubCityData: {},
                     subCities: [],
                     availableKebeles: [],
-                    sessionParentImages: {
-                        father: null,
-                        mother: null,
-                        guardian: null
-                    },
-                    sessionApplications: [],
+
                     
                     // Loading states
                     isCheckingSchoolId: false,
@@ -1116,22 +1110,7 @@
                 handleImageUpload(type, event) {
                     const file = event.target.files[0];
                     if (file) {
-                        // Validate file type
-                        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-                        if (!allowedTypes.includes(file.type)) {
-                            this.showNotification('Please select a valid image file (JPG, PNG, GIF, WEBP)', 'error');
-                            event.target.value = ''; // Clear the input
-                            return;
-                        }
-                        
-                        // Validate file size (5MB max)
-                        if (file.size > 5 * 1024 * 1024) {
-                            this.showNotification('File size must be less than 5MB', 'error');
-                            event.target.value = ''; // Clear the input
-                            return;
-                        }
-                        
-                        // Upload the file
+                        // Simple file handling - upload directly without validation
                         this.uploadAndAssignImage(type, file);
                     }
                 },
@@ -1165,18 +1144,6 @@
                 
                 async uploadFile(file) {
                     if (!file) return null;
-                    
-                    // Validate file before upload
-                    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-                    if (!allowedTypes.includes(file.type)) {
-                        this.showNotification('Please select a valid image file (JPG, PNG, GIF, WEBP)', 'error');
-                        return null;
-                    }
-                    
-                    if (file.size > 5 * 1024 * 1024) {
-                        this.showNotification('File size must be less than 5MB', 'error');
-                        return null;
-                    }
                     
                     const formData = new FormData();
                     formData.append('file', file);
@@ -1508,75 +1475,113 @@
                     } catch (error) {
                         console.error('Error submitting application:', error);
                         
-                        // Show detailed error message
-                        let errorMessage = 'Error submitting application: ';
+                        // Show user-friendly error message
+                        let errorMessage = 'Failed to submit application. ';
                         if (error.message) {
-                            errorMessage += error.message;
+                            if (error.message.includes('network') || error.message.includes('fetch')) {
+                                errorMessage += 'Please check your internet connection and try again.';
+                            } else if (error.message.includes('validation')) {
+                                errorMessage += 'Please check your form data and try again.';
+                            } else {
+                                errorMessage += 'Please try again in a moment.';
+                            }
                         } else {
-                            errorMessage += 'Unknown error occurred. Please try again.';
+                            errorMessage += 'Please try again.';
                         }
                         
-                        alert(errorMessage);
-                        
-                        // Log detailed error for debugging
-                        console.log('Detailed error information:', {
-                            message: error.message,
-                            stack: error.stack,
-                            name: error.name
-                        });
+                        this.showNotification(errorMessage, 'error', 8000);
                     } finally {
                         this.isSubmitting = false;
                     }
                 },
                 
-                async addSibling() {
-                    // Save current application to sessionApplications
-                    this.sessionApplications.push({
-                        guardianType: this.guardianType,
-                        fatherData: { ...this.fatherData, image: this.sessionParentImages.father },
-                        motherData: { ...this.motherData, image: this.sessionParentImages.mother },
-                        guardianData: { ...this.guardianData, image: this.sessionParentImages.guardian },
-                        studentData: { ...this.studentData },
-                        submittedApplicationId: this.submittedApplicationId,
-                        studentType: this.studentType,
-                        branchSelection: this.branchSelection
-                    });
-                    
-                    // Download PDF for current child
-                    await this.finishAndDownload(true);
-                    
-                    // Pre-fill parent images for next child
-                    this.fatherData.photo = this.sessionParentImages.father;
-                    this.motherData.photo = this.sessionParentImages.mother;
-                    this.guardianData.photo = this.sessionParentImages.guardian;
-                    
-                    // Reset student data for next child
-                    this.studentData = {
-                        first_name: '',
-                        middle_name: '',
-                        last_name: '',
-                        gender: '',
-                        date_of_birth: '',
-                        program: '',
-                        primary_mobile_number: '',
-                        student_email_id: '',
-                        nationality: 'Ethiopian',
-                        academic_year: '2018 E.C.',
-                        custom_school_id: '',
-                        address_line_1: this.studentData.address_line_1, // Keep same address
-                        kebele: this.studentData.kebele,
-                        sub_city: this.studentData.sub_city,
-                        city: 'Adama',
-                        state: 'Oromia',
-                        pincode: '',
-                        country: 'Ethiopia',
-                        image: ''
-                    };
-                    
-                    this.currentStep = 4;
-                    this.studentType = 'new';
-                    this.branchSelection = 'M1';
-                    this.showSuccessModal = false;
+                async downloadPDF() {
+                    this.isGeneratingPDF = true;
+                    try {
+                        // Ensure application is fully saved before PDF generation
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        this.showNotification('Generating PDF document...', 'info', 5000);
+                        
+                        const response = await fetch('/api/method/education.education.api.generate_application_pdf', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/pdf, application/json'
+                            },
+                            body: JSON.stringify({
+                                application_id: this.submittedApplicationId
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            
+                            if (blob.size === 0) {
+                                throw new Error('Generated PDF is empty');
+                            }
+                            
+                            this.showNotification('PDF generated successfully! Starting download...', 'success', 3000);
+                            
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `student_application_${this.submittedApplicationId}.pdf`;
+                            a.style.display = 'none';
+                            document.body.appendChild(a);
+                            a.click();
+                            
+                            setTimeout(() => {
+                                try {
+                                    window.URL.revokeObjectURL(url);
+                                    if (document.body.contains(a)) {
+                                        document.body.removeChild(a);
+                                    }
+                                } catch (e) {
+                                    console.warn('Cleanup error:', e);
+                                }
+                            }, 1000);
+                            
+                            this.showNotification('PDF downloaded successfully!', 'success', 3000);
+                            
+                        } else {
+                            let errorMessage = 'PDF generation failed. ';
+                            try {
+                                const errorData = await response.json();
+                                if (errorData.message) {
+                                    if (errorData.message.includes('timeout')) {
+                                        errorMessage += 'Request timed out. Please try again.';
+                                    } else if (errorData.message.includes('permission')) {
+                                        errorMessage += 'Permission error. Please refresh and try again.';
+                                    } else {
+                                        errorMessage += 'Please try again in a moment.';
+                                    }
+                                } else {
+                                    errorMessage += 'Please try again.';
+                                }
+                            } catch (e) {
+                                if (response.status === 417) {
+                                    errorMessage += 'Server is busy. Please wait a moment and try again.';
+                                } else if (response.status >= 500) {
+                                    errorMessage += 'Server error. Please try again later.';
+                                } else {
+                                    errorMessage += 'Please try again.';
+                                }
+                            }
+                            this.showNotification(errorMessage, 'error', 8000);
+                        }
+                    } catch (error) {
+                        console.error('Error generating PDF:', error);
+                        let errorMessage = 'PDF generation failed. ';
+                        if (error.message && error.message.includes('network')) {
+                            errorMessage += 'Please check your internet connection and try again.';
+                        } else {
+                            errorMessage += 'Please try again.';
+                        }
+                        this.showNotification(errorMessage, 'error', 5000);
+                    } finally {
+                        this.isGeneratingPDF = false;
+                    }
                 },
                 
                 resetForm() {
@@ -1879,12 +1884,10 @@
                         const guardianData = this.getGuardianData(guardianType);
                         guardianData.photo = file;
                         
-                        // Upload and store URL for PDF generation
+                        // Upload and store URL
                         try {
                             const uploadedUrl = await this.uploadFile(file);
                             if (uploadedUrl) {
-                                // Store in session images for reuse
-                                this.sessionParentImages[guardianType] = uploadedUrl;
                                 guardianData.image = uploadedUrl;
                                 
                                 const guardianName = this.getGuardianName(guardianType);
@@ -1936,127 +1939,7 @@
                     // Update available kebeles based on selected sub-city
                     this.availableKebeles = this.kebeleSubCityData[this.studentData.sub_city] || [];
                 },
-                
-                async finishAndDownload(isSibling = false) {
-                    this.isGeneratingPDF = true;
-                    try {
-                        // Ensure all uploads are complete before proceeding
-                        this.showNotification('Preparing application data...', 'info', 5000);
-                        
-                        // Wait longer to ensure all data and uploads are complete
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        
-                        let applications = this.sessionApplications;
-                        if (!isSibling) {
-                            // Add current application if finishing
-                            applications = [...this.sessionApplications, {
-                                guardianType: this.guardianType,
-                                fatherData: { ...this.fatherData, image: this.sessionParentImages.father },
-                                motherData: { ...this.motherData, image: this.sessionParentImages.mother },
-                                guardianData: { ...this.guardianData, image: this.sessionParentImages.guardian },
-                                studentData: { ...this.studentData },
-                                submittedApplicationId: this.submittedApplicationId,
-                                studentType: this.studentType,
-                                branchSelection: this.branchSelection
-                            }];
-                        }
-                        
-                        // Validate that we have the essential data
-                        if (!applications.length || !applications[0].submittedApplicationId) {
-                            throw new Error('Application data not ready. Please wait a moment and try again.');
-                        }
-                        
-                        this.showNotification('Generating PDF document... This may take up to 30 seconds.', 'info', 30000);
-                        
-                        const response = await fetch('/api/method/education.education.api.generate_application_pdf', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json, application/pdf',
-                                'X-Requested-With': 'XMLHttpRequest'
-                            },
-                            body: JSON.stringify({
-                                session_applications: applications
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            const blob = await response.blob();
-                            
-                            // Check if blob is not empty
-                            if (blob.size === 0) {
-                                throw new Error('Generated PDF is empty. Please wait a moment and try again.');
-                            }
-                            
-                            // Validate that it's actually a PDF
-                            if (blob.type !== 'application/pdf' && !blob.type.includes('pdf')) {
-                                console.warn('Unexpected blob type:', blob.type);
-                                // Still try to download as it might be a PDF with incorrect MIME type
-                            }
-                            
-                            this.showNotification('PDF generated successfully! Starting download...', 'success', 5000);
-                            
-                            // Add a small delay before download to ensure PDF is fully ready
-                            await new Promise(resolve => setTimeout(resolve, 500));
-                            
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `student_application_${this.submittedApplicationId || 'form'}.pdf`;
-                            a.style.display = 'none';
-                            document.body.appendChild(a);
-                            a.click();
-                            
-                            // Clean up with longer delay
-                            setTimeout(() => {
-                                try {
-                                    window.URL.revokeObjectURL(url);
-                                    if (document.body.contains(a)) {
-                                        document.body.removeChild(a);
-                                    }
-                                } catch (e) {
-                                    console.warn('Cleanup error:', e);
-                                }
-                            }, 1000);
-                            
-                            this.showNotification('PDF downloaded successfully!', 'success', 5000);
-                            
-                            if (!isSibling) {
-                                // Add delay before closing modal to ensure download started
-                                setTimeout(() => {
-                                    this.showSuccessModal = false;
-                                    this.resetForm();
-                                }, 1500);
-                            }
-                        } else {
-                            let errorMessage = 'Error generating PDF. Please try again.';
-                            try {
-                                const errorData = await response.json();
-                                if (errorData.message) {
-                                    errorMessage = `PDF generation failed: ${errorData.message}`;
-                                }
-                            } catch (e) {
-                                const errorText = await response.text();
-                                console.error('PDF generation failed:', errorText);
-                                if (errorText.includes('wkhtmltopdf')) {
-                                    errorMessage = 'PDF generation service temporarily unavailable. Please try again in a moment.';
-                                }
-                            }
-                            this.showNotification(errorMessage, 'error', 10000);
-                        }
-                    } catch (error) {
-                        console.error('Error generating PDF:', error);
-                        let errorMessage = 'PDF generation error. Please try again.';
-                        if (error.message.includes('empty')) {
-                            errorMessage = 'PDF generation is still processing. Please wait a moment and try again.';
-                        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                            errorMessage = 'Network error. Please check your connection and try again.';
-                        }
-                        this.showNotification(errorMessage, 'error', 10000);
-                    } finally {
-                        this.isGeneratingPDF = false;
-                    }
-                }
+
             }
         }).mount('#app');
     </script>

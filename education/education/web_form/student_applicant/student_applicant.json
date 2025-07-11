@@ -22,7 +22,7 @@
  "module": "Education",
  "name": "student-applicant",
  "owner": "Administrator",
- "published": 1,
+ "published": 0,
  "route": "student-applicant",
  "show_attachments": 0,
  "show_list": 1,

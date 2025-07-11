@@ -1710,7 +1710,18 @@ def create_student_application(application_data):
 	except Exception as e:
 		error_msg = str(e)
 		frappe.log_error(message=f"Student application creation failed: {error_msg}\nData: {application_data}", title="Student Application Creation Error")
-		frappe.throw(_("Error creating student application: {0}").format(error_msg))
+		
+		# Provide user-friendly error messages
+		if "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
+			user_error = "An application with this email or school ID already exists."
+		elif "validation" in error_msg.lower():
+			user_error = "Please check your form data and try again."
+		elif "permission" in error_msg.lower():
+			user_error = "Permission error. Please refresh the page and try again."
+		else:
+			user_error = "Failed to create application. Please try again."
+		
+		frappe.throw(_(user_error))
 
 @frappe.whitelist(allow_guest=True)
 def get_application_by_id(application_id):
@@ -1778,84 +1789,9 @@ def update_student_application(application_id, application_data):
 		frappe.log_error(message=str(e), title="Student Application Update Error")
 		frappe.throw(_("Error updating student application: {0}").format(str(e)))
 
-@frappe.whitelist(allow_guest=True)
-def get_guardian_by_email(email):
-	"""Get guardian by email address"""
-	guardian = frappe.get_all(
-		"Guardian",
-		fields=["name", "guardian_name", "email_address", "mobile_number"],
-		filters={"email_address": email},
-		limit=1
-	)
-	
-	if guardian:
-		return guardian[0]
-	return None
 
-@frappe.whitelist(allow_guest=True)
-def create_sibling_application(parent_application_id, sibling_data):
-	"""Create a new sibling application using existing guardian information"""
-	try:
-		# Get parent application to copy guardian details
-		parent_app = frappe.get_doc("Student Applicant", parent_application_id)
-		
-		# Create new application for sibling
-		sibling_app = frappe.new_doc("Student Applicant")
-		
-		# Basic information
-		sibling_app.first_name = sibling_data.get("first_name")
-		sibling_app.middle_name = sibling_data.get("middle_name")
-		sibling_app.last_name = sibling_data.get("last_name")
-		sibling_app.custom_school_id = sibling_data.get("custom_school_id")
-		sibling_app.program = sibling_data.get("program")
-		sibling_app.academic_year = sibling_data.get("academic_year")
-		
-		# Personal details
-		sibling_app.date_of_birth = sibling_data.get("date_of_birth")
-		sibling_app.gender = sibling_data.get("gender")
-		sibling_app.student_email_id = sibling_data.get("student_email_id")
-		sibling_app.student_mobile_number = sibling_data.get("student_mobile_number")
-		sibling_app.nationality = sibling_data.get("nationality", "Ethiopian")
-		
-		# Copy address from parent
-		sibling_app.address_line_1 = parent_app.address_line_1
-		sibling_app.address_line_2 = parent_app.address_line_2
-		sibling_app.city = parent_app.city
-		sibling_app.state = parent_app.state
-		sibling_app.pincode = parent_app.pincode
-		sibling_app.country = parent_app.country
-		
-		# Application status
-		sibling_app.application_status = "Applied"
-		
-		# Copy guardians from parent
-		for guardian in parent_app.guardians:
-			guardian_row = sibling_app.append("guardians")
-			guardian_row.guardian = guardian.guardian
-			guardian_row.guardian_name = guardian.guardian_name
-			guardian_row.relation = guardian.relation
-		
-		# Add sibling relationship
-		sibling_row = sibling_app.append("siblings")
-		sibling_row.student = parent_application_id
-		sibling_row.student_name = f"{parent_app.first_name} {parent_app.middle_name or ''} {parent_app.last_name or ''}".strip()
-		sibling_row.program = parent_app.program
-		sibling_row.academic_year = parent_app.academic_year
-		
-		sibling_app.insert()
-		
-		# Update parent application to include this sibling
-		parent_sibling_row = parent_app.append("siblings")
-		parent_sibling_row.student = sibling_app.name
-		parent_sibling_row.student_name = f"{sibling_app.first_name} {sibling_app.middle_name or ''} {sibling_app.last_name or ''}".strip()
-		parent_sibling_row.program = sibling_app.program
-		parent_sibling_row.academic_year = sibling_app.academic_year
-		parent_app.save()
-		
-		return sibling_app.name
-		
-	except Exception as e:
-		frappe.throw(_("Error creating sibling application: {0}").format(str(e)))
+
+
 
 @frappe.whitelist(allow_guest=True)
 def validate_phone_number(phone_number):
@@ -1928,298 +1864,263 @@ def get_kebele_subcity_data():
 	}
 
 @frappe.whitelist(allow_guest=True)
-def generate_application_pdf(session_applications):
-    """Generate PDF for one or more student applications"""
+def generate_application_pdf(application_id):
+    """Generate PDF for a single student application"""
     try:
         from frappe.utils.pdf import get_pdf
-        import json
-
-        if isinstance(session_applications, str):
-            session_applications = json.loads(session_applications)
-
+        
+        # Get the application data from the database
+        app_doc = frappe.get_doc("Student Applicant", application_id)
+        
         # School information
         logo_url = "https://app.makkobillischool.com/files/school_logo.png"
         school_name = "Makko Billi School"
 
-        html_pages = []
-        for app in session_applications:
-            # Helper function to ensure absolute URLs for images
-            def make_absolute_url(img_url):
-                if not img_url:
-                    return ''
-                if img_url.startswith('http'):
-                    return img_url
-                site_url = frappe.utils.get_url()
-                return site_url.rstrip('/') + '/' + img_url.lstrip('/')
+        # Helper function to ensure absolute URLs for images
+        def make_absolute_url(img_url):
+            if not img_url:
+                return ''
+            if img_url.startswith('http'):
+                return img_url
+            site_url = frappe.utils.get_url()
+            return site_url.rstrip('/') + '/' + img_url.lstrip('/')
 
-            # Get and ensure proper image URLs
-            student_img = make_absolute_url(app.get('studentData', {}).get('image', ''))
-            father_img = make_absolute_url(app.get('fatherData', {}).get('image', ''))
-            mother_img = make_absolute_url(app.get('motherData', {}).get('image', ''))
-            guardian_img = make_absolute_url(app.get('guardianData', {}).get('image', ''))
-
-            # Minimal PDF-safe styling with table-based layout
-            html = f"""
-            <html>
-                <head>
-                    <meta charset='utf-8'>
-                    <style>
-                        body {{ 
-                            font-family: Arial, sans-serif; 
-                            margin: 10px; 
-                            font-size: 10px; 
-                            line-height: 1.2; 
-                            color: #000;
-                        }}
-                        .header {{ 
-                            text-align: center; 
-                            margin-bottom: 15px; 
-                            padding-bottom: 8px; 
-                            border-bottom: 2px solid #333;
-                        }}
-                        .logo {{ 
-                            width: 50px; 
-                            height: 50px; 
-                            margin-bottom: 5px;
-                        }}
-                        .school-name {{ 
-                            font-size: 16px; 
-                            font-weight: bold; 
-                            margin: 3px 0;
-                        }}
-                        .app-title {{ 
-                            font-size: 12px; 
-                            margin: 3px 0;
-                        }}
-                        .app-id {{ 
-                            font-size: 9px; 
-                            color: #666;
-                        }}
-                        .main-container {{
-                            display: table;
-                            width: 100%;
-                            margin-top: 10px;
-                        }}
-                        .left-column {{
-                            display: table-cell;
-                            width: 75%;
-                            vertical-align: top;
-                            padding-right: 10px;
-                        }}
-                        .right-column {{
-                            display: table-cell;
-                            width: 25%;
-                            vertical-align: top;
-                            text-align: center;
-                        }}
-                        .student-photo {{ 
-                            width: 80px; 
-                            height: 100px; 
-                            border: 1px solid #333;
-                            margin-bottom: 10px;
-                        }}
-                        .section {{ 
-                            margin: 8px 0; 
-                        }}
-                        .section-title {{ 
-                            font-size: 11px; 
-                            font-weight: bold; 
-                            margin-bottom: 4px; 
-                            border-bottom: 1px solid #666;
-                            padding-bottom: 2px;
-                        }}
-                        .info-table {{ 
-                            width: 100%; 
-                            border-collapse: collapse; 
-                            margin: 3px 0; 
-                        }}
-                        .info-table td {{ 
-                            padding: 2px 4px; 
-                            vertical-align: top; 
-                            border-bottom: 1px solid #eee;
-                        }}
-                        .label {{ 
-                            font-weight: bold; 
-                            width: 35%; 
-                        }}
-                        .guardian-photos {{ 
-                            text-align: center; 
-                            margin: 5px 0; 
-                        }}
-                        .parent-photo {{ 
-                            width: 60px; 
-                            height: 70px; 
-                            border: 1px solid #333; 
-                            margin: 0 2px; 
-                            display: inline-block;
-                        }}
-                    </style>
-                </head>
-                <body>
-                    <!-- Header with logo and school info -->
-                    <div class='header'>
-                        <img src='{logo_url}' alt='School Logo' class='logo'>
-                        <div class='school-name'>{school_name}</div>
-                        <div class='app-title'>Student Application Form</div>
-                        <div class='app-id'>Application ID: {app.get('submittedApplicationId', 'N/A')}</div>
-                    </div>
-
-                    <div class='main-container'>
-                        <div class='left-column'>
-                            <!-- Student Information -->
-                            <div class='section'>
-                                <div class='section-title'>Student Information</div>
-                                <table class='info-table'>
-                                    <tr>
-                                        <td class='label'>Full Name:</td>
-                                        <td>{app.get('studentData', {}).get('first_name', '')} {app.get('studentData', {}).get('middle_name', '')} {app.get('studentData', {}).get('last_name', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Date of Birth:</td>
-                                        <td>{app.get('studentData', {}).get('date_of_birth', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Gender:</td>
-                                        <td>{app.get('studentData', {}).get('gender', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Program/Grade:</td>
-                                        <td>{app.get('studentData', {}).get('program', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Email:</td>
-                                        <td>{app.get('studentData', {}).get('student_email_id', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>School ID:</td>
-                                        <td>{app.get('studentData', {}).get('custom_school_id', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Mobile:</td>
-                                        <td>{app.get('studentData', {}).get('primary_mobile_number', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Student Type:</td>
-                                        <td>{app.get('studentType', '').title()}</td>
-                                    </tr>
-                                </table>
-                            </div>
-
-                            <!-- Address Information -->
-                            <div class='section'>
-                                <div class='section-title'>Address Information</div>
-                                <table class='info-table'>
-                                    <tr>
-                                        <td class='label'>Home Address:</td>
-                                        <td>{app.get('studentData', {}).get('address_line_1', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Sub-city:</td>
-                                        <td>{app.get('studentData', {}).get('sub_city', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Kebele:</td>
-                                        <td>{app.get('studentData', {}).get('kebele', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>City:</td>
-                                        <td>{app.get('studentData', {}).get('city', 'Adama')}</td>
-                                    </tr>
-                                </table>
-                            </div>
-            """
-
-            # Guardian Information based on type
-            if app.get("guardianType") == "parent":
-                html += f"""
-                            <!-- Guardian Information (Parents) -->
-                            <div class='section'>
-                                <div class='section-title'>Guardian Information</div>
-                                <table class='info-table'>
-                                    <tr>
-                                        <td class='label'>Father's Name:</td>
-                                        <td>{app.get('fatherData', {}).get('guardian_name', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Father's Mobile:</td>
-                                        <td>{app.get('fatherData', {}).get('mobile_number', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Father's Email:</td>
-                                        <td>{app.get('fatherData', {}).get('email_address', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Father's Occupation:</td>
-                                        <td>{app.get('fatherData', {}).get('occupation', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Mother's Name:</td>
-                                        <td>{app.get('motherData', {}).get('guardian_name', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Mother's Mobile:</td>
-                                        <td>{app.get('motherData', {}).get('mobile_number', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Mother's Email:</td>
-                                        <td>{app.get('motherData', {}).get('email_address', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Mother's Occupation:</td>
-                                        <td>{app.get('motherData', {}).get('occupation', '')}</td>
-                                    </tr>
-                                </table>
-                                <div class='guardian-photos'>
-                                    {f"<img src='{father_img}' class='parent-photo' alt='Father Photo'>" if father_img else ""}
-                                    {f"<img src='{mother_img}' class='parent-photo' alt='Mother Photo'>" if mother_img else ""}
-                                </div>
-                            </div>
-                """
-            else:
-                html += f"""
-                            <!-- Guardian Information (Single Guardian) -->
-                            <div class='section'>
-                                <div class='section-title'>Guardian Information</div>
-                                <table class='info-table'>
-                                    <tr>
-                                        <td class='label'>Guardian Name:</td>
-                                        <td>{app.get('guardianData', {}).get('guardian_name', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Mobile:</td>
-                                        <td>{app.get('guardianData', {}).get('mobile_number', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Email:</td>
-                                        <td>{app.get('guardianData', {}).get('email_address', '')}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class='label'>Occupation:</td>
-                                        <td>{app.get('guardianData', {}).get('occupation', '')}</td>
-                                    </tr>
-                                </table>
-                                <div class='guardian-photos'>
-                                    {f"<img src='{guardian_img}' class='parent-photo' alt='Guardian Photo'>" if guardian_img else ""}
-                                </div>
-                            </div>
-                """
-
-            html += f"""
-                        </div>
-                        <div class='right-column'>
-                            <!-- Student Photo -->
-                            {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else "<div class='student-photo'></div>"}
-                        </div>
-                    </div>
-                </body>
-            </html>
-            """
-            html_pages.append(html)
-
-        # Join pages with page breaks for multiple applications
-        full_html = ("<div style='page-break-before: always;'></div>").join(html_pages)
+        # Get and ensure proper image URLs
+        student_img = make_absolute_url(app_doc.image or '')
         
-        # Enhanced PDF options for better rendering
+        # Get guardian images
+        father_img = ''
+        mother_img = ''
+        guardian_img = ''
+        
+        for guardian in app_doc.guardians:
+            guardian_doc = frappe.get_doc("Guardian", guardian.guardian)
+            if guardian.relation == "Father":
+                father_img = make_absolute_url(guardian_doc.image or '')
+            elif guardian.relation == "Mother":
+                mother_img = make_absolute_url(guardian_doc.image or '')
+            else:
+                guardian_img = make_absolute_url(guardian_doc.image or '')
+        # Build the HTML content for the PDF
+        html = f"""
+        <html>
+            <head>
+                <meta charset='utf-8'>
+                <style>
+                    body {{ 
+                        font-family: Arial, sans-serif; 
+                        margin: 10px; 
+                        font-size: 10px; 
+                        line-height: 1.2; 
+                        color: #000;
+                    }}
+                    .header {{ 
+                        text-align: center; 
+                        margin-bottom: 15px; 
+                        padding-bottom: 8px; 
+                        border-bottom: 2px solid #333;
+                    }}
+                    .logo {{ 
+                        width: 50px; 
+                        height: 50px; 
+                        margin-bottom: 5px;
+                    }}
+                    .school-name {{ 
+                        font-size: 16px; 
+                        font-weight: bold; 
+                        margin: 3px 0;
+                    }}
+                    .app-title {{ 
+                        font-size: 12px; 
+                        margin: 3px 0;
+                    }}
+                    .app-id {{ 
+                        font-size: 9px; 
+                        color: #666;
+                    }}
+                    .main-container {{
+                        display: table;
+                        width: 100%;
+                        margin-top: 10px;
+                    }}
+                    .left-column {{
+                        display: table-cell;
+                        width: 75%;
+                        vertical-align: top;
+                        padding-right: 10px;
+                    }}
+                    .right-column {{
+                        display: table-cell;
+                        width: 25%;
+                        vertical-align: top;
+                        text-align: center;
+                    }}
+                    .student-photo {{ 
+                        width: 80px; 
+                        height: 100px; 
+                        border: 1px solid #333;
+                        margin-bottom: 10px;
+                    }}
+                    .section {{ 
+                        margin: 8px 0; 
+                    }}
+                    .section-title {{ 
+                        font-size: 11px; 
+                        font-weight: bold; 
+                        margin-bottom: 4px; 
+                        border-bottom: 1px solid #666;
+                        padding-bottom: 2px;
+                    }}
+                    .info-table {{ 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        margin: 3px 0; 
+                    }}
+                    .info-table td {{ 
+                        padding: 2px 4px; 
+                        vertical-align: top; 
+                        border-bottom: 1px solid #eee;
+                    }}
+                    .label {{ 
+                        font-weight: bold; 
+                        width: 35%; 
+                    }}
+                    .guardian-photos {{ 
+                        text-align: center; 
+                        margin: 5px 0; 
+                    }}
+                    .parent-photo {{ 
+                        width: 60px; 
+                        height: 70px; 
+                        border: 1px solid #333; 
+                        margin: 0 2px; 
+                        display: inline-block;
+                    }}
+                </style>
+            </head>
+            <body>
+                <!-- Header with logo and school info -->
+                <div class='header'>
+                    <img src='{logo_url}' alt='School Logo' class='logo'>
+                    <div class='school-name'>{school_name}</div>
+                    <div class='app-title'>Student Application Form</div>
+                    <div class='app-id'>Application ID: {app_doc.name}</div>
+                </div>
+
+                <div class='main-container'>
+                    <div class='left-column'>
+                        <!-- Student Information -->
+                        <div class='section'>
+                            <div class='section-title'>Student Information</div>
+                            <table class='info-table'>
+                                <tr>
+                                    <td class='label'>Full Name:</td>
+                                    <td>{app_doc.first_name or ''} {app_doc.middle_name or ''} {app_doc.last_name or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Date of Birth:</td>
+                                    <td>{app_doc.date_of_birth or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Gender:</td>
+                                    <td>{app_doc.gender or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Program/Grade:</td>
+                                    <td>{app_doc.program or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Email:</td>
+                                    <td>{app_doc.student_email_id or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>School ID:</td>
+                                    <td>{app_doc.custom_school_id or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Mobile:</td>
+                                    <td>{app_doc.student_mobile_number or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Nationality:</td>
+                                    <td>{app_doc.nationality or ''}</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Address Information -->
+                        <div class='section'>
+                            <div class='section-title'>Address Information</div>
+                            <table class='info-table'>
+                                <tr>
+                                    <td class='label'>Home Address:</td>
+                                    <td>{app_doc.address_line_1 or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Sub-city:</td>
+                                    <td>{app_doc.sub_city or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Kebele:</td>
+                                    <td>{app_doc.kebele or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>City:</td>
+                                    <td>{app_doc.city or 'Adama'}</td>
+                                </tr>
+                            </table>
+                        </div>
+        """
+        
+        # Guardian Information
+        for guardian in app_doc.guardians:
+            guardian_doc = frappe.get_doc("Guardian", guardian.guardian)
+            guardian_img_url = make_absolute_url(guardian_doc.image or '')
+            
+            html += f"""
+                        <!-- Guardian Information -->
+                        <div class='section'>
+                            <div class='section-title'>{guardian.relation} Information</div>
+                            <table class='info-table'>
+                                <tr>
+                                    <td class='label'>Name:</td>
+                                    <td>{guardian.guardian_name or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Mobile:</td>
+                                    <td>{guardian_doc.mobile_number or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Email:</td>
+                                    <td>{guardian_doc.email_address or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Occupation:</td>
+                                    <td>{guardian_doc.occupation or ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class='label'>Education:</td>
+                                    <td>{guardian_doc.education or ''}</td>
+                                </tr>
+                            </table>
+                            <div class='guardian-photos'>
+                                {f"<img src='{guardian_img_url}' class='parent-photo' alt='{guardian.relation} Photo'>" if guardian_img_url else ""}
+                            </div>
+                        </div>
+            """
+
+        html += f"""
+                    </div>
+                    <div class='right-column'>
+                        <!-- Student Photo -->
+                        {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else "<div class='student-photo'></div>"}
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+        
+        # Simple PDF options for reliability
         pdf_options = {
             'page-size': 'A4',
             'margin-top': '0.5in',
@@ -2227,26 +2128,36 @@ def generate_application_pdf(session_applications):
             'margin-bottom': '0.5in',
             'margin-left': '0.5in',
             'encoding': "UTF-8",
-            'load-error-handling': 'ignore',
-            'load-media-error-handling': 'ignore',
-            'disable-javascript': None,
             'quiet': None
         }
 
-        pdf_content = get_pdf(full_html, options=pdf_options)
-        
-        if not pdf_content:
-            frappe.throw(_("Failed to generate PDF content"))
-        
-        # Use application ID for filename
-        app_id = session_applications[0].get('submittedApplicationId', 'unknown') if session_applications else 'unknown'
-        frappe.local.response.filename = f"student_application_{app_id}.pdf"
-        frappe.local.response.filecontent = pdf_content
-        frappe.local.response.type = "download"
-        return pdf_content
+        try:
+            pdf_content = get_pdf(html, options=pdf_options)
+            
+            if not pdf_content or len(pdf_content) == 0:
+                frappe.throw(_("PDF generation failed - empty content"))
+            
+            # Use application ID for filename
+            frappe.local.response.filename = f"student_application_{application_id}.pdf"
+            frappe.local.response.filecontent = pdf_content
+            frappe.local.response.type = "download"
+            
+            # Add proper headers for PDF download
+            frappe.local.response.headers = {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': f'attachment; filename="student_application_{application_id}.pdf"',
+                'Content-Length': str(len(pdf_content))
+            }
+            
+            return pdf_content
+            
+        except Exception as pdf_error:
+            frappe.log_error(message=f"PDF Generation Error: {str(pdf_error)}", title="PDF Generation Error")
+            frappe.throw(_("PDF generation failed. Please try again."))
+            
     except Exception as e:
-        frappe.log_error(message=str(e), title="PDF Generation Error")
-        frappe.throw(_("Error generating PDF: {0}").format(str(e)))
+        frappe.log_error(message=f"Application PDF Error: {str(e)}", title="Application PDF Error")
+        frappe.throw(_("Error generating application PDF. Please try again."))
 
 @frappe.whitelist(allow_guest=True)
 def check_duplicate_application():
@@ -2279,13 +2190,11 @@ def check_duplicate_application():
 
 @frappe.whitelist(allow_guest=True)
 def upload_file_guest():
-	"""Upload file for guest users (student application images) - Enhanced version"""
+	"""Simple file upload for guest users (student application images)"""
 	try:
 		import frappe
 		from frappe.utils.file_manager import save_file
-		from frappe.core.doctype.file.file import create_new_folder
-		import os
-		import base64
+		import uuid
 		
 		# Temporarily set session user to Administrator for file operations
 		frappe.set_user("Administrator")
@@ -2297,171 +2206,54 @@ def upload_file_guest():
 		if file.filename == '':
 			frappe.throw(_("No file selected"))
 		
-		# Read file content
-		file_content = file.read()
-		
-		# Check file size (limit to 5MB)
-		if len(file_content) > 5 * 1024 * 1024:
-			frappe.throw(_("File size should not exceed 5MB"))
-		
-		# Check file type
-		allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-		file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-		if file_ext not in allowed_extensions:
-			frappe.throw(_("Only image files (PNG, JPG, JPEG, GIF, WEBP) are allowed"))
-		
-		# Create a unique filename
-		import uuid
+		# Create a unique filename to avoid conflicts
 		unique_name = str(uuid.uuid4())[:8]
 		new_filename = f"student_app_{unique_name}_{file.filename}"
 		
-		# Ensure the folder exists
-		folder_name = "Home/Student Applications"
-		try:
-			# Try to create folder if it doesn't exist
-			if not frappe.db.exists("File", {"is_folder": 1, "file_name": "Student Applications", "folder": "Home"}):
-				create_new_folder("Student Applications", "Home")
-		except:
-			# If folder creation fails, use Home folder
-			folder_name = "Home"
+		# Simple file save using Frappe's built-in save_file
+		file_doc = save_file(
+			fname=new_filename,
+			content=file.read(),
+			dt=None,
+			dn=None,
+			folder="Home",
+			is_private=0
+		)
 		
-		# Save file using Frappe's save_file with Administrator privileges
-		try:
-			# Create File document directly
-			file_doc = frappe.new_doc("File")
-			file_doc.file_name = new_filename
-			file_doc.is_private = 0  # Make it public
-			file_doc.folder = folder_name
-			
-			# Save file content to disk
-			import tempfile
-			with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{file_ext}') as temp_file:
-				temp_file.write(file_content)
-				temp_file_path = temp_file.name
-			
-			# Read the file and save it properly
-			with open(temp_file_path, 'rb') as f:
-				file_doc.content = f.read()
-			
-			# Clean up temp file
-			os.unlink(temp_file_path)
-			
-			# Insert the document
-			file_doc.insert(ignore_permissions=True)
-			frappe.db.commit()
-			
-			# Ensure the file URL is accessible
-			file_url = file_doc.file_url
-			if not file_url.startswith('http'):
-				# Make sure we have a full URL for PDF generation
-				site_url = frappe.utils.get_url()
-				file_url = site_url + file_url
-			
-			return {
-				"file_name": file_doc.file_name,
-				"file_url": file_url,
-				"name": file_doc.name
-			}
-			
-		except Exception as e:
-			frappe.log_error(message=str(e), title="File Upload Error - Primary Method")
-			
-			# Fallback method using save_file with Administrator privileges
-			try:
-				file_doc = save_file(
-					new_filename,
-					file_content,
-					"",  # dt (doctype) - empty for standalone file
-					"",  # dn (document name) - empty for standalone file
-					folder=folder_name,
-					decode=False,
-					is_private=0  # Make it public so it can be accessed in PDFs
-				)
-				
-				# Ensure the file URL is accessible
-				file_url = file_doc.file_url
-				if not file_url.startswith('http'):
-					# Make sure we have a full URL for PDF generation
-					site_url = frappe.utils.get_url()
-					file_url = site_url + file_url
-				
-				return {
-					"file_name": file_doc.file_name,
-					"file_url": file_url,
-					"name": file_doc.name
-				}
-				
-			except Exception as e2:
-				frappe.log_error(message=str(e2), title="File Upload Error - Fallback Method")
-				
-				# Final fallback - create file record manually
-				try:
-					# Encode file content as base64 for storage
-					file_content_b64 = base64.b64encode(file_content).decode('utf-8')
-					
-					# Create file record in database directly
-					file_doc_name = frappe.generate_hash(length=10)
-					file_record = {
-						'doctype': 'File',
-						'name': file_doc_name,
-						'file_name': new_filename,
-						'is_private': 0,
-						'folder': folder_name,
-						'file_size': len(file_content),
-						'content_hash': frappe.generate_hash(file_content),
-						'file_url': f'/files/{new_filename}'
-					}
-					
-					frappe.get_doc(file_record).insert(ignore_permissions=True)
-					frappe.db.commit()
-					
-					# Save actual file to disk
-					from frappe.utils import get_site_path
-					files_path = get_site_path('public', 'files')
-					if not os.path.exists(files_path):
-						os.makedirs(files_path)
-					
-					file_path = os.path.join(files_path, new_filename)
-					with open(file_path, 'wb') as f:
-						f.write(file_content)
-					
-					file_url = f'/files/{new_filename}'
-					if not file_url.startswith('http'):
-						site_url = frappe.utils.get_url()
-						file_url = site_url + file_url
-					
-					return {
-						"file_name": new_filename,
-						"file_url": file_url,
-						"name": file_doc_name
-					}
-					
-				except Exception as e3:
-					frappe.log_error(message=str(e3), title="File Upload Error - Final Fallback")
-					frappe.throw(_("Error saving file: {0}").format(str(e3)))
-			
+		if not file_doc:
+			frappe.throw(_("Failed to save file"))
+		
+		# Get the file URL
+		file_url = file_doc.file_url
+		if not file_url.startswith('http'):
+			site_url = frappe.utils.get_url()
+			file_url = site_url.rstrip('/') + file_url
+		
+		return {
+			"success": True,
+			"file_url": file_url,
+			"file_name": new_filename,
+			"message": "File uploaded successfully"
+		}
+		
 	except Exception as e:
-		frappe.log_error(message=str(e), title="File Upload Error - Main")
-		frappe.throw(_("Error uploading file: {0}").format(str(e)))
+		error_msg = str(e)
+		frappe.log_error(message=error_msg, title="File Upload Error")
+		
+		# Provide user-friendly error messages
+		if "permission" in error_msg.lower():
+			user_error = "Permission error during file upload. Please try again."
+		elif "size" in error_msg.lower():
+			user_error = "File too large. Please use a smaller image."
+		elif "network" in error_msg.lower() or "connection" in error_msg.lower():
+			user_error = "Network error. Please check your connection and try again."
+		else:
+			user_error = "File upload failed. Please try again."
+		
+		frappe.throw(_(user_error))
 	
 	finally:
 		# Reset user session
 		frappe.set_user("Guest")
 
-@frappe.whitelist(allow_guest=True)
-def has_file_permission(doc, user=None, permission_type="read"):
-	"""Custom permission handler for File doctype to allow guest uploads for student applications"""
-	try:
-		# Allow guest users to upload files for student applications
-		if user == "Guest" and permission_type in ["create", "write"]:
-			# Check if this is a student application related file
-			if doc and hasattr(doc, 'file_name') and 'student_app_' in str(doc.file_name):
-				return True
-			# Also allow for files in Student Applications folder
-			if doc and hasattr(doc, 'folder') and 'Student Applications' in str(doc.folder):
-				return True
-		
-		# For all other cases, use default permission logic
-		return None  # This will fall back to standard permission checking
-	except:
-		return None
+
