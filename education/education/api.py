@@ -1933,58 +1933,335 @@ def generate_application_pdf(application_id):
         mother_img = make_absolute_url(app_data.get('motherData', {}).get('image', ''))
         guardian_img = make_absolute_url(app_data.get('guardianData', {}).get('image', ''))
 
-        # Basic, style-free HTML for maximum PDF compatibility
+        # Professional styled HTML for PDF with school branding
         html = f"""
         <html>
-            <head><meta charset='utf-8'></head>
+            <head>
+                <meta charset='utf-8'>
+                <style>
+                    body {{ 
+                        font-family: Arial, sans-serif; 
+                        margin: 20px; 
+                        font-size: 11px; 
+                        line-height: 1.4; 
+                        color: #333;
+                    }}
+                    .header {{ 
+                        text-align: center; 
+                        margin-bottom: 20px; 
+                        padding-bottom: 15px; 
+                        border-bottom: 3px solid #2563eb;
+                    }}
+                    .logo {{ 
+                        width: 60px; 
+                        height: 60px; 
+                        margin-bottom: 8px;
+                    }}
+                    .school-name {{ 
+                        font-size: 18px; 
+                        font-weight: bold; 
+                        color: #2563eb;
+                        margin: 5px 0;
+                    }}
+                    .app-title {{ 
+                        font-size: 14px; 
+                        color: #4b5563;
+                        margin: 5px 0;
+                    }}
+                    .app-id {{ 
+                        font-size: 12px; 
+                        color: #6b7280;
+                        background: #f3f4f6;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        display: inline-block;
+                        margin-top: 5px;
+                    }}
+                    .main-container {{
+                        display: table;
+                        width: 100%;
+                        margin-top: 15px;
+                    }}
+                    .left-column {{
+                        display: table-cell;
+                        width: 70%;
+                        vertical-align: top;
+                        padding-right: 15px;
+                    }}
+                    .right-column {{
+                        display: table-cell;
+                        width: 30%;
+                        vertical-align: top;
+                        text-align: center;
+                    }}
+                    .student-photo {{ 
+                        width: 120px; 
+                        height: 150px; 
+                        border: 2px solid #d1d5db;
+                        border-radius: 8px;
+                        margin-bottom: 15px;
+                    }}
+                    .section {{ 
+                        margin: 15px 0; 
+                        background: #f9fafb;
+                        padding: 12px;
+                        border-radius: 6px;
+                        border-left: 4px solid #2563eb;
+                    }}
+                    .section-title {{ 
+                        font-size: 13px; 
+                        font-weight: bold; 
+                        color: #1f2937;
+                        margin-bottom: 8px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }}
+                    .info-grid {{
+                        display: table;
+                        width: 100%;
+                        margin: 5px 0;
+                    }}
+                    .info-row {{
+                        display: table-row;
+                    }}
+                    .info-item {{
+                        display: table-cell;
+                        padding: 3px 8px 3px 0;
+                        vertical-align: top;
+                        width: 50%;
+                    }}
+                    .label {{ 
+                        font-weight: bold; 
+                        color: #374151;
+                        margin-right: 5px;
+                    }}
+                    .value {{
+                        color: #1f2937;
+                    }}
+                    .guardian-section {{
+                        margin: 10px 0;
+                        background: #fef3f2;
+                        padding: 10px;
+                        border-radius: 6px;
+                        border-left: 4px solid #ef4444;
+                    }}
+                    .guardian-title {{
+                        font-size: 12px;
+                        font-weight: bold;
+                        color: #dc2626;
+                        margin-bottom: 6px;
+                    }}
+                    .guardian-photo {{
+                        width: 80px;
+                        height: 100px;
+                        border: 2px solid #d1d5db;
+                        border-radius: 4px;
+                        margin: 5px auto;
+                        display: block;
+                    }}
+                </style>
+            </head>
             <body>
-                <h1>Student Application: {app_data.get('submittedApplicationId', '')}</h1>
-                
-                <h2>Student Information</h2>
-                <p><b>Full Name:</b> {app_data.get('studentData', {}).get('first_name', '')} {app_data.get('studentData', {}).get('middle_name', '')} {app_data.get('studentData', {}).get('last_name', '')}</p>
-                <p><b>Date of Birth:</b> {app_data.get('studentData', {}).get('date_of_birth', '')}</p>
-                <p><b>Gender:</b> {app_data.get('studentData', {}).get('gender', '')}</p>
-                <p><b>Email:</b> {app_data.get('studentData', {}).get('student_email_id', '')}</p>
-                <p><b>Program/Grade:</b> {app_data.get('studentData', {}).get('program', '')}</p>
-                <p><b>School ID:</b> {app_data.get('studentData', {}).get('custom_school_id', '')}</p>
-                {f"<p><img src='{student_img}' width='150'></p>" if student_img else ""}
+                <!-- Header with school branding -->
+                <div class='header'>
+                    <img src='https://app.makkobillischool.com/files/school_logo.png' alt='School Logo' class='logo'>
+                    <div class='school-name'>Makko Billi School</div>
+                    <div class='app-title'>Student Application Form</div>
+                    <div class='app-id'>Application ID: {app_data.get('submittedApplicationId', '')}</div>
+                </div>
 
-                <h2>Address Information</h2>
-                <p><b>Home Address:</b> {app_data.get('studentData', {}).get('address_line_1', '')}</p>
-                <p><b>Sub-city:</b> {app_data.get('studentData', {}).get('sub_city', '')}</p>
-                <p><b>Kebele:</b> {app_data.get('studentData', {}).get('kebele', '')}</p>
-                <p><b>City:</b> {app_data.get('studentData', {}).get('city', 'Adama')}</p>
+                <div class='main-container'>
+                    <div class='left-column'>
+                        <!-- Student Information -->
+                        <div class='section'>
+                            <div class='section-title'>Student Information</div>
+                            <div class='info-grid'>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Full Name:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('first_name', '')} {app_data.get('studentData', {}).get('middle_name', '')} {app_data.get('studentData', {}).get('last_name', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>Date of Birth:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('date_of_birth', '')}</span>
+                                    </div>
+                                </div>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Gender:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('gender', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>Program/Grade:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('program', '')}</span>
+                                    </div>
+                                </div>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Email:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('student_email_id', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>School ID:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('custom_school_id', '')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Address Information -->
+                        <div class='section'>
+                            <div class='section-title'>Address Information</div>
+                            <div class='info-grid'>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Home Address:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('address_line_1', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>Sub-city:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('sub_city', '')}</span>
+                                    </div>
+                                </div>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Kebele:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('kebele', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>City:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('city', 'Adama')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Guardian Information -->
+                        <div class='section'>
+                            <div class='section-title'>Guardian Information</div>
         """
 
-        # Guardian Information
+        # Guardian Information with improved styling
         if app_data.get("guardianType") == "parent":
             html += f"""
-                <h2>Guardian Information</h2>
-                <h3>Father's Details</h3>
-                <p><b>Name:</b> {app_data.get('fatherData', {}).get('guardian_name', '')}</p>
-                <p><b>Mobile:</b> {app_data.get('fatherData', {}).get('mobile_number', '')}</p>
-                <p><b>Email:</b> {app_data.get('fatherData', {}).get('email_address', '')}</p>
-                <p><b>Occupation:</b> {app_data.get('fatherData', {}).get('occupation', '')}</p>
-                {f"<p><img src='{father_img}' width='150'></p>" if father_img else ""}
-                
-                <h3>Mother's Details</h3>
-                <p><b>Name:</b> {app_data.get('motherData', {}).get('guardian_name', '')}</p>
-                <p><b>Mobile:</b> {app_data.get('motherData', {}).get('mobile_number', '')}</p>
-                <p><b>Email:</b> {app_data.get('motherData', {}).get('email_address', '')}</p>
-                <p><b>Occupation:</b> {app_data.get('motherData', {}).get('occupation', '')}</p>
-                {f"<p><img src='{mother_img}' width='150'></p>" if mother_img else ""}
+                            <div class='guardian-section'>
+                                <div class='guardian-title'>Father's Details</div>
+                                <div class='info-grid'>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Name:</span>
+                                            <span class='value'>{app_data.get('fatherData', {}).get('guardian_name', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Mobile:</span>
+                                            <span class='value'>{app_data.get('fatherData', {}).get('mobile_number', '')}</span>
+                                        </div>
+                                    </div>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Email:</span>
+                                            <span class='value'>{app_data.get('fatherData', {}).get('email_address', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Occupation:</span>
+                                            <span class='value'>{app_data.get('fatherData', {}).get('occupation', '')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class='guardian-section'>
+                                <div class='guardian-title'>Mother's Details</div>
+                                <div class='info-grid'>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Name:</span>
+                                            <span class='value'>{app_data.get('motherData', {}).get('guardian_name', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Mobile:</span>
+                                            <span class='value'>{app_data.get('motherData', {}).get('mobile_number', '')}</span>
+                                        </div>
+                                    </div>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Email:</span>
+                                            <span class='value'>{app_data.get('motherData', {}).get('email_address', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Occupation:</span>
+                                            <span class='value'>{app_data.get('motherData', {}).get('occupation', '')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
             """
         else:
             html += f"""
-                <h2>Guardian Information</h2>
-                <p><b>Name:</b> {app_data.get('guardianData', {}).get('guardian_name', '')}</p>
-                <p><b>Mobile:</b> {app_data.get('guardianData', {}).get('mobile_number', '')}</p>
-                <p><b>Email:</b> {app_data.get('guardianData', {}).get('email_address', '')}</p>
-                <p><b>Occupation:</b> {app_data.get('guardianData', {}).get('occupation', '')}</p>
-                {f"<p><img src='{guardian_img}' width='150'></p>" if guardian_img else ""}
+                            <div class='guardian-section'>
+                                <div class='guardian-title'>Guardian Details</div>
+                                <div class='info-grid'>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Name:</span>
+                                            <span class='value'>{app_data.get('guardianData', {}).get('guardian_name', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Mobile:</span>
+                                            <span class='value'>{app_data.get('guardianData', {}).get('mobile_number', '')}</span>
+                                        </div>
+                                    </div>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Email:</span>
+                                            <span class='value'>{app_data.get('guardianData', {}).get('email_address', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Occupation:</span>
+                                            <span class='value'>{app_data.get('guardianData', {}).get('occupation', '')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
             """
 
-        html += "</body></html>"
+        html += f"""
+                        </div>
+                    </div>
+                    
+                    <div class='right-column'>
+                        <!-- Student Photo -->
+                        {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else "<div class='student-photo' style='display: flex; align-items: center; justify-content: center; background: #f3f4f6; color: #9ca3af;'>No Photo</div>"}
+                        
+                        <!-- Guardian Photos -->
+                        <div style='text-align: center; margin-top: 10px;'>
+        """
+        
+        # Add guardian photos in the right column
+        if app_data.get("guardianType") == "parent":
+            if father_img:
+                html += f"<img src='{father_img}' class='guardian-photo' alt='Father Photo'>"
+                html += "<div style='font-size: 10px; color: #6b7280; margin-bottom: 8px;'>Father</div>"
+            if mother_img:
+                html += f"<img src='{mother_img}' class='guardian-photo' alt='Mother Photo'>"
+                html += "<div style='font-size: 10px; color: #6b7280; margin-bottom: 8px;'>Mother</div>"
+        else:
+            if guardian_img:
+                html += f"<img src='{guardian_img}' class='guardian-photo' alt='Guardian Photo'>"
+                html += "<div style='font-size: 10px; color: #6b7280; margin-bottom: 8px;'>Guardian</div>"
+        
+        html += """
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div style='margin-top: 20px; padding-top: 15px; border-top: 1px solid #d1d5db; text-align: center; font-size: 10px; color: #6b7280;'>
+                    <p>This application was submitted electronically and is valid without signature.</p>
+                    <p>For inquiries, please contact: Makko Billi School Administration</p>
+                </div>
+            </body>
+        </html>"""
         
         # Minimal robust PDF options
         pdf_options = {
