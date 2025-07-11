@@ -2083,12 +2083,12 @@ def generate_application_pdf(session_applications):
             'load-error-handling': 'ignore',
             'load-media-error-handling': 'ignore',
             'disable-smart-shrinking': None,
-            'print-media-type': None,
-            'quiet': None,  # Suppress warnings
-            'no-stop-slow-scripts': None,
-            'javascript-delay': 1000,  # Wait for images to load
-            'disable-javascript': None  # Disable JS to avoid conflicts
+            'quiet': None,
+            'disable-javascript': None,
         }
+
+        # Log the generated HTML for debugging if needed
+        # frappe.log_error(full_html, "Full HTML for PDF")
         
         pdf_content = get_pdf(full_html, options=pdf_options)
         
