@@ -1932,13 +1932,11 @@ def generate_application_pdf(session_applications):
     """Generate PDF for one or more student applications"""
     try:
         from frappe.utils.pdf import get_pdf
-        import base64
-        from io import BytesIO
         import json
+
         if isinstance(session_applications, str):
             session_applications = json.loads(session_applications)
-        logo_url = "https://app.makkobillischool.com/files/school_logo.png"
-        school_name = "Makko Billi School"
+
         html_pages = []
         for app in session_applications:
             # Helper function to ensure absolute URLs for images
@@ -1948,151 +1946,79 @@ def generate_application_pdf(session_applications):
                 if img_url.startswith('http'):
                     return img_url
                 site_url = frappe.utils.get_url()
-                return site_url + img_url
-            
+                return site_url.rstrip('/') + '/' + img_url.lstrip('/')
+
             student_img = make_absolute_url(app.get('studentData', {}).get('image', ''))
             father_img = make_absolute_url(app.get('fatherData', {}).get('image', ''))
             mother_img = make_absolute_url(app.get('motherData', {}).get('image', ''))
             guardian_img = make_absolute_url(app.get('guardianData', {}).get('image', ''))
+
+            # Basic, style-free HTML for maximum PDF compatibility
             html = f"""
-            <html><head><meta charset='utf-8'>
-            <style>
-                body {{ font-family: 'DejaVu Sans', 'Liberation Sans', Arial, sans-serif; margin: 20px; font-size: 12px; line-height: 1.4; }}
-                .header {{ text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }}
-                .logo {{ width: 80px; height: 80px; display: block; margin: 0 auto; }}
-                .school-name {{ font-size: 24px; font-weight: bold; color: #2563eb; margin: 10px 0; }}
-                .section {{ margin: 20px 0; page-break-inside: avoid; }}
-                .section-title {{ font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 10px; border-bottom: 1px solid #d1d5db; padding-bottom: 5px; }}
-                .info-grid {{ width: 100%; margin: 10px 0; }}
-                .info-row {{ display: table-row; }}
-                .info-item {{ display: table-cell; margin: 5px 0; padding: 3px 5px; vertical-align: top; }}
-                .label {{ font-weight: bold; color: #374151; }}
-                .value {{ color: #1f2937; }}
-                .student-photo, .parent-photo {{ width: 100px; height: 120px; border: 1px solid #d1d5db; display: block; margin: 5px 0; }}
-                .page-break {{ page-break-before: always; }}
-                @media print {{
-                    body {{ -webkit-print-color-adjust: exact; }}
-                    .section {{ page-break-inside: avoid; }}
-                }}
-            </style></head><body>
-            <div class='header'>
-                <img src='{logo_url}' alt='School Logo' class='logo'>
-                <div class='school-name'>{school_name}</div>
-                <div style='font-size: 16px; color: #6b7280;'>Student Application Form</div>
-                <div style='font-size: 14px; color: #9ca3af;'>Application ID: {app.get('submittedApplicationId', 'N/A')}</div>
-            </div>
-            <div class='section'>
-                <div class='section-title'>Student Information</div>
-                <table class='info-grid'>
-                    <tr class='info-row'>
-                        <td class='info-item'><span class='label'>Full Name:</span> <span class='value'>{app.get('studentData', {}).get('first_name', '')} {app.get('studentData', {}).get('middle_name', '')} {app.get('studentData', {}).get('last_name', '')}</span></td>
-                        <td class='info-item'><span class='label'>Date of Birth:</span> <span class='value'>{app.get('studentData', {}).get('date_of_birth', '')}</span></td>
-                    </tr>
-                    <tr class='info-row'>
-                        <td class='info-item'><span class='label'>Gender:</span> <span class='value'>{app.get('studentData', {}).get('gender', '')}</span></td>
-                        <td class='info-item'><span class='label'>Email:</span> <span class='value'>{app.get('studentData', {}).get('student_email_id', '')}</span></td>
-                    </tr>
-                    <tr class='info-row'>
-                        <td class='info-item'><span class='label'>Mobile:</span> <span class='value'>{app.get('studentData', {}).get('primary_mobile_number', '')}</span></td>
-                        <td class='info-item'><span class='label'>Program/Grade:</span> <span class='value'>{app.get('studentData', {}).get('program', '')}</span></td>
-                    </tr>
-                    <tr class='info-row'>
-                        <td class='info-item'><span class='label'>Student Type:</span> <span class='value'>{app.get('studentType', '').title()}</span></td>
-                        <td class='info-item'><span class='label'>School ID:</span> <span class='value'>{app.get('studentData', {}).get('custom_school_id', '')}</span></td>
-                    </tr>
-                </table>
-                {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else ''}
-            </div>
-            <div class='section'>
-                <div class='section-title'>Address Information</div>
-                <table class='info-grid'>
-                    <tr class='info-row'>
-                        <td class='info-item'><span class='label'>Home Address:</span> <span class='value'>{app.get('studentData', {}).get('address_line_1', '')}</span></td>
-                        <td class='info-item'><span class='label'>Sub-city:</span> <span class='value'>{app.get('studentData', {}).get('sub_city', '')}</span></td>
-                    </tr>
-                    <tr class='info-row'>
-                        <td class='info-item'><span class='label'>Kebele:</span> <span class='value'>{app.get('studentData', {}).get('kebele', '')}</span></td>
-                        <td class='info-item'><span class='label'>City:</span> <span class='value'>{app.get('studentData', {}).get('city', 'Adama')}</span></td>
-                    </tr>
-                </table>
-            </div>
+            <html>
+                <head><meta charset='utf-8'></head>
+                <body>
+                    <h1>Student Application: {app.get('submittedApplicationId', '')}</h1>
+                    
+                    <h2>Student Information</h2>
+                    <p><b>Full Name:</b> {app.get('studentData', {}).get('first_name', '')} {app.get('studentData', {}).get('middle_name', '')} {app.get('studentData', {}).get('last_name', '')}</p>
+                    <p><b>Date of Birth:</b> {app.get('studentData', {}).get('date_of_birth', '')}</p>
+                    <p><b>Gender:</b> {app.get('studentData', {}).get('gender', '')}</p>
+                    <p><b>Email:</b> {app.get('studentData', {}).get('student_email_id', '')}</p>
+                    {f"<p><img src='{student_img}' width='150'></p>" if student_img else ""}
+
+                    <h2>Address Information</h2>
+                    <p><b>Home Address:</b> {app.get('studentData', {}).get('address_line_1', '')}</p>
+                    <p><b>Sub-city:</b> {app.get('studentData', {}).get('sub_city', '')}</p>
+                    <p><b>Kebele:</b> {app.get('studentData', {}).get('kebele', '')}</p>
+                    <p><b>City:</b> {app.get('studentData', {}).get('city', 'Adama')}</p>
             """
-            # Guardian/parent info
-            if app.get('guardianType') == 'parent':
+
+            # Guardian Information
+            if app.get("guardianType") == "parent":
                 html += f"""
-                <div class='section'>
-                    <div class='section-title'>Guardian Information</div>
-                    <table class='info-grid'>
-                        <tr class='info-row'>
-                            <td class='info-item'><span class='label'>Father's Name:</span> <span class='value'>{app.get('fatherData', {}).get('guardian_name', '')}</span></td>
-                            <td class='info-item'><span class='label'>Father's Mobile:</span> <span class='value'>{app.get('fatherData', {}).get('mobile_number', '')}</span></td>
-                        </tr>
-                        <tr class='info-row'>
-                            <td class='info-item'><span class='label'>Father's Email:</span> <span class='value'>{app.get('fatherData', {}).get('email_address', '')}</span></td>
-                            <td class='info-item'><span class='label'>Father's Occupation:</span> <span class='value'>{app.get('fatherData', {}).get('occupation', '')}</span></td>
-                        </tr>
-                        <tr class='info-row'>
-                            <td class='info-item'><span class='label'>Mother's Name:</span> <span class='value'>{app.get('motherData', {}).get('guardian_name', '')}</span></td>
-                            <td class='info-item'><span class='label'>Mother's Mobile:</span> <span class='value'>{app.get('motherData', {}).get('mobile_number', '')}</span></td>
-                        </tr>
-                        <tr class='info-row'>
-                            <td class='info-item'><span class='label'>Mother's Email:</span> <span class='value'>{app.get('motherData', {}).get('email_address', '')}</span></td>
-                            <td class='info-item'><span class='label'>Mother's Occupation:</span> <span class='value'>{app.get('motherData', {}).get('occupation', '')}</span></td>
-                        </tr>
-                    </table>
-                    <div style='text-align: center; margin: 10px 0;'>
-                        {f"<img src='{father_img}' class='parent-photo' alt='Father Photo' style='display: inline-block; margin: 0 10px;'>" if father_img else ''}
-                        {f"<img src='{mother_img}' class='parent-photo' alt='Mother Photo' style='display: inline-block; margin: 0 10px;'>" if mother_img else ''}
-                    </div>
-                </div>
+                    <h2>Guardian Information</h2>
+                    <h3>Father's Details</h3>
+                    <p><b>Name:</b> {app.get('fatherData', {}).get('guardian_name', '')}</p>
+                    <p><b>Mobile:</b> {app.get('fatherData', {}).get('mobile_number', '')}</p>
+                    <p><b>Email:</b> {app.get('fatherData', {}).get('email_address', '')}</p>
+                    <p><b>Occupation:</b> {app.get('fatherData', {}).get('occupation', '')}</p>
+                    {f"<p><img src='{father_img}' width='150'></p>" if father_img else ""}
+                    
+                    <h3>Mother's Details</h3>
+                    <p><b>Name:</b> {app.get('motherData', {}).get('guardian_name', '')}</p>
+                    <p><b>Mobile:</b> {app.get('motherData', {}).get('mobile_number', '')}</p>
+                    <p><b>Email:</b> {app.get('motherData', {}).get('email_address', '')}</p>
+                    <p><b>Occupation:</b> {app.get('motherData', {}).get('occupation', '')}</p>
+                    {f"<p><img src='{mother_img}' width='150'></p>" if mother_img else ""}
                 """
             else:
                 html += f"""
-                <div class='section'>
-                    <div class='section-title'>Guardian Information</div>
-                    <table class='info-grid'>
-                        <tr class='info-row'>
-                            <td class='info-item'><span class='label'>Guardian Name:</span> <span class='value'>{app.get('guardianData', {}).get('guardian_name', '')}</span></td>
-                            <td class='info-item'><span class='label'>Mobile Number:</span> <span class='value'>{app.get('guardianData', {}).get('mobile_number', '')}</span></td>
-                        </tr>
-                        <tr class='info-row'>
-                            <td class='info-item'><span class='label'>Email Address:</span> <span class='value'>{app.get('guardianData', {}).get('email_address', '')}</span></td>
-                            <td class='info-item'><span class='label'>Occupation:</span> <span class='value'>{app.get('guardianData', {}).get('occupation', '')}</span></td>
-                        </tr>
-                    </table>
-                    <div style='text-align: center; margin: 10px 0;'>
-                        {f"<img src='{guardian_img}' class='parent-photo' alt='Guardian Photo'>" if guardian_img else ''}
-                    </div>
-                </div>
+                    <h2>Guardian Information</h2>
+                    <p><b>Name:</b> {app.get('guardianData', {}).get('guardian_name', '')}</p>
+                    <p><b>Mobile:</b> {app.get('guardianData', {}).get('mobile_number', '')}</p>
+                    <p><b>Email:</b> {app.get('guardianData', {}).get('email_address', '')}</p>
+                    <p><b>Occupation:</b> {app.get('guardianData', {}).get('occupation', '')}</p>
+                    {f"<p><img src='{guardian_img}' width='150'></p>" if guardian_img else ""}
                 """
+
             html += "</body></html>"
             html_pages.append(html)
+
         # Join pages with page breaks
-        full_html = ("<div class='page-break'></div>").join(html_pages)
+        full_html = ("<div style='page-break-before: always;'></div>").join(html_pages)
         
-        # Add options for better PDF generation with images and font handling
+        # Minimal robust PDF options
         pdf_options = {
-            'page-size': 'A4',
-            'margin-top': '0.75in',
-            'margin-right': '0.75in',
-            'margin-bottom': '0.75in',
-            'margin-left': '0.75in',
             'encoding': "UTF-8",
-            'no-outline': None,
-            'enable-local-file-access': None,
             'load-error-handling': 'ignore',
             'load-media-error-handling': 'ignore',
-            'disable-smart-shrinking': None,
-            'quiet': None,
             'disable-javascript': None,
+            'quiet': None
         }
 
-        # Log the generated HTML for debugging if needed
-        # frappe.log_error(full_html, "Full HTML for PDF")
-        
         pdf_content = get_pdf(full_html, options=pdf_options)
         
-        # Ensure we have content
         if not pdf_content:
             frappe.throw(_("Failed to generate PDF content"))
         
