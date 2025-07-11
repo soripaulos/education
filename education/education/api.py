@@ -1937,6 +1937,10 @@ def generate_application_pdf(session_applications):
         if isinstance(session_applications, str):
             session_applications = json.loads(session_applications)
 
+        # School information
+        logo_url = "https://app.makkobillischool.com/files/school_logo.png"
+        school_name = "Makko Billi School"
+
         html_pages = []
         for app in session_applications:
             # Helper function to ensure absolute URLs for images
@@ -1948,68 +1952,280 @@ def generate_application_pdf(session_applications):
                 site_url = frappe.utils.get_url()
                 return site_url.rstrip('/') + '/' + img_url.lstrip('/')
 
+            # Get and ensure proper image URLs
             student_img = make_absolute_url(app.get('studentData', {}).get('image', ''))
             father_img = make_absolute_url(app.get('fatherData', {}).get('image', ''))
             mother_img = make_absolute_url(app.get('motherData', {}).get('image', ''))
             guardian_img = make_absolute_url(app.get('guardianData', {}).get('image', ''))
 
-            # Basic, style-free HTML for maximum PDF compatibility
+            # Minimal PDF-safe styling with table-based layout
             html = f"""
             <html>
-                <head><meta charset='utf-8'></head>
+                <head>
+                    <meta charset='utf-8'>
+                    <style>
+                        body {{ 
+                            font-family: Arial, sans-serif; 
+                            margin: 10px; 
+                            font-size: 10px; 
+                            line-height: 1.2; 
+                            color: #000;
+                        }}
+                        .header {{ 
+                            text-align: center; 
+                            margin-bottom: 15px; 
+                            padding-bottom: 8px; 
+                            border-bottom: 2px solid #333;
+                        }}
+                        .logo {{ 
+                            width: 50px; 
+                            height: 50px; 
+                            margin-bottom: 5px;
+                        }}
+                        .school-name {{ 
+                            font-size: 16px; 
+                            font-weight: bold; 
+                            margin: 3px 0;
+                        }}
+                        .app-title {{ 
+                            font-size: 12px; 
+                            margin: 3px 0;
+                        }}
+                        .app-id {{ 
+                            font-size: 9px; 
+                            color: #666;
+                        }}
+                        .main-container {{
+                            display: table;
+                            width: 100%;
+                            margin-top: 10px;
+                        }}
+                        .left-column {{
+                            display: table-cell;
+                            width: 75%;
+                            vertical-align: top;
+                            padding-right: 10px;
+                        }}
+                        .right-column {{
+                            display: table-cell;
+                            width: 25%;
+                            vertical-align: top;
+                            text-align: center;
+                        }}
+                        .student-photo {{ 
+                            width: 80px; 
+                            height: 100px; 
+                            border: 1px solid #333;
+                            margin-bottom: 10px;
+                        }}
+                        .section {{ 
+                            margin: 8px 0; 
+                        }}
+                        .section-title {{ 
+                            font-size: 11px; 
+                            font-weight: bold; 
+                            margin-bottom: 4px; 
+                            border-bottom: 1px solid #666;
+                            padding-bottom: 2px;
+                        }}
+                        .info-table {{ 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin: 3px 0; 
+                        }}
+                        .info-table td {{ 
+                            padding: 2px 4px; 
+                            vertical-align: top; 
+                            border-bottom: 1px solid #eee;
+                        }}
+                        .label {{ 
+                            font-weight: bold; 
+                            width: 35%; 
+                        }}
+                        .guardian-photos {{ 
+                            text-align: center; 
+                            margin: 5px 0; 
+                        }}
+                        .parent-photo {{ 
+                            width: 60px; 
+                            height: 70px; 
+                            border: 1px solid #333; 
+                            margin: 0 2px; 
+                            display: inline-block;
+                        }}
+                    </style>
+                </head>
                 <body>
-                    <h1>Student Application: {app.get('submittedApplicationId', '')}</h1>
-                    
-                    <h2>Student Information</h2>
-                    <p><b>Full Name:</b> {app.get('studentData', {}).get('first_name', '')} {app.get('studentData', {}).get('middle_name', '')} {app.get('studentData', {}).get('last_name', '')}</p>
-                    <p><b>Date of Birth:</b> {app.get('studentData', {}).get('date_of_birth', '')}</p>
-                    <p><b>Gender:</b> {app.get('studentData', {}).get('gender', '')}</p>
-                    <p><b>Email:</b> {app.get('studentData', {}).get('student_email_id', '')}</p>
-                    {f"<p><img src='{student_img}' width='150'></p>" if student_img else ""}
+                    <!-- Header with logo and school info -->
+                    <div class='header'>
+                        <img src='{logo_url}' alt='School Logo' class='logo'>
+                        <div class='school-name'>{school_name}</div>
+                        <div class='app-title'>Student Application Form</div>
+                        <div class='app-id'>Application ID: {app.get('submittedApplicationId', 'N/A')}</div>
+                    </div>
 
-                    <h2>Address Information</h2>
-                    <p><b>Home Address:</b> {app.get('studentData', {}).get('address_line_1', '')}</p>
-                    <p><b>Sub-city:</b> {app.get('studentData', {}).get('sub_city', '')}</p>
-                    <p><b>Kebele:</b> {app.get('studentData', {}).get('kebele', '')}</p>
-                    <p><b>City:</b> {app.get('studentData', {}).get('city', 'Adama')}</p>
+                    <div class='main-container'>
+                        <div class='left-column'>
+                            <!-- Student Information -->
+                            <div class='section'>
+                                <div class='section-title'>Student Information</div>
+                                <table class='info-table'>
+                                    <tr>
+                                        <td class='label'>Full Name:</td>
+                                        <td>{app.get('studentData', {}).get('first_name', '')} {app.get('studentData', {}).get('middle_name', '')} {app.get('studentData', {}).get('last_name', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Date of Birth:</td>
+                                        <td>{app.get('studentData', {}).get('date_of_birth', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Gender:</td>
+                                        <td>{app.get('studentData', {}).get('gender', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Program/Grade:</td>
+                                        <td>{app.get('studentData', {}).get('program', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Email:</td>
+                                        <td>{app.get('studentData', {}).get('student_email_id', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>School ID:</td>
+                                        <td>{app.get('studentData', {}).get('custom_school_id', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Mobile:</td>
+                                        <td>{app.get('studentData', {}).get('primary_mobile_number', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Student Type:</td>
+                                        <td>{app.get('studentType', '').title()}</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Address Information -->
+                            <div class='section'>
+                                <div class='section-title'>Address Information</div>
+                                <table class='info-table'>
+                                    <tr>
+                                        <td class='label'>Home Address:</td>
+                                        <td>{app.get('studentData', {}).get('address_line_1', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Sub-city:</td>
+                                        <td>{app.get('studentData', {}).get('sub_city', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Kebele:</td>
+                                        <td>{app.get('studentData', {}).get('kebele', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>City:</td>
+                                        <td>{app.get('studentData', {}).get('city', 'Adama')}</td>
+                                    </tr>
+                                </table>
+                            </div>
             """
 
-            # Guardian Information
+            # Guardian Information based on type
             if app.get("guardianType") == "parent":
                 html += f"""
-                    <h2>Guardian Information</h2>
-                    <h3>Father's Details</h3>
-                    <p><b>Name:</b> {app.get('fatherData', {}).get('guardian_name', '')}</p>
-                    <p><b>Mobile:</b> {app.get('fatherData', {}).get('mobile_number', '')}</p>
-                    <p><b>Email:</b> {app.get('fatherData', {}).get('email_address', '')}</p>
-                    <p><b>Occupation:</b> {app.get('fatherData', {}).get('occupation', '')}</p>
-                    {f"<p><img src='{father_img}' width='150'></p>" if father_img else ""}
-                    
-                    <h3>Mother's Details</h3>
-                    <p><b>Name:</b> {app.get('motherData', {}).get('guardian_name', '')}</p>
-                    <p><b>Mobile:</b> {app.get('motherData', {}).get('mobile_number', '')}</p>
-                    <p><b>Email:</b> {app.get('motherData', {}).get('email_address', '')}</p>
-                    <p><b>Occupation:</b> {app.get('motherData', {}).get('occupation', '')}</p>
-                    {f"<p><img src='{mother_img}' width='150'></p>" if mother_img else ""}
+                            <!-- Guardian Information (Parents) -->
+                            <div class='section'>
+                                <div class='section-title'>Guardian Information</div>
+                                <table class='info-table'>
+                                    <tr>
+                                        <td class='label'>Father's Name:</td>
+                                        <td>{app.get('fatherData', {}).get('guardian_name', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Father's Mobile:</td>
+                                        <td>{app.get('fatherData', {}).get('mobile_number', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Father's Email:</td>
+                                        <td>{app.get('fatherData', {}).get('email_address', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Father's Occupation:</td>
+                                        <td>{app.get('fatherData', {}).get('occupation', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Mother's Name:</td>
+                                        <td>{app.get('motherData', {}).get('guardian_name', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Mother's Mobile:</td>
+                                        <td>{app.get('motherData', {}).get('mobile_number', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Mother's Email:</td>
+                                        <td>{app.get('motherData', {}).get('email_address', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Mother's Occupation:</td>
+                                        <td>{app.get('motherData', {}).get('occupation', '')}</td>
+                                    </tr>
+                                </table>
+                                <div class='guardian-photos'>
+                                    {f"<img src='{father_img}' class='parent-photo' alt='Father Photo'>" if father_img else ""}
+                                    {f"<img src='{mother_img}' class='parent-photo' alt='Mother Photo'>" if mother_img else ""}
+                                </div>
+                            </div>
                 """
             else:
                 html += f"""
-                    <h2>Guardian Information</h2>
-                    <p><b>Name:</b> {app.get('guardianData', {}).get('guardian_name', '')}</p>
-                    <p><b>Mobile:</b> {app.get('guardianData', {}).get('mobile_number', '')}</p>
-                    <p><b>Email:</b> {app.get('guardianData', {}).get('email_address', '')}</p>
-                    <p><b>Occupation:</b> {app.get('guardianData', {}).get('occupation', '')}</p>
-                    {f"<p><img src='{guardian_img}' width='150'></p>" if guardian_img else ""}
+                            <!-- Guardian Information (Single Guardian) -->
+                            <div class='section'>
+                                <div class='section-title'>Guardian Information</div>
+                                <table class='info-table'>
+                                    <tr>
+                                        <td class='label'>Guardian Name:</td>
+                                        <td>{app.get('guardianData', {}).get('guardian_name', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Mobile:</td>
+                                        <td>{app.get('guardianData', {}).get('mobile_number', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Email:</td>
+                                        <td>{app.get('guardianData', {}).get('email_address', '')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class='label'>Occupation:</td>
+                                        <td>{app.get('guardianData', {}).get('occupation', '')}</td>
+                                    </tr>
+                                </table>
+                                <div class='guardian-photos'>
+                                    {f"<img src='{guardian_img}' class='parent-photo' alt='Guardian Photo'>" if guardian_img else ""}
+                                </div>
+                            </div>
                 """
 
-            html += "</body></html>"
+            html += f"""
+                        </div>
+                        <div class='right-column'>
+                            <!-- Student Photo -->
+                            {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else "<div class='student-photo'></div>"}
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """
             html_pages.append(html)
 
-        # Join pages with page breaks
+        # Join pages with page breaks for multiple applications
         full_html = ("<div style='page-break-before: always;'></div>").join(html_pages)
         
-        # Minimal robust PDF options
+        # Enhanced PDF options for better rendering
         pdf_options = {
+            'page-size': 'A4',
+            'margin-top': '0.5in',
+            'margin-right': '0.5in',
+            'margin-bottom': '0.5in',
+            'margin-left': '0.5in',
             'encoding': "UTF-8",
             'load-error-handling': 'ignore',
             'load-media-error-handling': 'ignore',
@@ -2022,7 +2238,9 @@ def generate_application_pdf(session_applications):
         if not pdf_content:
             frappe.throw(_("Failed to generate PDF content"))
         
-        frappe.local.response.filename = "student_application.pdf"
+        # Use application ID for filename
+        app_id = session_applications[0].get('submittedApplicationId', 'unknown') if session_applications else 'unknown'
+        frappe.local.response.filename = f"student_application_{app_id}.pdf"
         frappe.local.response.filecontent = pdf_content
         frappe.local.response.type = "download"
         return pdf_content
