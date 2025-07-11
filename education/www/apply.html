@@ -801,7 +801,7 @@
                     </div>
                     <div class="items-center px-4 py-3 space-y-2">
                         <button
-                            @click.stop="resetForm"
+                            @click.stop="addAnotherChild"
                             class="btn-primary w-full relative z-10"
                             :disabled="isGeneratingPDF || isUploadingFile || !submittedApplicationId"
                             style="pointer-events: auto;"
@@ -1448,10 +1448,15 @@
                 },
                 
                 async downloadPDF() {
+                    if (!this.submittedApplicationId) {
+                        this.showNotification('No application ID available for PDF generation', 'error');
+                        return;
+                    }
+                    
                     this.isGeneratingPDF = true;
                     try {
                         // Ensure application is fully saved before PDF generation
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 2000));
                         
                         this.showNotification('Generating PDF document...', 'info', 5000);
                         
@@ -1459,8 +1464,10 @@
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'Accept': 'application/pdf, application/json'
+                                'Accept': 'application/pdf, application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
                             },
+                            credentials: 'include',
                             body: JSON.stringify({
                                 application_id: this.submittedApplicationId
                             })
@@ -1513,7 +1520,9 @@
                                 }
                             } catch (e) {
                                 if (response.status === 417) {
-                                    errorMessage += 'Server is busy. Please wait a moment and try again.';
+                                    errorMessage += 'Server expectation failed. This often happens when the application data is still being processed. Please wait 30 seconds and try again.';
+                                } else if (response.status === 404) {
+                                    errorMessage += 'Application not found. Please refresh the page and try again.';
                                 } else if (response.status >= 500) {
                                     errorMessage += 'Server error. Please try again later.';
                                 } else {
@@ -1589,6 +1598,7 @@
                         date_of_birth: '',
                         program: '',
                         primary_mobile_number: '',
+                        student_email_id: '',
                         nationality: 'Ethiopian',
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
@@ -1598,12 +1608,47 @@
                         city: 'Adama',
                         state: 'Oromia',
                         pincode: '',
-                        country: 'Ethiopia'
+                        country: 'Ethiopia',
+                        image: ''
                     };
                     
                     this.validationErrors = {};
                     this.phoneErrors = {}; // Reset phone errors
                     this.availableKebeles = []; // Reset kebele options
+                },
+                
+                addAnotherChild() {
+                    // Preserve guardian and address information, only reset student details
+                    this.showSuccessModal = false;
+                    this.currentStep = 2; // Start from student type selection step
+                    this.submittedApplicationId = '';
+                    
+                    // Keep guardian type and data intact (don't reset guardian info)
+                    // Keep address information intact (sub_city, kebele, address_line_1)
+                    
+                    // Only reset student-specific data
+                    this.studentData.first_name = '';
+                    this.studentData.middle_name = '';
+                    this.studentData.last_name = '';
+                    this.studentData.gender = '';
+                    this.studentData.date_of_birth = '';
+                    this.studentData.program = '';
+                    this.studentData.primary_mobile_number = '';
+                    this.studentData.student_email_id = '';
+                    this.studentData.custom_school_id = '';
+                    this.studentData.image = '';
+                    
+                    // Reset student type and branch selection for new student
+                    this.studentType = 'new';
+                    this.branchSelection = 'M1';
+                    this.existingStudent = null;
+                    this.existingSchoolId = '';
+                    this.schoolIdError = '';
+                    
+                    // Reset validation errors
+                    this.validationErrors = {};
+                    
+                    this.showNotification('Ready to add another child. Guardian and address information preserved.', 'success', 3000);
                 },
                 
                 // Notification system
