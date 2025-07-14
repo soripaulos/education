@@ -579,9 +579,41 @@
                                 <label class="block text-sm font-medium text-gray-700">Last Name *</label>
                                 <input v-model="studentData.last_name" type="text" class="input-field" required>
                             </div>
-                            <div>
+                            <div v-if="calendarType === 'gregorian'">
                                 <label class="block text-sm font-medium text-gray-700">Date of Birth *</label>
                                 <input v-model="studentData.date_of_birth" type="date" class="input-field" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Calendar Type</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <label :class="[
+                                        'flex items-center p-3 border rounded-lg cursor-pointer transition-colors',
+                                        calendarType === 'gregorian' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'
+                                    ]">
+                                        <input type="radio" v-model="calendarType" value="gregorian" class="mr-2">
+                                        <span class="font-medium">Gregorian Calendar</span>
+                                    </label>
+                                    <label :class="[
+                                        'flex items-center p-3 border rounded-lg cursor-pointer transition-colors',
+                                        calendarType === 'ethiopian' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'
+                                    ]">
+                                        <input type="radio" v-model="calendarType" value="ethiopian" class="mr-2">
+                                        <span class="font-medium">Ethiopian Calendar</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div v-if="calendarType === 'ethiopian'" class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Ethiopian Date (DD/MM/YYYY) *</label>
+                                <input v-model="ethiopianDate" type="text" class="input-field" placeholder="e.g., 15/03/2016" @blur="convertEthiopianToGregorian" required>
+                                <div class="text-xs text-gray-600 mt-1">
+                                    <strong>Format:</strong> DD/MM/YYYY | 
+                                    <strong>Months:</strong> 1-12 (30 days each), 13 (Pagume, 5-6 days) | 
+                                    <strong>Example:</strong> 15/03/2016
+                                </div>
+                                <div v-if="ethiopianDateError" class="error-message" v-text="ethiopianDateError"></div>
+                                <div v-if="convertedDate" class="text-sm text-green-600 mt-2 font-medium">
+                                    ✓ Converted to Gregorian: {{ convertedDate }}
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Gender</label>
@@ -662,7 +694,12 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <p><strong>Name:</strong> <span v-text="studentData.first_name + ' ' + (studentData.middle_name || '') + ' ' + studentData.last_name"></span></p>
-                                    <p><strong>Date of Birth:</strong> <span v-text="studentData.date_of_birth"></span></p>
+                                    <p><strong>Date of Birth:</strong> 
+                                        <span v-if="calendarType === 'ethiopian'">
+                                            {{ ethiopianDate }} (Ethiopian) - {{ convertedDate }} (Gregorian)
+                                        </span>
+                                        <span v-else v-text="studentData.date_of_birth"></span>
+                                    </p>
                                     <p><strong>Gender:</strong> <span v-text="studentData.gender"></span></p>
                                 </div>
                                 <div>
@@ -961,7 +998,11 @@
                     isGeneratingPDF: false,
                     
                     // Notifications
-                    notifications: []
+                    notifications: [],
+                    calendarType: 'gregorian',
+                    ethiopianDate: '',
+                    ethiopianDateError: '',
+                    convertedDate: ''
                 }
             },
             
@@ -1033,10 +1074,14 @@
                             }
                             return false;
                         case 4: // Student Details
+                            const dateValid = this.calendarType === 'ethiopian' ? 
+                                (this.ethiopianDate && !this.ethiopianDateError) : 
+                                this.studentData.date_of_birth;
+                            
                             return (
                                 this.studentData.first_name && 
                                 this.studentData.last_name && 
-                                this.studentData.date_of_birth && 
+                                dateValid &&
                                 this.studentData.program &&
                                 this.studentData.image
                             );
@@ -1725,6 +1770,12 @@
                     this.validationErrors = {};
                     this.phoneErrors = {}; // Reset phone errors
                     this.availableKebeles = []; // Reset kebele options
+                    
+                    // Reset calendar related fields
+                    this.calendarType = 'gregorian';
+                    this.ethiopianDate = '';
+                    this.ethiopianDateError = '';
+                    this.convertedDate = '';
                 },
                 
                 addAnotherChild() {
@@ -1756,6 +1807,12 @@
                     
                     // Reset validation errors
                     this.validationErrors = {};
+                    
+                    // Reset calendar related fields
+                    this.calendarType = 'gregorian';
+                    this.ethiopianDate = '';
+                    this.ethiopianDateError = '';
+                    this.convertedDate = '';
                     
                     this.showNotification('Ready to add another child. Guardian and address information preserved.', 'success', 3000);
                 },
@@ -1890,8 +1947,17 @@
                     if (!this.studentData.last_name) {
                         errors.student_last_name = 'Student\'s last name is required';
                     }
-                    if (!this.studentData.date_of_birth) {
-                        errors.student_dob = 'Student\'s date of birth is required';
+                    // Date of birth validation based on calendar type
+                    if (this.calendarType === 'ethiopian') {
+                        if (!this.ethiopianDate) {
+                            errors.student_dob = 'Student\'s Ethiopian date of birth is required';
+                        } else if (this.ethiopianDateError) {
+                            errors.student_dob = this.ethiopianDateError;
+                        }
+                    } else {
+                        if (!this.studentData.date_of_birth) {
+                            errors.student_dob = 'Student\'s date of birth is required';
+                        }
                     }
 
                     if (!this.studentData.program) {
@@ -2037,6 +2103,95 @@
                     // Update available kebeles based on selected sub-city
                     this.availableKebeles = this.kebeleSubCityData[this.studentData.sub_city] || [];
                 },
+
+                convertEthiopianToGregorian() {
+                    if (!this.ethiopianDate) {
+                        this.ethiopianDateError = '';
+                        this.convertedDate = '';
+                        this.studentData.date_of_birth = '';
+                        return;
+                    }
+                    
+                    try {
+                        // Parse Ethiopian date (DD/MM/YYYY)
+                        const parts = this.ethiopianDate.split('/');
+                        if (parts.length !== 3) {
+                            throw new Error('Invalid date format. Use DD/MM/YYYY');
+                        }
+                        
+                        const day = parseInt(parts[0]);
+                        const month = parseInt(parts[1]);
+                        const year = parseInt(parts[2]);
+                        
+                        // Validate Ethiopian date
+                        if (month < 1 || month > 13) {
+                            throw new Error('Month must be between 1 and 13');
+                        }
+                        
+                        if (month <= 12 && (day < 1 || day > 30)) {
+                            throw new Error('Day must be between 1 and 30 for months 1-12');
+                        }
+                        
+                        if (month === 13 && (day < 1 || day > 6)) {
+                            throw new Error('Day must be between 1 and 6 for month 13 (Pagume)');
+                        }
+                        
+                        // Convert to Gregorian
+                        const gregorianDate = this.ethiopianToGregorian(day, month, year);
+                        
+                        // Format as YYYY-MM-DD for HTML date input
+                        const formattedDate = gregorianDate.toISOString().split('T')[0];
+                        
+                        this.convertedDate = gregorianDate.toLocaleDateString('en-GB'); // DD/MM/YYYY format for display
+                        this.studentData.date_of_birth = formattedDate;
+                        this.ethiopianDateError = '';
+                        
+                    } catch (error) {
+                        this.ethiopianDateError = error.message;
+                        this.convertedDate = '';
+                        this.studentData.date_of_birth = '';
+                    }
+                },
+                
+                ethiopianToGregorian(day, month, year) {
+                    // Ethiopian to Gregorian conversion algorithm
+                    // Ethiopian calendar has 12 months of 30 days + 13th month (Pagume) with 5/6 days
+                    // Ethiopian year starts on September 11th (or 12th in leap years) in Gregorian
+                    
+                    // More accurate conversion considering the Ethiopian calendar structure
+                    let gregorianYear = year + 7; // Ethiopian year is roughly 7-8 years behind
+                    
+                    // Calculate day of year in Ethiopian calendar
+                    let dayOfYear = (month - 1) * 30 + day;
+                    
+                    // Ethiopian new year starts on September 11th (Meskerem 1)
+                    // In leap years, it starts on September 12th
+                    let newYearDay = 11;
+                    
+                    // Check if previous Gregorian year was leap year (affects Ethiopian new year start)
+                    if (this.isLeapYear(gregorianYear - 1)) {
+                        newYearDay = 12;
+                    }
+                    
+                    // Create Ethiopian new year date
+                    let ethiopianNewYear = new Date(gregorianYear, 8, newYearDay); // September 11th or 12th
+                    
+                    // Add days to get the final date
+                    let result = new Date(ethiopianNewYear.getTime() + (dayOfYear - 1) * 24 * 60 * 60 * 1000);
+                    
+                    // Handle year overflow (if date goes beyond the Ethiopian year)
+                    if (result.getFullYear() > gregorianYear) {
+                        // This means we've moved to the next Gregorian year
+                        // Adjust accordingly
+                        result = new Date(gregorianYear + 1, result.getMonth(), result.getDate());
+                    }
+                    
+                    return result;
+                },
+                
+                isLeapYear(year) {
+                    return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+                }
 
             }
         }).mount('#app');
