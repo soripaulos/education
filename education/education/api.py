@@ -1579,24 +1579,35 @@ def create_guardian(guardian_data):
 		if not guardian_data.get("mobile_number"):
 			frappe.throw(_("Mobile number is required"))
 		
-		# Format mobile number properly
+		# Format mobile number properly and use it as the primary key
 		mobile_number = guardian_data.get("mobile_number", "").strip()
 		if mobile_number and not mobile_number.startswith("+251"):
 			mobile_number = f"+251{mobile_number}"
 		
-		# Check if guardian already exists by name and mobile number
-		existing_guardian = frappe.get_all(
-			"Guardian",
-			filters={
-				"guardian_name": guardian_data.get("guardian_name"),
-				"mobile_number": mobile_number
-			},
-			limit=1
-		)
+		# Check if a guardian with this mobile number already exists
+		existing_guardian_name = frappe.db.get_value("Guardian", {"mobile_number": mobile_number}, "name")
 		
-		if existing_guardian:
-			return existing_guardian[0].name
+		if existing_guardian_name:
+			# If guardian exists, update their information
+			guardian_doc = frappe.get_doc("Guardian", existing_guardian_name)
+			# Get only the fields that are allowed to be updated by guests
+			allowed_fields = [
+				"guardian_name", "email_address", "alternate_number",
+				"education", "occupation", "work_address", "image"
+			]
+			update_data = {k: v for k, v in guardian_data.items() if k in allowed_fields}
+
+			# Handle 'Other' for education and occupation specifically
+			if guardian_data.get("education") == "Other":
+				update_data["education"] = guardian_data.get("education_other")
+			if guardian_data.get("occupation") == "Other":
+				update_data["occupation"] = guardian_data.get("occupation_other")
+
+			guardian_doc.update(update_data)
+			guardian_doc.save(ignore_permissions=True)
+			return guardian_doc.name
 			
+		# If guardian does not exist, create a new one
 		guardian_doc = frappe.new_doc("Guardian")
 		guardian_doc.guardian_name = guardian_data.get("guardian_name")
 		guardian_doc.mobile_number = mobile_number
@@ -1634,7 +1645,7 @@ def create_guardian(guardian_data):
 		if image_url:
 			guardian_doc.image = image_url
 			
-		guardian_doc.insert()
+		guardian_doc.insert(ignore_permissions=True) # Use ignore_permissions for guest context
 		return guardian_doc.name
 	except Exception as e:
 		error_msg = str(e)
