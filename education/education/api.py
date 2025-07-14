@@ -1542,8 +1542,39 @@ def search_student_by_school_id(school_id):
 
 @frappe.whitelist(allow_guest=True)
 def generate_school_id(branch="M1"):
-	"""Generate a new school ID with format M1/*****/18 or M2/*****/18"""
-	# Get the last used number for the branch
+	"""Generate a new school ID with format M1/*****/18 or M2/*****/18 with random numbers above 10000"""
+	import random
+	import time
+	
+	# Ensure branch is valid
+	if branch not in ["M1", "M2"]:
+		branch = "M1"
+	
+	# Generate unique random number above 10000
+	max_attempts = 100
+	for attempt in range(max_attempts):
+		# Generate random number between 10001 and 99999
+		random_num = random.randint(10001, 99999)
+		
+		# Format: M1/12345/18 or M2/12345/18
+		school_id = f"{branch}/{random_num:05d}/18"
+		
+		# Check if this ID already exists in both Student and Student Applicant tables
+		exists_in_student = frappe.db.exists("Student", {"custom_school_id": school_id})
+		exists_in_applicant = frappe.db.exists("Student Applicant", {"custom_school_id": school_id})
+		
+		if not exists_in_student and not exists_in_applicant:
+			return school_id
+		
+		# If ID exists, try again with a different number
+		# Add small delay to change random seed
+		time.sleep(0.001)
+	
+	# If we couldn't generate a unique ID after max_attempts, use sequential fallback
+	# This is very unlikely to happen given the range (10001-99999)
+	frappe.log_error(f"Could not generate unique school ID for branch {branch} after {max_attempts} attempts, using sequential fallback")
+	
+	# Fallback to sequential method
 	last_id = frappe.db.sql("""
 		SELECT custom_school_id 
 		FROM `tabStudent Applicant` 
@@ -1558,7 +1589,7 @@ def generate_school_id(branch="M1"):
 		if len(parts) == 3:
 			try:
 				last_num = int(parts[1])
-				new_num = last_num + 1
+				new_num = max(last_num + 1, 10001)  # Ensure it's at least 10001
 			except ValueError:
 				new_num = 10001
 		else:
@@ -1566,7 +1597,6 @@ def generate_school_id(branch="M1"):
 	else:
 		new_num = 10001
 	
-	# Format: M1/10001/18
 	return f"{branch}/{new_num:05d}/18"
 
 @frappe.whitelist(allow_guest=True)
@@ -1670,14 +1700,28 @@ def create_student_application(application_data):
 		app_doc.first_name = application_data.get("first_name")
 		app_doc.middle_name = application_data.get("middle_name")
 		app_doc.last_name = application_data.get("last_name")
-		app_doc.custom_school_id = application_data.get("custom_school_id")
 		app_doc.program = application_data.get("program")
 		app_doc.academic_year = application_data.get("academic_year", "2018 E.C.")
+		
+		# Handle School ID: Use existing ID if provided, otherwise generate new
+		school_id = application_data.get("custom_school_id")
+		if not school_id:
+			# This is a new student - generate a new school ID
+			# The branch information should be passed from frontend
+			branch = application_data.get("branch", "M1")
+			school_id = generate_school_id(branch)
+		
+		app_doc.custom_school_id = school_id
+		
+		# Generate student email automatically from school ID
+		# Format: schoolid@m.b.s (e.g., M1/12345/18@m.b.s)
+		# Clean the school ID to make it email-friendly
+		email_prefix = school_id.replace("/", "").replace("\\", "").lower()
+		app_doc.student_email_id = f"{email_prefix}@m.b.s"
 		
 		# Personal details
 		app_doc.date_of_birth = application_data.get("date_of_birth")
 		app_doc.gender = application_data.get("gender")
-		app_doc.student_email_id = application_data.get("student_email_id")
 		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
@@ -2307,26 +2351,40 @@ def generate_application_pdf(application_id):
 
 @frappe.whitelist(allow_guest=True)
 def check_duplicate_application():
-	"""Check if an application already exists with the given email or mobile number"""
+	"""Check if an application already exists with the given mobile number"""
 	try:
-		email = frappe.form_dict.get('email')
 		mobile = frappe.form_dict.get('mobile')
 		
-		if not email and not mobile:
+		if not mobile:
 			return {"exists": False}
 		
-		filters = []
-		if email:
-			filters.append(['Student Applicant', 'student_email_id', '=', email])
-		if mobile:
-			filters.append(['Student Applicant', 'guardian_mobile_number', '=', mobile])
-		
-		# Check if any student applicant exists with the given criteria
+		# Check if any student applicant exists with the given mobile number
+		# Check both student mobile number and guardian mobile number
 		existing = frappe.get_all('Student Applicant', 
-			filters=filters, 
-			limit=1,
-			or_filters=True
+			filters=[
+				['Student Applicant', 'student_mobile_number', '=', mobile]
+			],
+			limit=1
 		)
+		
+		# Also check guardian mobile numbers from the guardian table
+		if not existing:
+			guardian_with_mobile = frappe.get_all('Guardian', 
+				filters=[
+					['Guardian', 'mobile_number', '=', mobile]
+				],
+				limit=1
+			)
+			
+			if guardian_with_mobile:
+				# Check if this guardian is linked to any student applicant
+				existing_apps = frappe.get_all('Student Applicant', 
+					filters=[
+						['Student Applicant Guardian', 'guardian', '=', guardian_with_mobile[0].name]
+					],
+					limit=1
+				)
+				existing = existing_apps
 		
 		return {"exists": len(existing) > 0}
 		

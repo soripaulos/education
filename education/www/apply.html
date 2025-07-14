@@ -591,11 +591,7 @@
                                     <option value="Female">Female</option>
                                 </select>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Email Address *</label>
-                                <input v-model="studentData.student_email_id" type="email" class="input-field" required>
-                                <p class="text-xs text-gray-500 mt-1">Primary Email of Student/Parent</p>
-                            </div>
+
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Primary Mobile Number</label>
                                 <select v-model="studentData.primary_mobile_number" class="input-field">
@@ -670,7 +666,7 @@
                                     <p><strong>Gender:</strong> <span v-text="studentData.gender"></span></p>
                                 </div>
                                 <div>
-                                    <p><strong>Email:</strong> <span v-text="studentData.student_email_id"></span></p>
+                                    
                                     <p><strong>Mobile:</strong> <span v-text="studentData.primary_mobile_number"></span></p>
                                     <p><strong>Program:</strong> <span v-text="selectedProgramName"></span></p>
                                 </div>
@@ -894,7 +890,6 @@
                         date_of_birth: '',
                         program: '',
                         primary_mobile_number: '',
-                        student_email_id: '',
                         nationality: 'Ethiopian',
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
@@ -1043,7 +1038,6 @@
                                 this.studentData.last_name && 
                                 this.studentData.date_of_birth && 
                                 this.studentData.program &&
-                                this.studentData.student_email_id &&
                                 this.studentData.image
                             );
                         case 5: // Preview
@@ -1244,7 +1238,6 @@
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                email: this.studentData.student_email_id,
                                 mobile: this.guardianType === 'parent' ? this.fatherData.mobile_number : this.guardianData.mobile_number
                             })
                         });
@@ -1252,7 +1245,7 @@
                         if (checkResponse.ok) {
                             const checkData = await checkResponse.json();
                             if (checkData.message && checkData.message.exists) {
-                                this.showNotification('An application with this email or mobile number already exists', 'error');
+                                this.showNotification('An application with this mobile number already exists', 'error');
                                 this.isSubmitting = false;
                                 return;
                             }
@@ -1716,7 +1709,6 @@
                         date_of_birth: '',
                         program: '',
                         primary_mobile_number: '',
-                        student_email_id: '',
                         nationality: 'Ethiopian',
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
@@ -1752,7 +1744,6 @@
                     this.studentData.date_of_birth = '';
                     this.studentData.program = '';
                     this.studentData.primary_mobile_number = '';
-                    this.studentData.student_email_id = '';
                     this.studentData.custom_school_id = '';
                     this.studentData.image = '';
                     
@@ -1902,11 +1893,7 @@
                     if (!this.studentData.date_of_birth) {
                         errors.student_dob = 'Student\'s date of birth is required';
                     }
-                    if (!this.studentData.student_email_id) {
-                        errors.student_email = 'Student/Parent email is required';
-                    } else if (!this.validateEmail(this.studentData.student_email_id)) {
-                        errors.student_email = 'Student/Parent email address is invalid';
-                    }
+
                     if (!this.studentData.program) {
                         errors.student_program = 'Grade/Program is required';
                     }
