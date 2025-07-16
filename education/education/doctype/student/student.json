@@ -26,6 +26,7 @@
   "blood_group",
   "column_break_3",
   "student_mobile_number",
+  "national_id_fin",
   "gender",
   "nationality",
   "address_tab",
@@ -122,6 +123,13 @@
    "fieldtype": "Data",
    "in_global_search": 1,
    "label": "Student Mobile Number"
+  },
+  {
+   "fieldname": "national_id_fin",
+   "fieldtype": "Data",
+   "label": "National ID FIN",
+   "length": 12,
+   "description": "12-digit numeric identifier for official records (optional but preferred)"
   },
   {
    "default": "Today",

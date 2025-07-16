@@ -1504,9 +1504,6 @@
                             siblings: []
                         };
                         
-                        // Remove fields that don't exist in the doctype yet
-                        delete applicationData.national_id_fin;
-                        
                         // Create application
                         const applicationResponse = await fetch('/api/method/education.education.api.create_student_application', {
                             method: 'POST',
@@ -1897,6 +1894,10 @@
                     
                     // Reset other fields
                     this.nationalIdError = '';
+                    
+                    // Initialize Ethiopian calendar data
+                    this.ethiopianYears = [];
+                    this.ethiopianDays = [];
                     
                     this.showNotification('Ready to add another child. Guardian and address information preserved.', 'success', 3000);
                 },

@@ -1723,6 +1723,7 @@ def create_student_application(application_data):
 		app_doc.date_of_birth = application_data.get("date_of_birth")
 		app_doc.gender = application_data.get("gender")
 		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
+		app_doc.national_id_fin = application_data.get("national_id_fin")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
 		# Address - including new fields
@@ -1806,6 +1807,7 @@ def update_student_application(application_id, application_data):
 		app_doc.gender = application_data.get("gender")
 		app_doc.student_email_id = application_data.get("student_email_id")
 		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
+		app_doc.national_id_fin = application_data.get("national_id_fin")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
 		# Update address - including new fields

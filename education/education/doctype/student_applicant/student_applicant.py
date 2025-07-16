@@ -19,8 +19,7 @@ class StudentApplicant(Document):
 		self.validate_dates()
 		self.validate_term()
 		# National ID FIN validation (optional, must be 12 digits if present)
-		# Note: This validation will be enabled once the field is added to the doctype
-		if hasattr(self, 'national_id_fin') and self.national_id_fin and (not self.national_id_fin.isdigit() or len(self.national_id_fin) != 12):
+		if self.national_id_fin and (not self.national_id_fin.isdigit() or len(self.national_id_fin) != 12):
 			frappe.throw(_("National ID FIN must be a 12-digit number."))
 		if self.student_admission and self.program and self.date_of_birth:
 			self.validation_from_student_admission()
