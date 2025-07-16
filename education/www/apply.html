@@ -1504,7 +1504,7 @@
                         const applicationData = {
                             ...this.studentData,
                             custom_school_id: schoolId,
-                            applicant_type: this.studentType === 'existing' ? 'existing' : 'new',
+                            applicant_type: this.studentType === 'existing' ? 'Existing' : 'New',
                             guardians: guardians,
                             siblings: []
                         };
@@ -1832,7 +1832,7 @@
                         custom_school_id: '',
                         national_id_fin: '',
                         student_email_id: '',
-                        applicant_type: 'new', // 'new' or 'existing'
+                        applicant_type: 'New', // 'New' or 'Existing'
                         address_line_1: '',
                         kebele: '',
                         sub_city: '',
@@ -1880,7 +1880,7 @@
                     this.studentData.custom_school_id = '';
                     this.studentData.national_id_fin = '';
                     this.studentData.student_email_id = '';
-                    this.studentData.applicant_type = 'new';
+                    this.studentData.applicant_type = 'New';
                     this.studentData.image = '';
                     
                     // Reset student type and branch selection for new student
@@ -1975,7 +1975,7 @@
                             this.studentData.custom_school_id = data.message.custom_school_id;
                             this.studentData.national_id_fin = data.message.national_id_fin || '';
                             this.studentData.student_email_id = data.message.student_email_id || '';
-                            this.studentData.applicant_type = 'existing';
+                            this.studentData.applicant_type = 'Existing';
                             this.showNotification('Student found successfully!', 'success');
                         } else {
                             this.existingStudent = null;
