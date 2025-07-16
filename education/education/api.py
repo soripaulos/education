@@ -1514,7 +1514,7 @@ def search_student_by_school_id(school_id):
 		# First try to search in Student table
 		student = frappe.get_all(
 			"Student",
-			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id"],
+			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin"],
 			filters={"custom_school_id": school_id},
 			limit=1
 		)
@@ -1525,7 +1525,7 @@ def search_student_by_school_id(school_id):
 		# If not found in Student table, try Student Applicant table
 		applicant = frappe.get_all(
 			"Student Applicant",
-			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id"],
+			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin", "restricted", "reason_for_restriction"],
 			filters={"custom_school_id": school_id},
 			limit=1
 		)
@@ -1749,6 +1749,14 @@ def create_student_application(application_data):
 		if application_data.get("image"):
 			app_doc.image = application_data.get("image")
 		
+		# Birth certificate image (required for Nursery grades)
+		if application_data.get("birth_certificate_image"):
+			app_doc.birth_certificate_image = application_data.get("birth_certificate_image")
+		
+		# Restriction fields
+		app_doc.restricted = application_data.get("restricted", 0)
+		app_doc.reason_for_restriction = application_data.get("reason_for_restriction")
+		
 		# Guardians
 		guardians = application_data.get("guardians", [])
 		for guardian in guardians:
@@ -1826,6 +1834,16 @@ def update_student_application(application_id, application_data):
 		app_doc.state = application_data.get("state", "Oromia")
 		app_doc.pincode = application_data.get("pincode")
 		app_doc.country = application_data.get("country", "Ethiopia")
+		
+		# Update image fields
+		if application_data.get("image"):
+			app_doc.image = application_data.get("image")
+		if application_data.get("birth_certificate_image"):
+			app_doc.birth_certificate_image = application_data.get("birth_certificate_image")
+		
+		# Update restriction fields
+		app_doc.restricted = application_data.get("restricted", 0)
+		app_doc.reason_for_restriction = application_data.get("reason_for_restriction")
 		
 		# Update guardians
 		app_doc.guardians = []

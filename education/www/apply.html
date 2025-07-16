@@ -687,6 +687,21 @@
                                     ✓ Photo uploaded successfully
                         </div>
                     </div>
+                            <div v-if="isNurseryGrade">
+                                <label class="block text-sm font-medium text-gray-700">Birth Certificate Image *</label>
+                                <input type="file" @change="handleBirthCertificateUpload" accept="image/*" class="input-field" required>
+                                <div v-if="isUploadingBirthCertificate" class="mt-2 text-sm text-blue-600">
+                                    <svg class="animate-spin inline h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Uploading...
+                                </div>
+                                <div v-if="studentData.birth_certificate_image" class="mt-2 text-sm text-green-600">
+                                    ✓ Birth certificate uploaded successfully
+                                </div>
+                                <div class="text-xs text-gray-600 mt-1">Required for Nursery and Nursery AO students</div>
+                            </div>
                         </div>
                     </div>
                     
@@ -738,9 +753,9 @@
                                     <p><strong>Gender:</strong> <span v-text="studentData.gender"></span></p>
                                 </div>
                                 <div>
-                                    
                                     <p><strong>Mobile:</strong> <span v-text="studentData.primary_mobile_number"></span></p>
                                     <p><strong>Program:</strong> <span v-text="selectedProgramName"></span></p>
+                                    <p v-if="isNurseryGrade && studentData.birth_certificate_image"><strong>Birth Certificate:</strong> ✓ Uploaded</p>
                                 </div>
                             </div>
                         </div>
@@ -914,7 +929,7 @@
                     loading: true,
                     isSubmitting: false,
                     guardianType: 'parent',
-                    studentType: 'new',
+                    studentType: 'existing',
                     branchSelection: 'M1',
                     existingStudent: null,
                     existingSchoolId: '',
@@ -1031,6 +1046,7 @@
                     // Loading states
                     isCheckingSchoolId: false,
                     isUploadingFile: false,
+                    isUploadingBirthCertificate: false,
                     isGeneratingPDF: false,
                     
                     // Notifications
@@ -1070,6 +1086,10 @@
                 selectedProgramName() {
                     const program = this.programs.find(p => p.name === this.studentData.program);
                     return program ? program.program_name : this.studentData.program;
+                },
+                
+                isNurseryGrade() {
+                    return this.studentData.program === 'Nursery' || this.studentData.program === 'Nursery AO';
                 },
                 
                 guardianMobileNumbers() {
@@ -1138,13 +1158,20 @@
                                 (this.ethiopianDate && !this.ethiopianDateError) : 
                                 this.studentData.date_of_birth;
                             
-                            return (
+                            const baseValidation = (
                                 this.studentData.first_name && 
                                 this.studentData.last_name && 
                                 dateValid &&
                                 this.studentData.program &&
                                 this.studentData.image
                             );
+                            
+                            // Additional validation for nursery grades
+                            if (this.isNurseryGrade && !this.studentData.birth_certificate_image) {
+                                return false;
+                            }
+                            
+                            return baseValidation;
                         case 5: // Preview
                             return true;
                         default:
@@ -1505,6 +1532,7 @@
                             ...this.studentData,
                             custom_school_id: schoolId,
                             applicant_type: this.studentType === 'existing' ? 'Existing' : 'New',
+                            birth_certificate_image: this.studentData.birth_certificate_image,
                             guardians: guardians,
                             siblings: []
                         };
@@ -1833,6 +1861,7 @@
                         national_id_fin: '',
                         student_email_id: '',
                         applicant_type: 'New', // 'New' or 'Existing'
+                        birth_certificate_image: '',
                         address_line_1: '',
                         kebele: '',
                         sub_city: '',
@@ -1881,6 +1910,7 @@
                     this.studentData.national_id_fin = '';
                     this.studentData.student_email_id = '';
                     this.studentData.applicant_type = 'New';
+                    this.studentData.birth_certificate_image = '';
                     this.studentData.image = '';
                     
                     // Reset student type and branch selection for new student
@@ -1968,6 +1998,16 @@
                         if (data.message) {
                             this.existingStudent = data.message;
                             this.schoolIdError = '';
+                            
+                            // Check if student is restricted
+                            if (data.message.restricted) {
+                                const restrictionReason = data.message.reason_for_restriction || 'Unknown reason';
+                                this.schoolIdError = `Student is restricted: ${restrictionReason}. Cannot proceed with application.`;
+                                this.existingStudent = null;
+                                this.showNotification(`Student is restricted: ${restrictionReason}`, 'error');
+                                return;
+                            }
+                            
                             // Pre-fill student data
                             this.studentData.first_name = data.message.first_name || '';
                             this.studentData.middle_name = data.message.middle_name || '';
@@ -2064,6 +2104,11 @@
                     // Guardian relation validation
                     if (this.guardianType === 'guardian' && !this.guardianData.relation) {
                         errors.guardian_relation = 'Relation to student is required';
+                    }
+                    
+                    // Birth certificate validation for nursery grades
+                    if (this.isNurseryGrade && !this.studentData.birth_certificate_image) {
+                        errors.birth_certificate = 'Birth certificate image is required for Nursery and Nursery AO students';
                     }
                     
                     this.validationErrors = errors;
@@ -2169,6 +2214,25 @@
                         } catch (error) {
                             console.error('Error uploading student image:', error);
                             this.showNotification('Error uploading student photo. Please try again.', 'error', 5000);
+                        }
+                    }
+                },
+                
+                async handleBirthCertificateUpload(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        this.isUploadingBirthCertificate = true;
+                        try {
+                            const uploadedUrl = await this.uploadFile(file);
+                            if (uploadedUrl) {
+                                this.studentData.birth_certificate_image = uploadedUrl;
+                                this.showNotification('Birth certificate uploaded successfully!', 'success', 3000);
+                            }
+                        } catch (error) {
+                            console.error('Error uploading birth certificate:', error);
+                            this.showNotification('Error uploading birth certificate. Please try again.', 'error', 5000);
+                        } finally {
+                            this.isUploadingBirthCertificate = false;
                         }
                     }
                 },
