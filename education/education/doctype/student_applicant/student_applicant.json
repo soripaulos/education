@@ -36,6 +36,7 @@
   "column_break_12",
   "student_mobile_number",
   "national_id_fin",
+  "applicant_type",
   "nationality",
   "relations_tab",
   "section_break_20",
@@ -184,6 +185,14 @@
    "label": "National ID FIN",
    "length": 12,
    "description": "12-digit numeric identifier for official records (optional but preferred)"
+  },
+  {
+   "fieldname": "applicant_type",
+   "fieldtype": "Select",
+   "label": "Applicant Type",
+   "options": "New\nExisting",
+   "default": "New",
+   "description": "Whether this is a new applicant or an existing student"
   },
   {
    "fieldname": "nationality",

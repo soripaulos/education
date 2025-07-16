@@ -1470,9 +1470,10 @@
                             }
                         }
                         
-                        // Generate school ID for new students
+                        // Handle school ID based on student type
                         let schoolId = '';
                         if (this.studentType === 'new') {
+                            // Generate new school ID for new students
                             const schoolIdResponse = await fetch('/api/method/education.education.api.generate_school_id', {
                                 method: 'POST',
                                 headers: {
@@ -1494,12 +1495,16 @@
                             } else {
                                 throw new Error(`Failed to get school ID: ${schoolIdData.exc || 'Unknown error'}`);
                             }
+                        } else if (this.studentType === 'existing' && this.existingStudent) {
+                            // Use existing school ID for existing students
+                            schoolId = this.existingStudent.custom_school_id;
                         }
                         
                         // Prepare application data
                         const applicationData = {
                             ...this.studentData,
                             custom_school_id: schoolId,
+                            applicant_type: this.studentType === 'existing' ? 'existing' : 'new',
                             guardians: guardians,
                             siblings: []
                         };
@@ -1826,6 +1831,8 @@
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
                         national_id_fin: '',
+                        student_email_id: '',
+                        applicant_type: 'new', // 'new' or 'existing'
                         address_line_1: '',
                         kebele: '',
                         sub_city: '',
@@ -1871,6 +1878,9 @@
                     this.studentData.program = '';
                     this.studentData.primary_mobile_number = '';
                     this.studentData.custom_school_id = '';
+                    this.studentData.national_id_fin = '';
+                    this.studentData.student_email_id = '';
+                    this.studentData.applicant_type = 'new';
                     this.studentData.image = '';
                     
                     // Reset student type and branch selection for new student
@@ -1928,7 +1938,7 @@
                 },
                 
                 // Enhanced school ID lookup with loading state
-                async lookupStudent() {
+                                async lookupStudent() {
                     if (!this.existingSchoolId) {
                         this.existingStudent = null;
                         this.schoolIdError = '';
@@ -1963,6 +1973,9 @@
                             this.studentData.middle_name = data.message.middle_name || '';
                             this.studentData.last_name = data.message.last_name || '';
                             this.studentData.custom_school_id = data.message.custom_school_id;
+                            this.studentData.national_id_fin = data.message.national_id_fin || '';
+                            this.studentData.student_email_id = data.message.student_email_id || '';
+                            this.studentData.applicant_type = 'existing';
                             this.showNotification('Student found successfully!', 'success');
                         } else {
                             this.existingStudent = null;

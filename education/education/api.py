@@ -1713,17 +1713,23 @@ def create_student_application(application_data):
 		
 		app_doc.custom_school_id = school_id
 		
-		# Generate student email automatically from school ID
-		# Format: schoolid@m.b.s (e.g., M1/12345/18@m.b.s)
-		# Clean the school ID to make it email-friendly
-		email_prefix = school_id.replace("/", "").replace("\\", "").lower()
-		app_doc.student_email_id = f"{email_prefix}@m.b.s"
+		# Handle student email based on applicant type
+		if application_data.get("applicant_type") == "Existing":
+			# For existing students, use their existing email if available
+			app_doc.student_email_id = application_data.get("student_email_id") or ""
+		else:
+			# Generate student email automatically from school ID for new students
+			# Format: schoolid@m.b.s (e.g., M1/12345/18@m.b.s)
+			# Clean the school ID to make it email-friendly
+			email_prefix = school_id.replace("/", "").replace("\\", "").lower()
+			app_doc.student_email_id = f"{email_prefix}@m.b.s"
 		
 		# Personal details
 		app_doc.date_of_birth = application_data.get("date_of_birth")
 		app_doc.gender = application_data.get("gender")
 		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
 		app_doc.national_id_fin = application_data.get("national_id_fin")
+		app_doc.applicant_type = application_data.get("applicant_type", "New")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
 		# Address - including new fields
@@ -1808,6 +1814,7 @@ def update_student_application(application_id, application_data):
 		app_doc.student_email_id = application_data.get("student_email_id")
 		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
 		app_doc.national_id_fin = application_data.get("national_id_fin")
+		app_doc.applicant_type = application_data.get("applicant_type", "New")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
 		# Update address - including new fields
