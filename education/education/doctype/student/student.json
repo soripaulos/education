@@ -27,6 +27,9 @@
   "column_break_3",
   "student_mobile_number",
   "national_id_fin",
+  "custom_school_id",
+  "restricted",
+  "reason_for_restriction",
   "gender",
   "nationality",
   "address_tab",
@@ -130,6 +133,26 @@
    "label": "National ID FIN",
    "length": 12,
    "description": "12-digit numeric identifier for official records (optional but preferred)"
+  },
+  {
+   "fieldname": "custom_school_id",
+   "fieldtype": "Data",
+   "label": "School ID",
+   "unique": 1
+  },
+  {
+   "fieldname": "restricted",
+   "fieldtype": "Check",
+   "label": "Restricted",
+   "description": "Check if student has restrictions"
+  },
+  {
+   "fieldname": "reason_for_restriction",
+   "fieldtype": "Select",
+   "label": "Reason for Restriction",
+   "options": "School payment not complete\nSuspended/Expelled\nNot promoted to next grade",
+   "depends_on": "eval:doc.restricted == 1",
+   "description": "Reason for student restriction"
   },
   {
    "default": "Today",

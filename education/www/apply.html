@@ -1999,7 +1999,7 @@
                             this.existingStudent = data.message;
                             this.schoolIdError = '';
                             
-                            // Check if student is restricted
+                            // Check if student is restricted (only for Student doctype, not Student Applicant)
                             if (data.message.restricted) {
                                 const restrictionReason = data.message.reason_for_restriction || 'Unknown reason';
                                 this.schoolIdError = `Student is restricted: ${restrictionReason}. Cannot proceed with application.`;

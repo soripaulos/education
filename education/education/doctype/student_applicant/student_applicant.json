@@ -22,8 +22,6 @@
   "student_category",
   "image",
   "birth_certificate_image",
-  "restricted",
-  "reason_for_restriction",
   "column_break_lvby",
   "academic_year",
   "academic_term",
@@ -144,20 +142,6 @@
    "fieldtype": "Attach Image",
    "label": "Birth Certificate Image",
    "description": "Required for Nursery and Nursery AO students"
-  },
-  {
-   "fieldname": "restricted",
-   "fieldtype": "Check",
-   "label": "Restricted",
-   "description": "Check if student has restrictions"
-  },
-  {
-   "fieldname": "reason_for_restriction",
-   "fieldtype": "Select",
-   "label": "Reason for Restriction",
-   "options": "School payment not complete\nSuspended/Expelled\nNot promoted to next grade",
-   "depends_on": "eval:doc.restricted == 1",
-   "description": "Reason for student restriction"
   },
   {
    "fieldname": "section_break_4",
