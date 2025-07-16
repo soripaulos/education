@@ -330,6 +330,18 @@
                         <div v-else-if="guardianType === 'guardian'" class="space-y-6">
                             <div class="bg-green-50 p-6 rounded-lg">
                                 <h3 class="text-lg font-medium text-green-900 mb-4">Guardian Information</h3>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700">Relation to Student *</label>
+                                    <select v-model="guardianData.relation" class="input-field" required>
+                                        <option value="">Select Relation</option>
+                                        <option value="Father">Father</option>
+                                        <option value="Mother">Mother</option>
+                                        <option value="Sibling">Sibling</option>
+                                        <option value="Uncle">Uncle</option>
+                                        <option value="Aunt">Aunt</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
                                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Full Name *</label>
@@ -603,12 +615,29 @@
                                 </div>
                             </div>
                             <div v-if="calendarType === 'ethiopian'" class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Ethiopian Date (DD/MM/YYYY) *</label>
-                                <input v-model="ethiopianDate" type="text" class="input-field" placeholder="e.g., 15/03/2016" @blur="convertEthiopianToGregorian" required>
-                                <div class="text-xs text-gray-600 mt-1">
-                                    <strong>Format:</strong> DD/MM/YYYY | 
-                                    <strong>Months:</strong> 1-12 (30 days each), 13 (Pagume, 5-6 days) | 
-                                    <strong>Example:</strong> 15/03/2016
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Ethiopian Date of Birth *</label>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Year</label>
+                                        <select v-model="ethiopianYear" @change="updateEthiopianDate" class="input-field">
+                                            <option value="">Select Year</option>
+                                            <option v-for="year in ethiopianYears" :key="year" :value="year" v-text="year"></option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Month</label>
+                                        <select v-model="ethiopianMonth" @change="updateEthiopianDate" class="input-field">
+                                            <option value="">Select Month</option>
+                                            <option v-for="month in ethiopianMonths" :key="month.value" :value="month.value" v-text="month.name"></option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Day</label>
+                                        <select v-model="ethiopianDay" @change="updateEthiopianDate" class="input-field">
+                                            <option value="">Select Day</option>
+                                            <option v-for="day in ethiopianDays" :key="day" :value="day" v-text="day"></option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div v-if="ethiopianDateError" class="error-message" v-text="ethiopianDateError"></div>
                                 <div v-if="convertedDate" class="text-sm text-green-600 mt-2 font-medium">
@@ -630,6 +659,12 @@
                                     <option value="">Select Primary Mobile Number</option>
                                     <option v-for="number in guardianMobileNumbers" :key="number.number" :value="number.number" v-text="number.label"></option>
                                 </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">National ID FIN (Optional but Preferred)</label>
+                                <input v-model="studentData.national_id_fin" type="text" class="input-field" placeholder="12-digit numeric ID" maxlength="12" pattern="[0-9]{12}" @blur="validateNationalId">
+                                <div class="text-xs text-gray-600 mt-1">12-digit numeric identifier for official records</div>
+                                <div v-if="nationalIdError" class="error-message" v-text="nationalIdError"></div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Grade *</label>
@@ -917,7 +952,8 @@
                         occupation: '',
                         work_address: '',
                         education_other: '',
-                        occupation_other: ''
+                        occupation_other: '',
+                        relation: ''
                     },
                     studentData: {
                         first_name: '',
@@ -999,10 +1035,34 @@
                     
                     // Notifications
                     notifications: [],
-                    calendarType: 'gregorian',
+                    
+                    // Calendar functionality
+                    calendarType: 'ethiopian',
                     ethiopianDate: '',
                     ethiopianDateError: '',
-                    convertedDate: ''
+                    convertedDate: '',
+                    ethiopianYear: '',
+                    ethiopianMonth: '',
+                    ethiopianDay: '',
+                    
+                    // Ethiopian calendar data
+                    ethiopianMonths: [
+                        { value: '1', name: 'Meskerem' },
+                        { value: '2', name: 'Tikimt' },
+                        { value: '3', name: 'Hidar' },
+                        { value: '4', name: 'Tahsas' },
+                        { value: '5', name: 'Tir' },
+                        { value: '6', name: 'Yekatit' },
+                        { value: '7', name: 'Megabit' },
+                        { value: '8', name: 'Miyazya' },
+                        { value: '9', name: 'Ginbot' },
+                        { value: '10', name: 'Sene' },
+                        { value: '11', name: 'Hamle' },
+                        { value: '12', name: 'Nehasie' },
+                        { value: '13', name: 'Pagume' }
+                    ],
+                    ethiopianYears: [],
+                    ethiopianDays: []
                 }
             },
             
@@ -1101,6 +1161,13 @@
             },
             
             async mounted() {
+                // Ethiopian years: 1980-2016 EC (customize as needed)
+                const currentYear = new Date().getFullYear() - 8; // Approximate EC
+                this.ethiopianYears = [];
+                for (let y = currentYear; y >= 1980; y--) {
+                    this.ethiopianYears.push(y);
+                }
+                this.updateEthiopianDays();
                 await this.loadInitialData();
                 this.loading = false;
             },
@@ -1743,7 +1810,8 @@
                         occupation: '',
                         work_address: '',
                         education_other: '',
-                        occupation_other: ''
+                        occupation_other: '',
+                        relation: ''
                     };
                     
                     this.studentData = {
@@ -1757,6 +1825,7 @@
                         nationality: 'Ethiopian',
                         academic_year: '2018 E.C.',
                         custom_school_id: '',
+                        national_id_fin: '',
                         address_line_1: '',
                         kebele: '',
                         sub_city: '',
@@ -1772,10 +1841,16 @@
                     this.availableKebeles = []; // Reset kebele options
                     
                     // Reset calendar related fields
-                    this.calendarType = 'gregorian';
+                    this.calendarType = 'ethiopian';
                     this.ethiopianDate = '';
                     this.ethiopianDateError = '';
                     this.convertedDate = '';
+                    this.ethiopianYear = '';
+                    this.ethiopianMonth = '';
+                    this.ethiopianDay = '';
+                    
+                    // Reset other fields
+                    this.nationalIdError = '';
                 },
                 
                 addAnotherChild() {
@@ -1809,10 +1884,16 @@
                     this.validationErrors = {};
                     
                     // Reset calendar related fields
-                    this.calendarType = 'gregorian';
+                    this.calendarType = 'ethiopian';
                     this.ethiopianDate = '';
                     this.ethiopianDateError = '';
                     this.convertedDate = '';
+                    this.ethiopianYear = '';
+                    this.ethiopianMonth = '';
+                    this.ethiopianDay = '';
+                    
+                    // Reset other fields
+                    this.nationalIdError = '';
                     
                     this.showNotification('Ready to add another child. Guardian and address information preserved.', 'success', 3000);
                 },
@@ -1959,23 +2040,13 @@
                             errors.student_dob = 'Student\'s date of birth is required';
                         }
                     }
-
-                    if (!this.studentData.program) {
-                        errors.student_program = 'Grade/Program is required';
+                    // National ID FIN validation (optional but must be 12 digits if present)
+                    if (this.studentData.national_id_fin && !/^[0-9]{12}$/.test(this.studentData.national_id_fin)) {
+                        errors.national_id_fin = 'National ID FIN must be a 12-digit number';
                     }
-                    if (!this.studentData.image) {
-                        errors.student_image = 'Student photo is required';
-                    }
-                    
-                    // Address validation
-                    if (!this.studentData.address_line_1) {
-                        errors.address = 'Home address is required';
-                    }
-                    if (!this.studentData.sub_city) {
-                        errors.sub_city = 'Sub-city is required';
-                    }
-                    if (!this.studentData.kebele) {
-                        errors.kebele = 'Kebele is required';
+                    // Guardian relation validation
+                    if (this.guardianType === 'guardian' && !this.guardianData.relation) {
+                        errors.guardian_relation = 'Relation to student is required';
                     }
                     
                     this.validationErrors = errors;
@@ -2191,8 +2262,44 @@
                 
                 isLeapYear(year) {
                     return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-                }
-
+                },
+                updateEthiopianDays() {
+                    // Set days for selected month
+                    let days = 30;
+                    if (this.ethiopianMonth === '13') {
+                        // Pagume: 5 or 6 days
+                        days = this.isLeapYear(parseInt(this.ethiopianYear)) ? 6 : 5;
+                    } else if (this.ethiopianMonth) {
+                        days = 30;
+                    }
+                    this.ethiopianDays = [];
+                    for (let d = 1; d <= days; d++) {
+                        this.ethiopianDays.push(d);
+                    }
+                },
+                updateEthiopianDate() {
+                    this.updateEthiopianDays();
+                    if (this.ethiopianYear && this.ethiopianMonth && this.ethiopianDay) {
+                        this.ethiopianDate = `${this.ethiopianDay}/${this.ethiopianMonth}/${this.ethiopianYear}`;
+                        this.convertEthiopianToGregorian();
+                    } else {
+                        this.ethiopianDate = '';
+                        this.convertedDate = '';
+                        this.studentData.date_of_birth = '';
+                    }
+                },
+                validateNationalId() {
+                    if (!this.studentData.national_id_fin) {
+                        this.nationalIdError = '';
+                        return;
+                    }
+                    const val = this.studentData.national_id_fin;
+                    if (!/^[0-9]{12}$/.test(val)) {
+                        this.nationalIdError = 'National ID FIN must be a 12-digit number';
+                    } else {
+                        this.nationalIdError = '';
+                    }
+                },
             }
         }).mount('#app');
     </script>
