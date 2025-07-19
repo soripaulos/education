@@ -193,9 +193,10 @@ after_install = "education.install.after_install"
 # }
 
 # Guest permissions for file uploads in student applications
-has_permission = {
-	"File": "education.education.api.has_file_permission",
-}
+# Removed custom file permission handler as guest file upload is now enabled in desk settings
+# has_permission = {
+# 	"File": "education.education.api.has_file_permission",
+# }
 
 # DocType Class
 # ---------------

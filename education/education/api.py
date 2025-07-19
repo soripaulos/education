@@ -2419,8 +2419,7 @@ def upload_file_guest():
 		from frappe.utils.file_manager import save_file
 		import uuid
 		
-		# Temporarily set session user to Administrator for file operations
-		frappe.set_user("Administrator")
+		# No need to set user to Administrator since guest file upload is enabled in desk settings
 		
 		if 'file' not in frappe.request.files:
 			frappe.throw(_("No file was uploaded"))
@@ -2474,9 +2473,5 @@ def upload_file_guest():
 			user_error = "File upload failed. Please try again."
 		
 		frappe.throw(_(user_error))
-	
-	finally:
-		# Reset user session
-		frappe.set_user("Guest")
 
 
