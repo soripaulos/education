@@ -1885,6 +1885,14 @@
                     this.ethiopianMonth = '';
                     this.ethiopianDay = '';
                     
+                    // Properly reinitialize Ethiopian calendar data
+                    const currentYear = new Date().getFullYear() - 8; // Approximate EC
+                    this.ethiopianYears = [];
+                    for (let y = currentYear; y >= 1980; y--) {
+                        this.ethiopianYears.push(y);
+                    }
+                    this.updateEthiopianDays();
+                    
                     // Reset other fields
                     this.nationalIdError = '';
                 },
@@ -1935,9 +1943,13 @@
                     // Reset other fields
                     this.nationalIdError = '';
                     
-                    // Initialize Ethiopian calendar data
+                    // Properly reinitialize Ethiopian calendar data
+                    const currentYear = new Date().getFullYear() - 8; // Approximate EC
                     this.ethiopianYears = [];
-                    this.ethiopianDays = [];
+                    for (let y = currentYear; y >= 1980; y--) {
+                        this.ethiopianYears.push(y);
+                    }
+                    this.updateEthiopianDays();
                     
                     this.showNotification('Ready to add another child. Guardian and address information preserved.', 'success', 3000);
                 },
