@@ -1,0 +1,576 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Student Result Entry") }}{% endblock %}
+
+{% block page_content %}
+<div class="wubet-page container">
+	<div class="intro-card panel panel-default">
+		<div class="panel-heading">
+			<h3 class="panel-title">{{ _("Student Term Subject Results") }}</h3>
+		</div>
+		<div class="panel-body">
+			<p class="text-muted">
+				{{ _("Use this workspace to log scores for each student and automatically create Student Term Subject Result documents.") }}
+			</p>
+			<ul class="help-list">
+				<li>{{ _("Start by selecting a Student Group to load the available students.") }}</li>
+				<li>{{ _("Log each score to the queue, review the list, and submit when you are ready.") }}</li>
+				<li>{{ _("Exam options automatically set the maximum score: First/Second Test (15), Mid Exam (30) and Final Exam (50).") }}</li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="panel panel-default">
+		<div class="panel-heading">
+			<h4 class="panel-title">{{ _("Score Entry") }}</h4>
+		</div>
+		<div class="panel-body">
+			<form id="result-entry-form">
+				<div id="form-feedback" class="alert" style="display: none;"></div>
+
+				<div class="row">
+					<div class="col-md-4 form-group">
+						<label for="student-group">{{ _("Student Group") }}</label>
+						<select class="form-control" id="student-group" required>
+							<option value="">{{ _("Select Student Group") }}</option>
+						</select>
+						<small id="student-loading" class="text-muted" style="display: none;">{{ _("Loading students...") }}</small>
+					</div>
+					<div class="col-md-4 form-group">
+						<label for="student">{{ _("Student") }}</label>
+						<select class="form-control" id="student" disabled required>
+							<option value="">{{ _("Select Student") }}</option>
+						</select>
+					</div>
+					<div class="col-md-4 form-group">
+						<label for="student-name">{{ _("Student Name") }}</label>
+						<input type="text" class="form-control" id="student-name" placeholder="{{ _('Auto-filled after selecting a student') }}" readonly>
+					</div>
+				</div>
+
+				<div class="row">
+					<div class="col-md-4 form-group">
+						<label for="grade">{{ _("Grade (Program)") }}</label>
+						<select class="form-control" id="grade" required>
+							<option value="">{{ _("Select Grade / Program") }}</option>
+						</select>
+					</div>
+					<div class="col-md-4 form-group">
+						<label for="subject">{{ _("Subject") }}</label>
+						<select class="form-control" id="subject" required>
+							<option value="">{{ _("Select Subject") }}</option>
+						</select>
+					</div>
+					<div class="col-md-4 form-group">
+						<label for="academic-year">{{ _("Academic Year") }}</label>
+						<input type="text" class="form-control" id="academic-year">
+					</div>
+				</div>
+
+				<div class="row">
+					<div class="col-md-4 form-group">
+						<label for="semester">{{ _("Semester") }}</label>
+						<select class="form-control" id="semester" required></select>
+					</div>
+					<div class="col-md-4 form-group">
+						<label for="exam">{{ _("Exam") }}</label>
+						<select class="form-control" id="exam" required>
+							<option value="">{{ _("Select Exam") }}</option>
+						</select>
+					</div>
+					<div class="col-md-2 form-group">
+						<label for="max-score">{{ _("Maximum Score") }}</label>
+						<input type="number" class="form-control" id="max-score" readonly>
+					</div>
+					<div class="col-md-2 form-group">
+						<label for="score">{{ _("Score") }}</label>
+						<input type="number" class="form-control" id="score" min="0" step="0.01" required>
+					</div>
+				</div>
+
+				<div class="form-actions">
+					<button type="button" class="btn btn-default" id="clear-form-btn">{{ _("Reset Form") }}</button>
+					<button type="button" class="btn btn-primary" id="log-score-btn">
+						{{ _("Log Score") }}
+					</button>
+					<button type="button" class="btn btn-success pull-right" id="submit-scores-btn" disabled>
+						{{ _("Submit Logged Scores") }}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
+	<div class="panel panel-default">
+		<div class="panel-heading">
+			<h4 class="panel-title">{{ _("Queued Scores") }}</h4>
+		</div>
+		<div class="panel-body table-responsive">
+			<table class="table table-bordered table-condensed">
+				<thead>
+					<tr>
+						<th>{{ _("Academic Year") }}</th>
+						<th>{{ _("Semester") }}</th>
+						<th>{{ _("Student Group") }}</th>
+						<th>{{ _("Student") }}</th>
+						<th>{{ _("Student Name") }}</th>
+						<th>{{ _("Grade") }}</th>
+						<th>{{ _("Subject") }}</th>
+						<th>{{ _("Exam") }}</th>
+						<th class="text-right">{{ _("Score") }}</th>
+						<th class="text-right">{{ _("Max Score") }}</th>
+						<th>{{ _("Actions") }}</th>
+					</tr>
+				</thead>
+				<tbody id="logged-entries-body">
+					<tr id="no-entries-row">
+						<td colspan="11" class="text-center text-muted">
+							{{ _("No scores queued yet. Log a score to get started.") }}
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<div id="submission-summary" style="display: none;"></div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block style %}
+<style>
+	.wubet-page .panel {
+		box-shadow: none;
+	}
+	.wubet-page .help-list {
+		margin-bottom: 0;
+	}
+	.wubet-page .form-actions {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+		margin-top: 15px;
+	}
+	.wubet-page .form-actions .btn {
+		min-width: 140px;
+	}
+	.wubet-page .table td {
+		vertical-align: middle;
+	}
+	.wubet-page .remove-entry-btn {
+		min-width: 80px;
+	}
+	#submission-summary .alert {
+		margin-bottom: 0;
+	}
+</style>
+{% endblock %}
+
+{% block script %}
+<script>
+	const wubetBoot = {{ wubet_boot | safe }};
+	const state = {
+		loggedEntries: []
+	};
+
+	const elements = {};
+	const examScoreMap = {};
+
+	document.addEventListener("DOMContentLoaded", () => {
+		cacheElements();
+		populateStaticSelects();
+		registerListeners();
+		setDefaultValues();
+	});
+
+	function cacheElements() {
+		elements.form = document.getElementById("result-entry-form");
+		elements.feedback = document.getElementById("form-feedback");
+		elements.studentGroup = document.getElementById("student-group");
+		elements.student = document.getElementById("student");
+		elements.studentName = document.getElementById("student-name");
+		elements.grade = document.getElementById("grade");
+		elements.subject = document.getElementById("subject");
+		elements.academicYear = document.getElementById("academic-year");
+		elements.semester = document.getElementById("semester");
+		elements.exam = document.getElementById("exam");
+		elements.maxScore = document.getElementById("max-score");
+		elements.score = document.getElementById("score");
+		elements.logButton = document.getElementById("log-score-btn");
+		elements.submitButton = document.getElementById("submit-scores-btn");
+		elements.clearButton = document.getElementById("clear-form-btn");
+		elements.entriesBody = document.getElementById("logged-entries-body");
+		elements.noEntriesRow = document.getElementById("no-entries-row");
+		elements.studentLoading = document.getElementById("student-loading");
+		elements.summary = document.getElementById("submission-summary");
+	}
+
+	function populateStaticSelects() {
+		(wubetBoot.exam_options || []).forEach(option => {
+			examScoreMap[option.value] = option.max_score;
+			addOption(elements.exam, option.value, option.label);
+		});
+
+		addOption(elements.semester, "", __("Select Semester"));
+		(wubetBoot.semesters || []).forEach(option => {
+			addOption(elements.semester, option.value, option.label);
+		});
+
+		(wubetBoot.grades || []).forEach(grade => {
+			const label = grade.program_name || grade.name;
+			addOption(elements.grade, grade.name, label);
+		});
+
+		(wubetBoot.subjects || []).forEach(subject => {
+			const label = subject.course_name || subject.name;
+			addOption(elements.subject, subject.name, label);
+		});
+
+		(wubetBoot.student_groups || []).forEach(group => {
+			const label = group.student_group_name || group.name;
+			const option = addOption(elements.studentGroup, group.name, label);
+			option.dataset.program = group.program || "";
+		});
+	}
+
+	function registerListeners() {
+		elements.form.addEventListener("submit", evt => evt.preventDefault());
+		elements.studentGroup.addEventListener("change", handleStudentGroupChange);
+		elements.student.addEventListener("change", handleStudentChange);
+		elements.exam.addEventListener("change", handleExamChange);
+		elements.score.addEventListener("input", handleScoreInput);
+		elements.logButton.addEventListener("click", logScore);
+		elements.submitButton.addEventListener("click", submitLoggedScores);
+		elements.clearButton.addEventListener("click", resetForm);
+	}
+
+	function setDefaultValues() {
+		if (wubetBoot.default_academic_year) {
+			elements.academicYear.value = wubetBoot.default_academic_year;
+		}
+		if (wubetBoot.semesters && wubetBoot.semesters.length) {
+			elements.semester.value = wubetBoot.semesters[0].value;
+		}
+	}
+
+	function addOption(select, value, label) {
+		const option = document.createElement("option");
+		option.value = value;
+		option.textContent = label;
+		select.appendChild(option);
+		return option;
+	}
+
+	function handleStudentGroupChange(event) {
+		const selectedOption = event.target.selectedOptions[0];
+		const program = selectedOption ? selectedOption.dataset.program : "";
+		if (program) {
+			elements.grade.value = program;
+		}
+		loadStudentsForGroup(event.target.value);
+	}
+
+	function handleStudentChange(event) {
+		const selectedOption = event.target.selectedOptions[0];
+		elements.studentName.value = selectedOption ? selectedOption.dataset.studentName || "" : "";
+	}
+
+	function handleExamChange(event) {
+		const exam = event.target.value;
+		elements.maxScore.value = exam ? (examScoreMap[exam] || "") : "";
+		handleScoreInput();
+	}
+
+	function handleScoreInput() {
+		const max = parseFloat(elements.maxScore.value || "0");
+		const score = parseFloat(elements.score.value || "0");
+		if (max && score > max) {
+			elements.score.setCustomValidity("Score cannot exceed maximum score.");
+		} else {
+			elements.score.setCustomValidity("");
+		}
+	}
+
+	function resetForm() {
+		elements.form.reset();
+		setDefaultValues();
+		elements.student.innerHTML = `<option value="">${__("Select Student")}</option>`;
+		elements.student.disabled = true;
+		elements.studentName.value = "";
+		elements.maxScore.value = "";
+		clearFeedback();
+	}
+
+	function loadStudentsForGroup(studentGroup) {
+		elements.student.innerHTML = `<option value="">${__("Select Student")}</option>`;
+		elements.student.disabled = true;
+		elements.studentName.value = "";
+
+		if (!studentGroup) {
+			return;
+		}
+
+		elements.studentLoading.style.display = "inline";
+		const request = frappe.call({
+			method: "education.education.api.get_students_for_group",
+			args: { student_group: studentGroup },
+			callback: response => {
+				const students = (response && response.message) || [];
+				students.forEach(student => {
+					const label = `${student.student} - ${student.student_name}`;
+					const option = addOption(elements.student, student.student, label);
+					option.dataset.studentName = student.student_name || "";
+				});
+				elements.student.disabled = students.length === 0;
+				if (students.length === 0) {
+					showFeedback(__("No students found for the selected group."), "warning");
+				} else {
+					clearFeedback();
+				}
+				elements.studentLoading.style.display = "none";
+			},
+			error: () => {
+				showFeedback(__("Unable to load students. Please try again."), "danger");
+				elements.studentLoading.style.display = "none";
+			}
+		});
+	}
+
+	function validateEntry() {
+		const errors = [];
+		const entry = {
+			student_group: elements.studentGroup.value,
+			student: elements.student.value,
+			student_name: elements.studentName.value,
+			grade: elements.grade.value,
+			subject: elements.subject.value,
+			academic_year: elements.academicYear.value.trim(),
+			semester: elements.semester.value,
+			exam: elements.exam.value,
+			max_score: parseFloat(elements.maxScore.value || "0"),
+			score: parseFloat(elements.score.value || "0")
+		};
+
+		if (!entry.student_group) errors.push(__("Student Group is required."));
+		if (!entry.student) errors.push(__("Student is required."));
+		if (!entry.grade) errors.push(__("Grade / Program is required."));
+		if (!entry.subject) errors.push(__("Subject is required."));
+		if (!entry.academic_year) errors.push(__("Academic Year is required."));
+		if (!entry.semester) errors.push(__("Semester is required."));
+		if (!entry.exam) errors.push(__("Exam is required."));
+		if (!entry.max_score) errors.push(__("Maximum Score is required. Select an exam to set it automatically."));
+		if (!entry.score && entry.score !== 0) {
+			errors.push(__("Score is required."));
+		} else if (entry.max_score && entry.score > entry.max_score) {
+			errors.push(__("Score cannot exceed Maximum Score."));
+		}
+
+		if (errors.length) {
+			showFeedback(errors.join(" "), "danger");
+			return null;
+		}
+
+		entry.section = entry.student_group;
+		return entry;
+	}
+
+	function logScore() {
+		const entry = validateEntry();
+		if (!entry) {
+			return;
+		}
+
+		const displayEntry = {
+			...entry,
+			student_label: elements.student.selectedOptions[0]?.textContent || entry.student,
+			subject_label: elements.subject.selectedOptions[0]?.textContent || entry.subject,
+			grade_label: elements.grade.selectedOptions[0]?.textContent || entry.grade
+		};
+
+		state.loggedEntries.push(displayEntry);
+		renderEntries();
+		showFeedback(__("Score added to the queue. Remember to submit logged scores."), "success");
+		enableSubmit();
+		elements.score.value = "";
+	}
+
+	function renderEntries() {
+		elements.entriesBody.innerHTML = "";
+		if (!state.loggedEntries.length) {
+			elements.entriesBody.appendChild(elements.noEntriesRow);
+			elements.noEntriesRow.style.display = "table-row";
+			disableSubmit();
+			elements.summary.style.display = "none";
+			elements.summary.innerHTML = "";
+			return;
+		}
+
+		elements.noEntriesRow.style.display = "none";
+		state.loggedEntries.forEach((entry, index) => {
+			const row = document.createElement("tr");
+			row.innerHTML = `
+				<td>${entry.academic_year}</td>
+				<td>${entry.semester}</td>
+				<td>${entry.student_group}</td>
+				<td>${entry.student}</td>
+				<td>${entry.student_name || ""}</td>
+				<td>${entry.grade_label || entry.grade}</td>
+				<td>${entry.subject_label || entry.subject}</td>
+				<td>${entry.exam}</td>
+				<td class="text-right">${formatNumber(entry.score)}</td>
+				<td class="text-right">${formatNumber(entry.max_score)}</td>
+				<td class="text-center">
+					<button type="button" class="btn btn-xs btn-danger remove-entry-btn" data-index="${index}">
+						${__("Remove")}
+					</button>
+				</td>
+			`;
+			row.querySelector(".remove-entry-btn").addEventListener("click", () => removeEntry(index));
+			elements.entriesBody.appendChild(row);
+		});
+	}
+
+	function removeEntry(index) {
+		state.loggedEntries.splice(index, 1);
+		renderEntries();
+		if (state.loggedEntries.length) {
+			showFeedback(__("Entry removed."), "info");
+		} else {
+			clearFeedback();
+		}
+	}
+
+	function enableSubmit() {
+		elements.submitButton.disabled = state.loggedEntries.length === 0;
+	}
+
+	function disableSubmit() {
+		elements.submitButton.disabled = true;
+	}
+
+	function formatNumber(number) {
+		return (Number(number || 0)).toFixed(2);
+	}
+
+	async function submitLoggedScores() {
+		if (!state.loggedEntries.length) {
+			showFeedback(__("No scores to submit."), "warning");
+			return;
+		}
+
+		disableButtons(true);
+		showFeedback(__("Submitting scores..."), "info");
+
+		const summary = {
+			success: [],
+			failed: []
+		};
+
+		for (const entry of state.loggedEntries) {
+			try {
+				await callCreateResult(entry);
+				summary.success.push(entry);
+			} catch (error) {
+				summary.failed.push({ entry, error: parseError(error) });
+			}
+		}
+
+		disableButtons(false);
+		handleSubmissionSummary(summary);
+	}
+
+	function disableButtons(isDisabled) {
+		elements.logButton.disabled = isDisabled;
+		elements.submitButton.disabled = isDisabled;
+		elements.clearButton.disabled = isDisabled;
+	}
+
+	function callCreateResult(entry) {
+		return new Promise((resolve, reject) => {
+			frappe.call({
+				method: "education.education.api.create_and_submit_term_subject_result",
+				args: { data: JSON.stringify(entry) },
+				callback: response => {
+					if (response && response.exc) {
+						reject(response.exc);
+					} else {
+						resolve(response.message);
+					}
+				},
+				error: error => reject(error)
+			});
+		});
+	}
+
+	function parseError(error) {
+		if (!error) return __("Unexpected error");
+		if (typeof error === "string") return error;
+		if (error._server_messages) {
+			try {
+				const messages = JSON.parse(error._server_messages);
+				return messages.map(msg => {
+					try {
+						return JSON.parse(msg).message || msg;
+					} catch (e) {
+						return msg;
+					}
+				}).join(" ");
+			} catch (e) {
+				return error._server_messages;
+			}
+		}
+		if (error.message) return error.message;
+		return __("Failed to submit entry");
+	}
+
+	function handleSubmissionSummary(summary) {
+		let summaryHtml = "";
+		if (summary.success.length) {
+			const count = summary.success.length;
+			summaryHtml += `<div class="alert alert-success">${__("Submitted {0} score(s) successfully.", [count])}</div>`;
+		}
+		if (summary.failed.length) {
+			const details = summary.failed.map(item => {
+				const student = item.entry.student_name || item.entry.student;
+				return `<li><strong>${escapeHtml(student)}</strong>: ${escapeHtml(item.error)}</li>`;
+			}).join("");
+			summaryHtml += `
+				<div class="alert alert-warning">
+					<p>${__("Some submissions failed:")}</p>
+					<ul>${details}</ul>
+				</div>`;
+		}
+
+		elements.summary.innerHTML = summaryHtml;
+		elements.summary.style.display = summaryHtml ? "block" : "none";
+
+		if (summary.failed.length === 0) {
+			state.loggedEntries = [];
+			renderEntries();
+			showFeedback(__("All scores were submitted successfully."), "success");
+		} else if (summary.success.length) {
+			state.loggedEntries = summary.failed.map(item => item.entry);
+			renderEntries();
+			showFeedback(__("Some scores failed to submit. Please review the messages below."), "warning");
+		} else {
+			showFeedback(__("Unable to submit any of the queued scores."), "danger");
+		}
+	}
+
+	function showFeedback(message, level) {
+		elements.feedback.className = `alert alert-${level}`;
+		elements.feedback.textContent = message;
+		elements.feedback.style.display = "block";
+	}
+
+	function clearFeedback() {
+		elements.feedback.style.display = "none";
+		elements.feedback.textContent = "";
+	}
+
+	function escapeHtml(value) {
+		const div = document.createElement("div");
+		div.textContent = value || "";
+		return div.innerHTML;
+	}
+</script>
+{% endblock %}
