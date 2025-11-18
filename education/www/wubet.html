@@ -952,17 +952,23 @@
 			disableButtons(true);
 			showFeedback(TEXT.submitting, "info");
 
-			const summary = { success: [], failed: [] };
-			logDebug("Submitting queued scores", state.loggedEntries);
+			const payloadEntries = state.loggedEntries.map(entry => {
+				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+				return {
+					...entry,
+					name: entry.name || state.resultDocs[key] || null
+				};
+			});
 
-			for (const entry of state.loggedEntries) {
-				try {
-					await callCreateResult(entry);
-					summary.success.push(entry);
-				} catch (error) {
-					logDebug("Failed to save score", { entry, error: error.message || error });
-					summary.failed.push({ entry, error: error.message || error });
-				}
+			logDebug("Submitting queued scores", payloadEntries);
+
+			let summary = { success: [], failed: [] };
+			try {
+				const response = await callCreateResult(payloadEntries);
+				summary = response || summary;
+			} catch (error) {
+				logDebug("Failed to save batch", { error: error.message || error });
+				summary.failed = payloadEntries.map(entry => ({ entry, error: error.message || error }));
 			}
 
 			disableButtons(false);
@@ -975,46 +981,29 @@
 			elements.clearButton.disabled = isDisabled;
 		}
 
-		async function callCreateResult(entry) {
-			const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
-			const payload = {
-				name: entry.name || state.resultDocs[key],
-				naming_series: "STSR-.YYYY.-",
-				student: entry.student,
-				student_name: entry.student_name,
-				academic_year: entry.academic_year,
-				semester: entry.semester,
-				subject: entry.subject,
-				student_group: entry.student_group,
-				grade: entry.grade,
-				exam: entry.exam,
-				score: entry.score,
-				max_score: entry.max_score,
-				examiner: entry.examiner || "",
-				submit: 0
-			};
-
-			logDebug("Saving score via method", { entry, payload });
-
+		async function callCreateResult(entries) {
 			const response = await apiCall(
-				"/api/method/education.education.api.create_student_term_subject_result",
-				{ result_data: payload },
+				"/api/method/education.education.api.save_student_term_subject_results",
+				{ entries: JSON.stringify(entries) },
 				{ method: "POST" }
 			);
 
-			logDebug("Method response", { response });
+			logDebug("Method response", response);
 
-			const docName = response && response.name;
-			if (docName) {
-				state.resultDocs[key] = docName;
-				entry.name = docName;
+			(response.success || []).forEach(record => {
+				const entry = entries.find(e => e.student === record.student && e.exam === record.exam && e.subject === record.subject);
+				if (!entry) return;
+				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+				state.resultDocs[key] = record.name;
+				entry.name = record.name;
 				state.studentScores[entry.student] = {
 					student: entry.student,
 					student_name: entry.student_name,
 					score: entry.score,
-					docname: docName
+					docname: record.name
 				};
-			}
+			});
+
 			return response;
 		}
 

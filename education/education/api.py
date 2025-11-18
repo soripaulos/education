@@ -1342,6 +1342,37 @@ def create_student_term_subject_result(result_data):
 
 
 @frappe.whitelist(allow_guest=True)
+def save_student_term_subject_results(entries):
+	try:
+		entries = frappe.parse_json(entries)
+		if not isinstance(entries, list):
+			entries = [entries]
+
+		success, failed = [], []
+
+		for entry in entries:
+			try:
+				doc = _save_single_student_result(entry)
+				success.append(
+					{
+						"name": doc.name,
+						"student": doc.student,
+						"subject": doc.subject,
+						"exam": doc.exam,
+						"score": doc.score,
+					}
+				)
+			except Exception as err:
+				failed.append({"entry": entry, "error": str(err)})
+
+		frappe.db.commit()
+		return {"success": success, "failed": failed}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Bulk Student Term Subject Result Save Error")
+		frappe.throw(str(e))
+
+
+@frappe.whitelist(allow_guest=True)
 def get_student_group_scores(student_group, academic_year, semester, subject, exam):
 	filters = {
 		"student_group": student_group,
@@ -1357,6 +1388,52 @@ def get_student_group_scores(student_group, academic_year, semester, subject, ex
 		fields=["name", "student", "student_name", "score", "max_score"],
 		order_by="student asc",
 	)
+
+
+def _save_single_student_result(data):
+	required_fields = [
+		"student",
+		"academic_year",
+		"semester",
+		"subject",
+		"student_group",
+		"grade",
+		"exam",
+		"score",
+		"max_score",
+	]
+
+	missing = [field for field in required_fields if data.get(field) in (None, "")]
+	if missing:
+		raise frappe.ValidationError(_("Missing values: {0}").format(", ".join(missing)))
+
+	doc_name = data.get("name")
+	if doc_name:
+		doc = frappe.get_doc("Student Term Subject Result", doc_name)
+		if doc.docstatus != 0:
+			raise frappe.ValidationError(_("Cannot update submitted Student Term Subject Result: {0}").format(doc_name))
+	else:
+		doc = frappe.new_doc("Student Term Subject Result")
+		doc.naming_series = data.get("naming_series") or "STSR-.YYYY.-"
+
+	doc.student = data.get("student")
+	doc.student_name = data.get("student_name")
+	doc.academic_year = data.get("academic_year")
+	doc.semester = data.get("semester")
+	doc.subject = data.get("subject")
+	doc.student_group = data.get("student_group") or data.get("section")
+	doc.grade = data.get("grade")
+	doc.exam = data.get("exam")
+	doc.score = flt(data.get("score"))
+	doc.max_score = flt(data.get("max_score"))
+	doc.examiner = data.get("examiner")
+
+	if doc.is_new():
+		doc.insert(ignore_permissions=True)
+	else:
+		doc.save(ignore_permissions=True)
+
+	return doc
 
 
 @frappe.whitelist()
