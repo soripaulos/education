@@ -495,7 +495,8 @@
 			try {
 				const students = await apiCall(
 					"/api/method/education.education.api.get_students_for_group",
-					{ student_group: studentGroup }
+					{ student_group: studentGroup },
+					{ method: "GET" }
 				);
 				state.students = students || [];
 				state.studentScores = {};
@@ -814,21 +815,37 @@
 			}
 		}
 
-		async function apiCall(endpoint, payload) {
+		async function apiCall(endpoint, payload, options) {
+			const method = (options && options.method) || "POST";
+			let url = endpoint;
+			let body;
+
+			if (method === "GET") {
+				const params = new URLSearchParams(payload || {}).toString();
+				if (params) {
+					url += (url.includes("?") ? "&" : "?") + params;
+				}
+			} else {
+				body = JSON.stringify(payload || {});
+			}
+
 			const headers = {
-				"Content-Type": "application/json",
 				"Accept": "application/json",
 				"X-Requested-With": "XMLHttpRequest"
 			};
-			if (csrfToken) {
-				headers["X-Frappe-CSRF-Token"] = csrfToken;
+
+			if (method !== "GET") {
+				headers["Content-Type"] = "application/json";
+				if (csrfToken) {
+					headers["X-Frappe-CSRF-Token"] = csrfToken;
+				}
 			}
 
-			const response = await fetch(endpoint, {
-				method: "POST",
+			const response = await fetch(url, {
+				method,
 				headers,
 				credentials: "include",
-				body: JSON.stringify(payload || {})
+				body
 			});
 
 			const data = await response.json().catch(() => ({}));
