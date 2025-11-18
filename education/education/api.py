@@ -1275,7 +1275,7 @@ def create_and_submit_term_subject_result(data):
 		frappe.throw(str(e))
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def create_student_term_subject_result(result_data):
 	"""Create and submit a Student Term Subject Result document from frontend payload."""
 	try:
@@ -1341,7 +1341,7 @@ def create_student_term_subject_result(result_data):
 		frappe.throw(str(e))
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_student_group_scores(student_group, academic_year, semester, subject, exam):
 	filters = {
 		"student_group": student_group,

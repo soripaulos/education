@@ -976,7 +976,9 @@
 		}
 
 		async function callCreateResult(entry) {
+			const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
 			const payload = {
+				name: entry.name || state.resultDocs[key],
 				naming_series: "STSR-.YYYY.-",
 				student: entry.student,
 				student_name: entry.student_name,
@@ -988,35 +990,22 @@
 				exam: entry.exam,
 				score: entry.score,
 				max_score: entry.max_score,
-				examiner: entry.examiner || ""
+				examiner: entry.examiner || "",
+				submit: 0
 			};
 
-			logDebug("Saving score", {
-				method: entry.name ? "PUT" : "POST",
-				entry,
-				payload
-			});
+			logDebug("Saving score via method", { entry, payload });
 
-			let response;
-			if (entry.name) {
-				response = await apiCall(
-					`/api/resource/Student Term Subject Result/${encodeURIComponent(entry.name)}`,
-					payload,
-					{ method: "PUT" }
-				);
-			} else {
-				const body = { doctype: "Student Term Subject Result", ...payload };
-				response = await apiCall(
-					"/api/resource/Student Term Subject Result",
-					body,
-					{ method: "POST" }
-				);
-			}
-			logDebug("API response", { entry, payload, response });
+			const response = await apiCall(
+				"/api/method/education.education.api.create_student_term_subject_result",
+				{ result_data: payload },
+				{ method: "POST" }
+			);
+
+			logDebug("Method response", { response });
 
 			const docName = response && response.name;
 			if (docName) {
-				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
 				state.resultDocs[key] = docName;
 				entry.name = docName;
 				state.studentScores[entry.student] = {
