@@ -3,6 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="csrf-token" content="{{ csrf_token | default('', true) }}">
 	<title>{{ _("Student Result Entry") }}</title>
 	<meta name="description" content="{{ _("Quickly log exam scores and submit Student Term Subject Results.") }}">
 	<style>
@@ -380,6 +381,8 @@
 		};
 
 		document.addEventListener("DOMContentLoaded", () => {
+			// Initialize CSRF token on page load
+			refreshCsrfToken();
 			cacheElements();
 			buildProgramLabelMap();
 			populateStaticSelects();
@@ -460,9 +463,16 @@
 		}
 
 		function refreshCsrfToken() {
-			const cookieToken = getCookie("frappe-csrf-token");
+			// Try multiple cookie names that Frappe might use
+			const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
 			if (cookieToken) {
 				csrfToken = cookieToken;
+				return csrfToken;
+			}
+			// If no cookie token, use the one from template if available
+			const templateToken = "{{ csrf_token | default('', true) }}";
+			if (templateToken && templateToken.trim()) {
+				csrfToken = templateToken;
 			}
 			return csrfToken;
 		}
@@ -1066,10 +1076,23 @@
 			if (method !== "GET") {
 				headers["Content-Type"] = "application/json";
 				const latestToken = refreshCsrfToken();
-				if (latestToken) {
+				if (latestToken && latestToken.trim()) {
 					headers["X-Frappe-CSRF-Token"] = latestToken;
 				} else {
-					logDebug("Missing CSRF token", { method, url });
+					logDebug("Missing CSRF token", { method, url, currentToken: csrfToken });
+					// Try to get token from meta tag if available
+					const metaToken = document.querySelector('meta[name="csrf-token"]');
+					if (metaToken && metaToken.content) {
+						csrfToken = metaToken.content;
+						headers["X-Frappe-CSRF-Token"] = csrfToken;
+					} else {
+						// Last resort: try to get from cookie one more time
+						const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
+						if (cookieToken) {
+							csrfToken = cookieToken;
+							headers["X-Frappe-CSRF-Token"] = csrfToken;
+						}
+					}
 				}
 			}
 

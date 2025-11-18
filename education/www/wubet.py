@@ -43,5 +43,20 @@ def get_context(context):
             "exam_options": exam_options,
         }
     )
+    
+    # Ensure CSRF token is available in template context
+    # Frappe automatically provides csrf_token in context, but we ensure it's set
+    try:
+        if not hasattr(context, 'csrf_token') or not context.csrf_token:
+            # Try to get CSRF token from Frappe's standard locations
+            if hasattr(frappe.local, 'form_dict') and frappe.local.form_dict.get('csrf_token'):
+                context.csrf_token = frappe.local.form_dict.csrf_token
+            elif frappe.session and hasattr(frappe.session, 'data') and frappe.session.data.get('csrf_token'):
+                context.csrf_token = frappe.session.data.csrf_token
+            elif hasattr(frappe.local, 'csrf_token'):
+                context.csrf_token = frappe.local.csrf_token
+    except Exception:
+        # If we can't get the token, it will be retrieved from cookies on the frontend
+        pass
 
     return context
