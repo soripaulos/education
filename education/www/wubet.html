@@ -337,6 +337,7 @@
 			scoreRequired: "Score is required for logged students.",
 			scoreLimit: "Score cannot exceed Maximum Score.",
 			entryQueued: "Scores added to the queue. Remember to submit logged scores.",
+			noNewScores: "No new or updated scores to log.",
 			entryRemoved: "Entry removed.",
 			noEntriesSubmit: "No scores to submit.",
 			noStudentScores: "Enter a score for at least one student before logging.",
@@ -357,6 +358,7 @@
 			loggedEntries: [],
 			students: [],
 			studentScores: {},
+			lastQueuedScores: {},
 			currentGrade: { value: "", label: "" }
 		};
 
@@ -461,6 +463,13 @@
 				label: label || ""
 			};
 			elements.gradeDisplay.value = label || "";
+			if (state.loggedEntries.length) {
+				state.loggedEntries = [];
+				state.lastQueuedScores = {};
+				renderEntries();
+				elements.summary.style.display = "none";
+				elements.summary.innerHTML = "";
+			}
 			loadStudentsForGroup(event.target.value);
 		}
 
@@ -476,9 +485,14 @@
 			state.currentGrade = { value: "", label: "" };
 			state.students = [];
 			state.studentScores = {};
+			state.lastQueuedScores = {};
+			state.loggedEntries = [];
 			setDefaultValues();
 			renderStudentsTable();
+			renderEntries();
 			clearFeedback();
+			elements.summary.style.display = "none";
+			elements.summary.innerHTML = "";
 		}
 
 		async function loadStudentsForGroup(studentGroup) {
@@ -655,6 +669,10 @@
 			return Object.values(state.studentScores || {}).filter(item => typeof item.score === "number");
 		}
 
+		function buildScoreKey(student, subject, exam, academicYear, semester) {
+			return [student || "", subject || "", exam || "", academicYear || "", semester || ""].join("::");
+		}
+
 		function logScores() {
 			const common = getCommonEntryData();
 			if (!common) return;
@@ -665,7 +683,15 @@
 				return;
 			}
 
+			const newEntries = [];
+
 			activeScores.forEach(item => {
+				const key = buildScoreKey(item.student, common.subject, common.exam, common.academic_year, common.semester);
+				const lastScore = state.lastQueuedScores[key];
+				if (lastScore !== undefined && lastScore === item.score) {
+					return;
+				}
+
 				const entry = {
 					...common,
 					student: item.student,
@@ -673,19 +699,18 @@
 					score: item.score
 				};
 				state.loggedEntries.push(entry);
+				state.lastQueuedScores[key] = item.score;
+				newEntries.push(entry);
 			});
 
-			clearStudentScoreInputs();
+			if (!newEntries.length) {
+				showFeedback(TEXT.noNewScores, "info");
+				return;
+			}
+
 			renderEntries();
 			showFeedback(TEXT.entryQueued, "success");
 			enableSubmit();
-		}
-
-		function clearStudentScoreInputs() {
-			state.studentScores = {};
-			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
-				input.value = "";
-			});
 		}
 
 		function renderEntries() {
@@ -723,12 +748,23 @@
 		}
 
 		function removeEntry(index) {
+			const entry = state.loggedEntries[index];
 			state.loggedEntries.splice(index, 1);
+			cleanupQueuedScore(entry);
 			renderEntries();
 			if (state.loggedEntries.length) {
 				showFeedback(TEXT.entryRemoved, "info");
 			} else {
 				clearFeedback();
+			}
+		}
+
+		function cleanupQueuedScore(entry) {
+			if (!entry) return;
+			const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+			const stillQueued = state.loggedEntries.some(e => buildScoreKey(e.student, e.subject, e.exam, e.academic_year, e.semester) === key && e.student === entry.student);
+			if (!stillQueued) {
+				delete state.lastQueuedScores[key];
 			}
 		}
 
@@ -804,10 +840,12 @@
 
 			if (summary.failed.length === 0) {
 				state.loggedEntries = [];
+				state.lastQueuedScores = {};
 				renderEntries();
 				showFeedback(TEXT.allSuccess, "success");
 			} else if (summary.success.length) {
 				state.loggedEntries = summary.failed.map(item => item.entry);
+				rebuildQueuedScoreMap();
 				renderEntries();
 				showFeedback(TEXT.someFailedSummary, "warning");
 			} else {
@@ -875,6 +913,14 @@
 		function clearFeedback() {
 			elements.feedback.style.display = "none";
 			elements.feedback.textContent = "";
+		}
+
+		function rebuildQueuedScoreMap() {
+			state.lastQueuedScores = {};
+			state.loggedEntries.forEach(entry => {
+				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+				state.lastQueuedScores[key] = entry.score;
+			});
 		}
 
 		function escapeHtml(value) {
