@@ -332,6 +332,7 @@
 			selectSemester: "Select Semester",
 			noStudents: "No students found for the selected group.",
 			loadStudentsError: "Unable to load students. Please try again.",
+			scoreFetchError: "Unable to load existing scores.",
 			fieldRequired: "is required.",
 			maxScoreRequired: "Maximum Score is required. Select an exam to set it automatically.",
 			scoreRequired: "Score is required for logged students.",
@@ -358,6 +359,7 @@
 			loggedEntries: [],
 			students: [],
 			studentScores: {},
+			resultDocs: {},
 			lastQueuedScores: {},
 			currentGrade: { value: "", label: "" }
 		};
@@ -426,10 +428,89 @@
 		function registerListeners() {
 			elements.form.addEventListener("submit", evt => evt.preventDefault());
 			elements.studentGroup.addEventListener("change", handleStudentGroupChange);
+			elements.subject.addEventListener("change", handleContextChange);
+			elements.semester.addEventListener("change", handleContextChange);
+			elements.academicYear.addEventListener("change", handleContextChange);
 			elements.exam.addEventListener("change", handleExamChange);
 			elements.logButton.addEventListener("click", logScores);
 			elements.submitButton.addEventListener("click", submitLoggedScores);
 			elements.clearButton.addEventListener("click", resetForm);
+		}
+
+		function getScoreContextParams() {
+			return {
+				student_group: elements.studentGroup.value,
+				academic_year: elements.academicYear.value.trim(),
+				semester: elements.semester.value,
+				subject: elements.subject.value,
+				exam: elements.exam.value
+			};
+		}
+
+		function hasScoreContext() {
+			const ctx = getScoreContextParams();
+			return ctx.student_group && ctx.academic_year && ctx.semester && ctx.subject && ctx.exam;
+		}
+
+		function clearScoreState() {
+			state.studentScores = {};
+			state.resultDocs = {};
+			state.lastQueuedScores = {};
+			state.loggedEntries = [];
+			renderEntries();
+			if (elements.summary) {
+				elements.summary.style.display = "none";
+				elements.summary.innerHTML = "";
+			}
+			if (elements.studentsTableBody) {
+				elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+					input.value = "";
+				});
+			}
+		}
+
+		function applyScoresToInputs() {
+			if (!elements.studentsTableBody) return;
+			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+				const stored = state.studentScores[input.dataset.student];
+				if (stored && typeof stored.score === "number") {
+					input.value = stored.score;
+				} else {
+					input.value = "";
+				}
+			});
+		}
+
+		async function fetchExistingScores() {
+			if (!hasScoreContext()) return;
+			const params = getScoreContextParams();
+			try {
+				const records = await apiCall(
+					"/api/method/education.education.api.get_student_group_scores",
+					params,
+					{ method: "GET" }
+				);
+				state.studentScores = {};
+				state.resultDocs = {};
+				state.lastQueuedScores = {};
+				(records || []).forEach(record => {
+					const scoreValue = parseFloat(record.score);
+					const studentId = record.student;
+					state.studentScores[studentId] = {
+						student: studentId,
+						student_name: record.student_name || "",
+						score: scoreValue,
+						docname: record.name
+					};
+					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
+					state.resultDocs[key] = record.name;
+					state.lastQueuedScores[key] = scoreValue;
+				});
+				applyScoresToInputs();
+			} catch (error) {
+				console.error("Failed to fetch existing scores", error);
+				showFeedback(TEXT.scoreFetchError, "danger");
+			}
 		}
 
 		function setDefaultValues() {
@@ -455,6 +536,7 @@
 		}
 
 		function handleStudentGroupChange(event) {
+			clearScoreState();
 			const selectedOption = event.target.selectedOptions[0];
 			const programId = selectedOption ? selectedOption.dataset.program : "";
 			const label = programLabelMap[programId] || programId || "";
@@ -463,20 +545,21 @@
 				label: label || ""
 			};
 			elements.gradeDisplay.value = label || "";
-			if (state.loggedEntries.length) {
-				state.loggedEntries = [];
-				state.lastQueuedScores = {};
-				renderEntries();
-				elements.summary.style.display = "none";
-				elements.summary.innerHTML = "";
-			}
 			loadStudentsForGroup(event.target.value);
+		}
+
+		function handleContextChange() {
+			clearScoreState();
+			if (state.students.length && hasScoreContext()) {
+				fetchExistingScores();
+			}
 		}
 
 		function handleExamChange(event) {
 			const exam = event.target.value;
 			elements.maxScore.value = exam ? (examScoreMap[exam] || "") : "";
 			updateAllScoreInputsMax();
+			handleContextChange();
 		}
 
 		function resetForm() {
@@ -484,20 +567,15 @@
 			elements.gradeDisplay.value = "";
 			state.currentGrade = { value: "", label: "" };
 			state.students = [];
-			state.studentScores = {};
-			state.lastQueuedScores = {};
-			state.loggedEntries = [];
+			clearScoreState();
 			setDefaultValues();
 			renderStudentsTable();
-			renderEntries();
 			clearFeedback();
-			elements.summary.style.display = "none";
-			elements.summary.innerHTML = "";
 		}
 
 		async function loadStudentsForGroup(studentGroup) {
 			state.students = [];
-			state.studentScores = {};
+			clearScoreState();
 			renderStudentsTable();
 
 			if (!studentGroup) {
@@ -513,12 +591,16 @@
 					{ method: "GET" }
 				);
 				state.students = students || [];
-				state.studentScores = {};
 				renderStudentsTable();
 				if (!state.students.length) {
 					showFeedback(TEXT.noStudents, "warning");
 				} else {
 					clearFeedback();
+					if (hasScoreContext()) {
+						await fetchExistingScores();
+					} else {
+						applyScoresToInputs();
+					}
 				}
 			} catch (error) {
 				console.error(error);
@@ -569,6 +651,7 @@
 			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
 				input.addEventListener("input", handleStudentScoreInput);
 			});
+			applyScoresToInputs();
 		}
 
 		function handleStudentScoreInput(event) {
@@ -595,10 +678,15 @@
 				input.value = max;
 			}
 
+			const ctx = getScoreContextParams();
+			const key = buildScoreKey(studentId, ctx.subject, ctx.exam, ctx.academic_year, ctx.semester);
+			const existingDoc = state.resultDocs[key];
+
 			state.studentScores[studentId] = {
 				student: studentId,
 				student_name: studentName,
-				score: numeric
+				score: numeric,
+				docname: existingDoc
 			};
 		}
 
@@ -698,6 +786,10 @@
 					student_name: item.student_name,
 					score: item.score
 				};
+				const existingDoc = item.docname || state.resultDocs[key];
+				if (existingDoc) {
+					entry.name = existingDoc;
+				}
 				upsertLoggedEntry(entry, key);
 				state.lastQueuedScores[key] = item.score;
 				newEntries.push(entry);
@@ -828,12 +920,25 @@
 		async function callCreateResult(entry) {
 			const payload = {
 				...entry,
-				submit: 1
+				submit: 0,
+				naming_series: "STSR-.YYYY.-"
 			};
-			return apiCall(
+			const response = await apiCall(
 				"/api/method/education.education.api.create_student_term_subject_result",
 				{ result_data: payload }
 			);
+			const docName = response && response.name;
+			if (docName) {
+				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+				state.resultDocs[key] = docName;
+				state.studentScores[entry.student] = {
+					student: entry.student,
+					student_name: entry.student_name,
+					score: entry.score,
+					docname: docName
+				};
+			}
+			return response;
 		}
 
 		function handleSubmissionSummary(summary) {
@@ -859,7 +964,7 @@
 
 			if (summary.failed.length === 0) {
 				state.loggedEntries = [];
-				state.lastQueuedScores = {};
+				syncLastQueuedScoresFromStudents();
 				renderEntries();
 				showFeedback(TEXT.allSuccess, "success");
 			} else if (summary.success.length) {
@@ -939,6 +1044,15 @@
 			state.loggedEntries.forEach(entry => {
 				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
 				state.lastQueuedScores[key] = entry.score;
+			});
+		}
+
+		function syncLastQueuedScoresFromStudents() {
+			const ctx = getScoreContextParams();
+			state.lastQueuedScores = {};
+			Object.values(state.studentScores || {}).forEach(item => {
+				const key = buildScoreKey(item.student, ctx.subject, ctx.exam, ctx.academic_year, ctx.semester);
+				state.lastQueuedScores[key] = item.score;
 			});
 		}
 

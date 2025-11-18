@@ -8,7 +8,7 @@ import frappe
 from frappe import _
 from frappe.email.doctype.email_group.email_group import add_subscribers
 from frappe.model.mapper import get_mapped_doc
-from frappe.utils import cstr, flt, getdate
+from frappe.utils import cstr, cint, flt, getdate
 from frappe.utils.dateutils import get_dates_from_timegrain
 
 
@@ -1301,7 +1301,15 @@ def create_student_term_subject_result(result_data):
 		if missing:
 			frappe.throw(_("Missing required values: {0}").format(", ".join(missing)))
 
-		doc = frappe.new_doc("Student Term Subject Result")
+		doc_name = result_data.get("name")
+		if doc_name:
+			doc = frappe.get_doc("Student Term Subject Result", doc_name)
+			if doc.docstatus != 0:
+				frappe.throw(_("Only draft Student Term Subject Results can be updated."))
+		else:
+			doc = frappe.new_doc("Student Term Subject Result")
+			doc.naming_series = result_data.get("naming_series") or "STSR-.YYYY.-"
+
 		doc.student = result_data.get("student")
 		doc.student_name = result_data.get("student_name")
 		doc.academic_year = result_data.get("academic_year")
@@ -1315,8 +1323,12 @@ def create_student_term_subject_result(result_data):
 		if result_data.get("examiner"):
 			doc.examiner = result_data.get("examiner")
 
-		doc.insert(ignore_permissions=True)
-		if frappe.utils.cint(result_data.get("submit", 1)):
+		if doc_name:
+			doc.save(ignore_permissions=True)
+		else:
+			doc.insert(ignore_permissions=True)
+
+		if cint(result_data.get("submit")):
 			doc.submit()
 
 		return {
@@ -1327,6 +1339,24 @@ def create_student_term_subject_result(result_data):
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Create Student Term Subject Result API Error")
 		frappe.throw(str(e))
+
+
+@frappe.whitelist()
+def get_student_group_scores(student_group, academic_year, semester, subject, exam):
+	filters = {
+		"student_group": student_group,
+		"academic_year": academic_year,
+		"semester": semester,
+		"subject": subject,
+		"exam": exam,
+		"docstatus": 0,
+	}
+	return frappe.get_all(
+		"Student Term Subject Result",
+		filters=filters,
+		fields=["name", "student", "student_name", "score", "max_score"],
+		order_by="student asc",
+	)
 
 
 @frappe.whitelist()
