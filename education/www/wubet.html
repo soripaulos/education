@@ -365,7 +365,7 @@
 			allFailed: "Unable to submit any of the queued scores."
 		};
 
-		const csrfToken = "{{ csrf_token | default('', true) }}";
+		let csrfToken = "{{ csrf_token | default('', true) }}";
 		const wubetBoot = {{ wubet_boot | safe }};
 		const elements = {};
 		const examScoreMap = {};
@@ -450,6 +450,21 @@
 			elements.logButton.addEventListener("click", logScores);
 			elements.submitButton.addEventListener("click", submitLoggedScores);
 			elements.clearButton.addEventListener("click", resetForm);
+		}
+
+		function getCookie(name) {
+			const value = `; ${document.cookie}`;
+			const parts = value.split(`; ${name}=`);
+			if (parts.length === 2) return parts.pop().split(";").shift();
+			return "";
+		}
+
+		function refreshCsrfToken() {
+			const cookieToken = getCookie("frappe-csrf-token");
+			if (cookieToken) {
+				csrfToken = cookieToken;
+			}
+			return csrfToken;
 		}
 
 		function logDebug(message, payload) {
@@ -1030,6 +1045,7 @@
 						<p>${escapeHtml(TEXT.someFailed)}</p>
 						<ul>${details}</ul>
 					</div>`;
+				showFeedback(TEXT.scoreSaveError, "danger");
 			}
 
 			elements.summary.innerHTML = summaryHtml;
@@ -1071,8 +1087,11 @@
 
 			if (method !== "GET") {
 				headers["Content-Type"] = "application/json";
-				if (csrfToken) {
-					headers["X-Frappe-CSRF-Token"] = csrfToken;
+				const latestToken = refreshCsrfToken();
+				if (latestToken) {
+					headers["X-Frappe-CSRF-Token"] = latestToken;
+				} else {
+					logDebug("Missing CSRF token", { method, url });
 				}
 			}
 
