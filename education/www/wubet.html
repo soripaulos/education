@@ -308,23 +308,23 @@
 
 	<script>
 		const TEXT = {
-			selectSemester: "{{ _('Select Semester') | escapejs }}",
-			selectStudent: "{{ _('Select Student') | escapejs }}",
-			noStudents: "{{ _('No students found for the selected group.') | escapejs }}",
-			loadStudentsError: "{{ _('Unable to load students. Please try again.') | escapejs }}",
-			fieldRequired: "{{ _('is required.') | escapejs }}",
-			maxScoreRequired: "{{ _('Maximum Score is required. Select an exam to set it automatically.') | escapejs }}",
-			scoreRequired: "{{ _('Score is required.') | escapejs }}",
-			scoreLimit: "{{ _('Score cannot exceed Maximum Score.') | escapejs }}",
-			entryQueued: "{{ _('Score added to the queue. Remember to submit logged scores.') | escapejs }}",
-			entryRemoved: "{{ _('Entry removed.') | escapejs }}",
-			noEntriesSubmit: "{{ _('No scores to submit.') | escapejs }}",
-			submitting: "{{ _('Submitting scores...') | escapejs }}",
-			submittedTemplate: "{{ _('Submitted {0} score(s) successfully.') | escapejs }}",
-			someFailed: "{{ _('Some submissions failed:') | escapejs }}",
-			allSuccess: "{{ _('All scores were submitted successfully.') | escapejs }}",
-			someFailedSummary: "{{ _('Some scores failed to submit. Please review the messages below.') | escapejs }}",
-			allFailed: "{{ _('Unable to submit any of the queued scores.') | escapejs }}"
+			selectSemester: "Select Semester",
+			selectStudent: "Select Student",
+			noStudents: "No students found for the selected group.",
+			loadStudentsError: "Unable to load students. Please try again.",
+			fieldRequired: "is required.",
+			maxScoreRequired: "Maximum Score is required. Select an exam to set it automatically.",
+			scoreRequired: "Score is required.",
+			scoreLimit: "Score cannot exceed Maximum Score.",
+			entryQueued: "Score added to the queue. Remember to submit logged scores.",
+			entryRemoved: "Entry removed.",
+			noEntriesSubmit: "No scores to submit.",
+			submitting: "Submitting scores...",
+			submittedTemplate: "Submitted {0} score(s) successfully.",
+			someFailed: "Some submissions failed:",
+			allSuccess: "All scores were submitted successfully.",
+			someFailedSummary: "Some scores failed to submit. Please review the messages below.",
+			allFailed: "Unable to submit any of the queued scores."
 		};
 
 		const state = { loggedEntries: [] };
@@ -508,13 +508,13 @@
 			};
 
 			const requiredFields = [
-				{ value: entry.student_group, label: "{{ _('Student Group') | escapejs }}" },
-				{ value: entry.student, label: "{{ _('Student') | escapejs }}" },
-				{ value: entry.grade, label: "{{ _('Grade / Program') | escapejs }}" },
-				{ value: entry.subject, label: "{{ _('Subject') | escapejs }}" },
-				{ value: entry.academic_year, label: "{{ _('Academic Year') | escapejs }}" },
-				{ value: entry.semester, label: "{{ _('Semester') | escapejs }}" },
-				{ value: entry.exam, label: "{{ _('Exam') | escapejs }}" }
+				{ value: entry.student_group, label: "Student Group" },
+				{ value: entry.student, label: "Student" },
+				{ value: entry.grade, label: "Grade / Program" },
+				{ value: entry.subject, label: "Subject" },
+				{ value: entry.academic_year, label: "Academic Year" },
+				{ value: entry.semester, label: "Semester" },
+				{ value: entry.exam, label: "Exam" }
 			];
 
 			requiredFields.forEach(field => {
