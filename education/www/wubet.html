@@ -187,6 +187,25 @@
 			font-size: 12px;
 			color: #6b7280;
 		}
+
+		input[readonly] {
+			background-color: #f8fafc;
+			color: #475569;
+		}
+
+		.score-input {
+			width: 120px;
+			padding: 8px 10px;
+			border: 1px solid #cfd8e3;
+			border-radius: 6px;
+			font-size: 14px;
+		}
+
+		.score-input:focus {
+			outline: none;
+			border-color: #2563eb;
+			box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+		}
 	</style>
 </head>
 <body>
@@ -215,23 +234,8 @@
 						<div id="student-loading" class="small-text" style="display: none;">{{ _("Loading students...") }}</div>
 					</div>
 					<div>
-						<label for="student">{{ _("Student") }}</label>
-						<select id="student" disabled required>
-							<option value="">{{ _("Select Student") }}</option>
-						</select>
-					</div>
-					<div>
-						<label for="student-name">{{ _("Student Name") }}</label>
-						<input type="text" id="student-name" placeholder="{{ _('Auto-filled after selecting a student') }}" readonly>
-					</div>
-				</div>
-
-				<div class="form-grid" style="margin-top: 20px;">
-					<div>
-						<label for="grade">{{ _("Grade / Program") }}</label>
-						<select id="grade" required>
-							<option value="">{{ _("Select Grade / Program") }}</option>
-						</select>
+						<label for="grade-display">{{ _("Grade / Program") }}</label>
+						<input type="text" id="grade-display" placeholder="{{ _('Auto-filled from Student Group') }}" readonly>
 					</div>
 					<div>
 						<label for="subject">{{ _("Subject") }}</label>
@@ -260,18 +264,35 @@
 						<label for="max-score">{{ _("Maximum Score") }}</label>
 						<input type="number" id="max-score" readonly>
 					</div>
-					<div>
-						<label for="score">{{ _("Score") }}</label>
-						<input type="number" id="score" min="0" step="0.01" required>
-					</div>
 				</div>
+
+				<p class="small-text" style="margin-top: 16px;">
+					{{ _("After selecting a student group, enter scores for each student in the list below. You can log multiple students at once.") }}
+				</p>
 
 				<div class="actions-row">
 					<button type="button" class="btn-secondary" id="clear-form-btn">{{ _("Reset Form") }}</button>
-					<button type="button" class="btn-primary" id="log-score-btn">{{ _("Log Score") }}</button>
+					<button type="button" class="btn-primary" id="log-score-btn">{{ _("Log Scores") }}</button>
 					<button type="button" class="btn-success" id="submit-scores-btn" disabled>{{ _("Submit Logged Scores") }}</button>
 				</div>
 			</form>
+		</section>
+
+		<section class="card">
+			<h3>{{ _("Students in Selected Group") }}</h3>
+			<p class="small-text" id="students-helper-text">{{ _("Select a Student Group to load students.") }}</p>
+			<div class="table-wrapper" id="students-table-wrapper" style="display: none;">
+				<table>
+					<thead>
+						<tr>
+							<th>{{ _("Student ID") }}</th>
+							<th>{{ _("Student Name") }}</th>
+							<th>{{ _("Score") }}</th>
+						</tr>
+					</thead>
+					<tbody id="students-table-body"></tbody>
+				</table>
+			</div>
 		</section>
 
 		<section class="card">
@@ -296,7 +317,7 @@
 					<tbody id="logged-entries-body">
 						<tr id="no-entries-row">
 							<td colspan="11" style="text-align: center; color: #94a3b8;">
-								{{ _("No scores queued yet. Log a score to get started.") }}
+								{{ _("No scores queued yet. Log scores to get started.") }}
 							</td>
 						</tr>
 					</tbody>
@@ -309,16 +330,16 @@
 	<script>
 		const TEXT = {
 			selectSemester: "Select Semester",
-			selectStudent: "Select Student",
 			noStudents: "No students found for the selected group.",
 			loadStudentsError: "Unable to load students. Please try again.",
 			fieldRequired: "is required.",
 			maxScoreRequired: "Maximum Score is required. Select an exam to set it automatically.",
-			scoreRequired: "Score is required.",
+			scoreRequired: "Score is required for logged students.",
 			scoreLimit: "Score cannot exceed Maximum Score.",
-			entryQueued: "Score added to the queue. Remember to submit logged scores.",
+			entryQueued: "Scores added to the queue. Remember to submit logged scores.",
 			entryRemoved: "Entry removed.",
 			noEntriesSubmit: "No scores to submit.",
+			noStudentScores: "Enter a score for at least one student before logging.",
 			submitting: "Submitting scores...",
 			submittedTemplate: "Submitted {0} score(s) successfully.",
 			someFailed: "Some submissions failed:",
@@ -327,31 +348,37 @@
 			allFailed: "Unable to submit any of the queued scores."
 		};
 
-		const state = { loggedEntries: [] };
+		const csrfToken = "{{ csrf_token | default('', true) }}";
 		const wubetBoot = {{ wubet_boot | safe }};
 		const elements = {};
 		const examScoreMap = {};
+		const programLabelMap = {};
+		const state = {
+			loggedEntries: [],
+			students: [],
+			studentScores: {},
+			currentGrade: { value: "", label: "" }
+		};
 
 		document.addEventListener("DOMContentLoaded", () => {
 			cacheElements();
+			buildProgramLabelMap();
 			populateStaticSelects();
 			registerListeners();
 			setDefaultValues();
+			renderStudentsTable();
 		});
 
 		function cacheElements() {
 			elements.form = document.getElementById("result-entry-form");
 			elements.feedback = document.getElementById("form-feedback");
 			elements.studentGroup = document.getElementById("student-group");
-			elements.student = document.getElementById("student");
-			elements.studentName = document.getElementById("student-name");
-			elements.grade = document.getElementById("grade");
+			elements.gradeDisplay = document.getElementById("grade-display");
 			elements.subject = document.getElementById("subject");
 			elements.academicYear = document.getElementById("academic-year");
 			elements.semester = document.getElementById("semester");
 			elements.exam = document.getElementById("exam");
 			elements.maxScore = document.getElementById("max-score");
-			elements.score = document.getElementById("score");
 			elements.logButton = document.getElementById("log-score-btn");
 			elements.submitButton = document.getElementById("submit-scores-btn");
 			elements.clearButton = document.getElementById("clear-form-btn");
@@ -359,6 +386,16 @@
 			elements.noEntriesRow = document.getElementById("no-entries-row");
 			elements.studentLoading = document.getElementById("student-loading");
 			elements.summary = document.getElementById("submission-summary");
+			elements.studentsHelperText = document.getElementById("students-helper-text");
+			elements.studentsTableWrapper = document.getElementById("students-table-wrapper");
+			elements.studentsTableBody = document.getElementById("students-table-body");
+		}
+
+		function buildProgramLabelMap() {
+			(wubetBoot.grades || []).forEach(grade => {
+				const label = grade.program_name || grade.name;
+				programLabelMap[grade.name] = label;
+			});
 		}
 
 		function populateStaticSelects() {
@@ -370,11 +407,6 @@
 			(wubetBoot.exam_options || []).forEach(option => {
 				examScoreMap[option.value] = option.max_score;
 				addOption(elements.exam, option.value, option.label);
-			});
-
-			(wubetBoot.grades || []).forEach(grade => {
-				const label = grade.program_name || grade.name;
-				addOption(elements.grade, grade.name, label);
 			});
 
 			(wubetBoot.subjects || []).forEach(subject => {
@@ -392,10 +424,8 @@
 		function registerListeners() {
 			elements.form.addEventListener("submit", evt => evt.preventDefault());
 			elements.studentGroup.addEventListener("change", handleStudentGroupChange);
-			elements.student.addEventListener("change", handleStudentChange);
 			elements.exam.addEventListener("change", handleExamChange);
-			elements.score.addEventListener("input", handleScoreInput);
-			elements.logButton.addEventListener("click", logScore);
+			elements.logButton.addEventListener("click", logScores);
 			elements.submitButton.addEventListener("click", submitLoggedScores);
 			elements.clearButton.addEventListener("click", resetForm);
 		}
@@ -406,6 +436,11 @@
 			}
 			if (wubetBoot.semesters && wubetBoot.semesters.length) {
 				elements.semester.value = wubetBoot.semesters[0].value;
+			}
+			if (wubetBoot.exam_options && wubetBoot.exam_options.length) {
+				const firstExam = wubetBoot.exam_options[0].value;
+				elements.exam.value = firstExam;
+				elements.maxScore.value = examScoreMap[firstExam] || "";
 			}
 		}
 
@@ -419,117 +454,191 @@
 
 		function handleStudentGroupChange(event) {
 			const selectedOption = event.target.selectedOptions[0];
-			const program = selectedOption ? selectedOption.dataset.program : "";
-			if (program) {
-				elements.grade.value = program;
-			}
+			const programId = selectedOption ? selectedOption.dataset.program : "";
+			const label = programLabelMap[programId] || programId || "";
+			state.currentGrade = {
+				value: programId || "",
+				label: label || ""
+			};
+			elements.gradeDisplay.value = label || "";
 			loadStudentsForGroup(event.target.value);
-		}
-
-		function handleStudentChange(event) {
-			const selectedOption = event.target.selectedOptions[0];
-			elements.studentName.value = selectedOption ? selectedOption.dataset.studentName || "" : "";
 		}
 
 		function handleExamChange(event) {
 			const exam = event.target.value;
 			elements.maxScore.value = exam ? (examScoreMap[exam] || "") : "";
-			handleScoreInput();
-		}
-
-		function handleScoreInput() {
-			const max = parseFloat(elements.maxScore.value || "0");
-			const score = parseFloat(elements.score.value || "0");
-			if (max && score > max) {
-				elements.score.setCustomValidity(TEXT.scoreLimit);
-			} else {
-				elements.score.setCustomValidity("");
-			}
+			updateAllScoreInputsMax();
 		}
 
 		function resetForm() {
 			elements.form.reset();
+			elements.gradeDisplay.value = "";
+			state.currentGrade = { value: "", label: "" };
+			state.students = [];
+			state.studentScores = {};
 			setDefaultValues();
-			elements.student.innerHTML = `<option value="">${TEXT.selectStudent}</option>`;
-			elements.student.disabled = true;
-			elements.studentName.value = "";
-			elements.maxScore.value = "";
+			renderStudentsTable();
 			clearFeedback();
 		}
 
-		function loadStudentsForGroup(studentGroup) {
-			elements.student.innerHTML = `<option value="">${TEXT.selectStudent}</option>`;
-			elements.student.disabled = true;
-			elements.studentName.value = "";
+		async function loadStudentsForGroup(studentGroup) {
+			state.students = [];
+			state.studentScores = {};
+			renderStudentsTable();
 
 			if (!studentGroup) {
 				return;
 			}
 
 			elements.studentLoading.style.display = "block";
-			frappe.call({
-				method: "education.education.api.get_students_for_group",
-				args: { student_group: studentGroup },
-				callback: response => {
-					const students = (response && response.message) || [];
-					students.forEach(student => {
-						const label = `${student.student} - ${student.student_name}`;
-						const option = addOption(elements.student, student.student, label);
-						option.dataset.studentName = student.student_name || "";
-					});
-					elements.student.disabled = students.length === 0;
-					if (students.length === 0) {
-						showFeedback(TEXT.noStudents, "warning");
-					} else {
-						clearFeedback();
+
+			try {
+				const students = await apiCall(
+					"/api/method/education.education.api.get_students_for_group",
+					{ student_group: studentGroup }
+				);
+				state.students = students || [];
+				state.studentScores = {};
+				renderStudentsTable();
+				if (!state.students.length) {
+					showFeedback(TEXT.noStudents, "warning");
+				} else {
+					clearFeedback();
+				}
+			} catch (error) {
+				console.error(error);
+				showFeedback(TEXT.loadStudentsError, "danger");
+			} finally {
+				elements.studentLoading.style.display = "none";
+			}
+		}
+
+		function renderStudentsTable() {
+			if (!state.students.length) {
+				elements.studentsTableWrapper.style.display = "none";
+				elements.studentsHelperText.style.display = "block";
+				elements.studentsTableBody.innerHTML = "";
+				return;
+			}
+
+			elements.studentsHelperText.style.display = "none";
+			elements.studentsTableWrapper.style.display = "block";
+
+			const rows = state.students
+				.map(student => {
+					const studentIdRaw = student.student || "";
+					const studentNameRaw = student.student_name || "";
+					const studentId = escapeHtml(studentIdRaw);
+					const studentName = escapeHtml(studentNameRaw);
+					return `
+						<tr>
+							<td>${studentId}</td>
+							<td>${studentName}</td>
+							<td>
+								<input
+									type="number"
+									class="score-input"
+									data-student="${studentIdRaw}"
+									data-student-name="${studentNameRaw}"
+									min="0"
+									step="0.01"
+								/>
+							</td>
+						</tr>
+					`;
+				})
+				.join("");
+
+			elements.studentsTableBody.innerHTML = rows;
+			updateAllScoreInputsMax();
+			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+				input.addEventListener("input", handleStudentScoreInput);
+			});
+		}
+
+		function handleStudentScoreInput(event) {
+			const input = event.target;
+			const studentId = input.dataset.student;
+			const studentName = input.dataset.studentName || "";
+			const value = input.value;
+
+			if (value === "") {
+				delete state.studentScores[studentId];
+				return;
+			}
+
+			let numeric = parseFloat(value);
+			if (Number.isNaN(numeric) || numeric < 0) {
+				input.value = "";
+				delete state.studentScores[studentId];
+				return;
+			}
+
+			const max = parseFloat(elements.maxScore.value || "0");
+			if (max && numeric > max) {
+				numeric = max;
+				input.value = max;
+			}
+
+			state.studentScores[studentId] = {
+				student: studentId,
+				student_name: studentName,
+				score: numeric
+			};
+		}
+
+		function updateAllScoreInputsMax() {
+			const max = parseFloat(elements.maxScore.value || "0");
+			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+				if (max) {
+					input.setAttribute("max", max);
+					if (parseFloat(input.value || "0") > max) {
+						input.value = max;
+						const studentId = input.dataset.student;
+						if (state.studentScores[studentId]) {
+							state.studentScores[studentId].score = max;
+						}
 					}
-					elements.studentLoading.style.display = "none";
-				},
-				error: () => {
-					showFeedback(TEXT.loadStudentsError, "danger");
-					elements.studentLoading.style.display = "none";
+				} else {
+					input.removeAttribute("max");
 				}
 			});
 		}
 
-		function validateEntry() {
-			const errors = [];
-			const entry = {
+		function getCommonEntryData() {
+			const data = {
 				student_group: elements.studentGroup.value,
-				student: elements.student.value,
-				student_name: elements.studentName.value,
-				grade: elements.grade.value,
+				student_group_label: elements.studentGroup.selectedOptions[0]?.textContent || "",
+				grade: state.currentGrade.value,
+				grade_label: state.currentGrade.label || "",
 				subject: elements.subject.value,
+				subject_label: elements.subject.selectedOptions[0]?.textContent || "",
 				academic_year: elements.academicYear.value.trim(),
 				semester: elements.semester.value,
+				semester_label: elements.semester.selectedOptions[elements.semester.selectedIndex]?.textContent || "",
 				exam: elements.exam.value,
-				max_score: parseFloat(elements.maxScore.value || "0"),
-				score: parseFloat(elements.score.value || "0")
+				exam_label: elements.exam.selectedOptions[0]?.textContent || "",
+				max_score: parseFloat(elements.maxScore.value || "0")
 			};
 
-			const requiredFields = [
-				{ value: entry.student_group, label: "Student Group" },
-				{ value: entry.student, label: "Student" },
-				{ value: entry.grade, label: "Grade / Program" },
-				{ value: entry.subject, label: "Subject" },
-				{ value: entry.academic_year, label: "Academic Year" },
-				{ value: entry.semester, label: "Semester" },
-				{ value: entry.exam, label: "Exam" }
+			const required = [
+				{ value: data.student_group, label: "Student Group" },
+				{ value: data.grade, label: "Grade / Program" },
+				{ value: data.subject, label: "Subject" },
+				{ value: data.academic_year, label: "Academic Year" },
+				{ value: data.semester, label: "Semester" },
+				{ value: data.exam, label: "Exam" }
 			];
 
-			requiredFields.forEach(field => {
+			const errors = [];
+			required.forEach(field => {
 				if (!field.value) {
 					errors.push(`${field.label} ${TEXT.fieldRequired}`);
 				}
 			});
 
-			if (!entry.max_score) {
+			if (!data.max_score) {
 				errors.push(TEXT.maxScoreRequired);
-			}
-			if (entry.score === "" || entry.score === null || Number.isNaN(entry.score)) {
-				errors.push(TEXT.scoreRequired);
-			} else if (entry.max_score && entry.score > entry.max_score) {
-				errors.push(TEXT.scoreLimit);
 			}
 
 			if (errors.length) {
@@ -537,26 +646,45 @@
 				return null;
 			}
 
-			entry.section = entry.student_group;
-			return entry;
+			data.section = data.student_group;
+			return data;
 		}
 
-		function logScore() {
-			const entry = validateEntry();
-			if (!entry) return;
+		function getActiveScoreEntries() {
+			return Object.values(state.studentScores || {}).filter(item => typeof item.score === "number");
+		}
 
-			const displayEntry = {
-				...entry,
-				student_label: elements.student.selectedOptions[0]?.textContent || entry.student,
-				subject_label: elements.subject.selectedOptions[0]?.textContent || entry.subject,
-				grade_label: elements.grade.selectedOptions[0]?.textContent || entry.grade
-			};
+		function logScores() {
+			const common = getCommonEntryData();
+			if (!common) return;
 
-			state.loggedEntries.push(displayEntry);
+			const activeScores = getActiveScoreEntries();
+			if (!activeScores.length) {
+				showFeedback(TEXT.noStudentScores, "warning");
+				return;
+			}
+
+			activeScores.forEach(item => {
+				const entry = {
+					...common,
+					student: item.student,
+					student_name: item.student_name,
+					score: item.score
+				};
+				state.loggedEntries.push(entry);
+			});
+
+			clearStudentScoreInputs();
 			renderEntries();
 			showFeedback(TEXT.entryQueued, "success");
 			enableSubmit();
-			elements.score.value = "";
+		}
+
+		function clearStudentScoreInputs() {
+			state.studentScores = {};
+			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+				input.value = "";
+			});
 		}
 
 		function renderEntries() {
@@ -574,14 +702,14 @@
 			state.loggedEntries.forEach((entry, index) => {
 				const row = document.createElement("tr");
 				row.innerHTML = `
-					<td>${entry.academic_year}</td>
-					<td>${entry.semester}</td>
-					<td>${entry.student_group}</td>
-					<td>${entry.student}</td>
-					<td>${entry.student_name || ""}</td>
-					<td>${entry.grade_label || entry.grade}</td>
-					<td>${entry.subject_label || entry.subject}</td>
-					<td>${entry.exam}</td>
+					<td>${escapeHtml(entry.academic_year)}</td>
+					<td>${escapeHtml(entry.semester_label || entry.semester)}</td>
+					<td>${escapeHtml(entry.student_group_label || entry.student_group)}</td>
+					<td>${escapeHtml(entry.student)}</td>
+					<td>${escapeHtml(entry.student_name || "")}</td>
+					<td>${escapeHtml(entry.grade_label || entry.grade)}</td>
+					<td>${escapeHtml(entry.subject_label || entry.subject)}</td>
+					<td>${escapeHtml(entry.exam_label || entry.exam)}</td>
 					<td>${formatNumber(entry.score)}</td>
 					<td>${formatNumber(entry.max_score)}</td>
 					<td class="table-actions">
@@ -631,7 +759,7 @@
 					await callCreateResult(entry);
 					summary.success.push(entry);
 				} catch (error) {
-					summary.failed.push({ entry, error: parseError(error) });
+					summary.failed.push({ entry, error: error.message || error });
 				}
 			}
 
@@ -645,42 +773,11 @@
 			elements.clearButton.disabled = isDisabled;
 		}
 
-		function callCreateResult(entry) {
-			return new Promise((resolve, reject) => {
-				frappe.call({
-					method: "education.education.api.create_and_submit_term_subject_result",
-					args: { data: JSON.stringify(entry) },
-					callback: response => {
-						if (response && response.exc) {
-							reject(response.exc);
-						} else {
-							resolve(response.message);
-						}
-					},
-					error: error => reject(error)
-				});
-			});
-		}
-
-		function parseError(error) {
-			if (!error) return "Unexpected error";
-			if (typeof error === "string") return error;
-			if (error._server_messages) {
-				try {
-					const messages = JSON.parse(error._server_messages);
-					return messages.map(msg => {
-						try {
-							return JSON.parse(msg).message || msg;
-						} catch (e) {
-							return msg;
-						}
-					}).join(" ");
-				} catch (e) {
-					return error._server_messages;
-				}
-			}
-			if (error.message) return error.message;
-			return "Failed to submit entry";
+		async function callCreateResult(entry) {
+			return apiCall(
+				"/api/method/education.education.api.create_and_submit_term_subject_result",
+				{ data: JSON.stringify(entry) }
+			);
 		}
 
 		function handleSubmissionSummary(summary) {
@@ -715,6 +812,41 @@
 			} else {
 				showFeedback(TEXT.allFailed, "danger");
 			}
+		}
+
+		async function apiCall(endpoint, payload) {
+			const headers = {
+				"Content-Type": "application/json",
+				"Accept": "application/json",
+				"X-Requested-With": "XMLHttpRequest"
+			};
+			if (csrfToken) {
+				headers["X-Frappe-CSRF-Token"] = csrfToken;
+			}
+
+			const response = await fetch(endpoint, {
+				method: "POST",
+				headers,
+				credentials: "include",
+				body: JSON.stringify(payload || {})
+			});
+
+			const data = await response.json().catch(() => ({}));
+
+			if (!response.ok || data.exc) {
+				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
+				throw new Error(errorMessage);
+			}
+
+			return data.message;
+		}
+
+		function extractErrorMessage(errorData) {
+			if (!errorData) return "";
+			if (errorData.message) return errorData.message;
+			if (errorData.exception) return errorData.exception;
+			if (errorData.exc) return Array.isArray(errorData.exc) ? errorData.exc.join(" ") : errorData.exc;
+			return "";
 		}
 
 		function showFeedback(message, level) {
