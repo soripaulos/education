@@ -698,7 +698,7 @@
 					student_name: item.student_name,
 					score: item.score
 				};
-				state.loggedEntries.push(entry);
+				upsertLoggedEntry(entry, key);
 				state.lastQueuedScores[key] = item.score;
 				newEntries.push(entry);
 			});
@@ -759,6 +759,21 @@
 			}
 		}
 
+		function upsertLoggedEntry(entry, key) {
+			const index = state.loggedEntries.findIndex(existing => {
+				return (
+					existing.student === entry.student &&
+					buildScoreKey(existing.student, existing.subject, existing.exam, existing.academic_year, existing.semester) === key
+				);
+			});
+
+			if (index > -1) {
+				state.loggedEntries[index] = entry;
+			} else {
+				state.loggedEntries.push(entry);
+			}
+		}
+
 		function cleanupQueuedScore(entry) {
 			if (!entry) return;
 			const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
@@ -811,9 +826,13 @@
 		}
 
 		async function callCreateResult(entry) {
+			const payload = {
+				...entry,
+				submit: 1
+			};
 			return apiCall(
-				"/api/method/education.education.api.create_and_submit_term_subject_result",
-				{ data: JSON.stringify(entry) }
+				"/api/method/education.education.api.create_student_term_subject_result",
+				{ result_data: payload }
 			);
 		}
 

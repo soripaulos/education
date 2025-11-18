@@ -1276,6 +1276,60 @@ def create_and_submit_term_subject_result(data):
 
 
 @frappe.whitelist()
+def create_student_term_subject_result(result_data):
+	"""Create and submit a Student Term Subject Result document from frontend payload."""
+	try:
+		if isinstance(result_data, str):
+			result_data = frappe.parse_json(result_data)
+
+		required_fields = [
+			"student",
+			"academic_year",
+			"semester",
+			"subject",
+			"student_group",
+			"grade",
+			"exam",
+			"score",
+			"max_score",
+		]
+		missing = [
+			field.replace("_", " ").title()
+			for field in required_fields
+			if result_data.get(field) in (None, "", [])
+		]
+		if missing:
+			frappe.throw(_("Missing required values: {0}").format(", ".join(missing)))
+
+		doc = frappe.new_doc("Student Term Subject Result")
+		doc.student = result_data.get("student")
+		doc.student_name = result_data.get("student_name")
+		doc.academic_year = result_data.get("academic_year")
+		doc.semester = result_data.get("semester")
+		doc.subject = result_data.get("subject")
+		doc.student_group = result_data.get("student_group") or result_data.get("section")
+		doc.grade = result_data.get("grade")
+		doc.exam = result_data.get("exam")
+		doc.score = flt(result_data.get("score"))
+		doc.max_score = flt(result_data.get("max_score"))
+		if result_data.get("examiner"):
+			doc.examiner = result_data.get("examiner")
+
+		doc.insert(ignore_permissions=True)
+		if frappe.utils.cint(result_data.get("submit", 1)):
+			doc.submit()
+
+		return {
+			"status": "success",
+			"name": doc.name,
+			"docstatus": doc.docstatus,
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Create Student Term Subject Result API Error")
+		frappe.throw(str(e))
+
+
+@frappe.whitelist()
 def get_student_term_results(student, academic_year, semester=None):
 	"""Get all term subject results for a student"""
 	try:
