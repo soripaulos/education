@@ -206,6 +206,16 @@
 			border-color: #2563eb;
 			box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 		}
+
+		.debug-panel {
+			background: #0f172a;
+			color: #facc15;
+			border-radius: 8px;
+			padding: 12px;
+			font-size: 12px;
+			max-height: 240px;
+			overflow-y: auto;
+		}
 	</style>
 </head>
 <body>
@@ -324,6 +334,10 @@
 				</table>
 			</div>
 			<div id="submission-summary" style="margin-top: 16px; display: none;"></div>
+			<div id="debug-panel" class="debug-panel" style="display:none;">
+				<h4>{{ _("Debug Info") }}</h4>
+				<pre id="debug-log" style="white-space:pre-wrap;"></pre>
+			</div>
 		</section>
 	</div>
 
@@ -342,6 +356,7 @@
 			entryRemoved: "Entry removed.",
 			noEntriesSubmit: "No scores to submit.",
 			noStudentScores: "Enter a score for at least one student before logging.",
+			scoreSaveError: "Failed to save score entry.",
 			submitting: "Submitting scores...",
 			submittedTemplate: "Submitted {0} score(s) successfully.",
 			someFailed: "Some submissions failed:",
@@ -437,6 +452,16 @@
 			elements.clearButton.addEventListener("click", resetForm);
 		}
 
+		function logDebug(message, payload) {
+			const panel = document.getElementById("debug-panel");
+			const pre = document.getElementById("debug-log");
+			if (!panel || !pre) return;
+			panel.style.display = "block";
+			const timestamp = new Date().toISOString();
+			const serialized = payload ? JSON.stringify(payload, null, 2) : "";
+			pre.textContent = `${timestamp} | ${message}\n${serialized}\n\n${pre.textContent}`.trim();
+		}
+
 		function getScoreContextParams() {
 			return {
 				student_group: elements.studentGroup.value,
@@ -501,6 +526,7 @@
 					},
 					{ method: "GET" }
 				);
+				logDebug("Fetched existing drafts", { params, records });
 				state.studentScores = {};
 				state.resultDocs = {};
 				state.lastQueuedScores = {};
@@ -604,6 +630,7 @@
 					{ student_group: studentGroup },
 					{ method: "GET" }
 				);
+				logDebug("Loaded students", { student_group: studentGroup, count: (students || []).length });
 				state.students = students || [];
 				renderStudentsTable();
 				if (!state.students.length) {
@@ -911,12 +938,14 @@
 			showFeedback(TEXT.submitting, "info");
 
 			const summary = { success: [], failed: [] };
+			logDebug("Submitting queued scores", state.loggedEntries);
 
 			for (const entry of state.loggedEntries) {
 				try {
 					await callCreateResult(entry);
 					summary.success.push(entry);
 				} catch (error) {
+					logDebug("Failed to save score", { entry, error: error.message || error });
 					summary.failed.push({ entry, error: error.message || error });
 				}
 			}
@@ -947,6 +976,12 @@
 				examiner: entry.examiner || ""
 			};
 
+			logDebug("Saving score", {
+				method: entry.name ? "PUT" : "POST",
+				entry,
+				payload
+			});
+
 			let response;
 			if (entry.name) {
 				response = await apiCall(
@@ -955,17 +990,20 @@
 					{ method: "PUT" }
 				);
 			} else {
+				const body = { doctype: "Student Term Subject Result", ...payload };
 				response = await apiCall(
 					"/api/resource/Student Term Subject Result",
-					{ doctype: "Student Term Subject Result", ...payload },
+					body,
 					{ method: "POST" }
 				);
 			}
+			logDebug("API response", { entry, payload, response });
 
 			const docName = response && response.name;
 			if (docName) {
 				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
 				state.resultDocs[key] = docName;
+				entry.name = docName;
 				state.studentScores[entry.student] = {
 					student: entry.student,
 					student_name: entry.student_name,
@@ -1049,6 +1087,7 @@
 
 			if (!response.ok || data.exc) {
 				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
+				logDebug("API error", { url, method, payload, status: response.status, response: data });
 				throw new Error(errorMessage);
 			}
 
