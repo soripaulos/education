@@ -473,7 +473,7 @@
 			if (!elements.studentsTableBody) return;
 			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
 				const stored = state.studentScores[input.dataset.student];
-				if (stored && typeof stored.score === "number") {
+				if (stored && typeof stored.score === "number" && !Number.isNaN(stored.score)) {
 					input.value = stored.score;
 				} else {
 					input.value = "";
@@ -484,27 +484,41 @@
 		async function fetchExistingScores() {
 			if (!hasScoreContext()) return;
 			const params = getScoreContextParams();
+			const filters = [
+				["Student Term Subject Result", "student_group", "=", params.student_group],
+				["Student Term Subject Result", "academic_year", "=", params.academic_year],
+				["Student Term Subject Result", "semester", "=", params.semester],
+				["Student Term Subject Result", "subject", "=", params.subject],
+				["Student Term Subject Result", "exam", "=", params.exam],
+				["Student Term Subject Result", "docstatus", "=", 0]
+			];
 			try {
 				const records = await apiCall(
-					"/api/method/education.education.api.get_student_group_scores",
-					params,
+					"/api/resource/Student Term Subject Result",
+					{
+						filters: JSON.stringify(filters),
+						fields: JSON.stringify(["name", "student", "student_name", "score", "max_score"])
+					},
 					{ method: "GET" }
 				);
 				state.studentScores = {};
 				state.resultDocs = {};
 				state.lastQueuedScores = {};
 				(records || []).forEach(record => {
-					const scoreValue = parseFloat(record.score);
+					const rawScore = record.score;
+					const scoreValue = rawScore === null || rawScore === undefined ? null : parseFloat(rawScore);
 					const studentId = record.student;
+					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
 					state.studentScores[studentId] = {
 						student: studentId,
 						student_name: record.student_name || "",
-						score: scoreValue,
+						score: Number.isNaN(scoreValue) ? null : scoreValue,
 						docname: record.name
 					};
-					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
 					state.resultDocs[key] = record.name;
-					state.lastQueuedScores[key] = scoreValue;
+					if (!Number.isNaN(scoreValue) && scoreValue !== null) {
+						state.lastQueuedScores[key] = scoreValue;
+					}
 				});
 				applyScoresToInputs();
 			} catch (error) {
@@ -919,14 +933,35 @@
 
 		async function callCreateResult(entry) {
 			const payload = {
-				...entry,
-				submit: 0,
-				naming_series: "STSR-.YYYY.-"
+				naming_series: "STSR-.YYYY.-",
+				student: entry.student,
+				student_name: entry.student_name,
+				academic_year: entry.academic_year,
+				semester: entry.semester,
+				subject: entry.subject,
+				student_group: entry.student_group,
+				grade: entry.grade,
+				exam: entry.exam,
+				score: entry.score,
+				max_score: entry.max_score,
+				examiner: entry.examiner || ""
 			};
-			const response = await apiCall(
-				"/api/method/education.education.api.create_student_term_subject_result",
-				{ result_data: payload }
-			);
+
+			let response;
+			if (entry.name) {
+				response = await apiCall(
+					`/api/resource/Student Term Subject Result/${encodeURIComponent(entry.name)}`,
+					payload,
+					{ method: "PUT" }
+				);
+			} else {
+				response = await apiCall(
+					"/api/resource/Student Term Subject Result",
+					{ doctype: "Student Term Subject Result", ...payload },
+					{ method: "POST" }
+				);
+			}
+
 			const docName = response && response.name;
 			if (docName) {
 				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
@@ -1017,7 +1052,15 @@
 				throw new Error(errorMessage);
 			}
 
-			return data.message;
+			if (Object.prototype.hasOwnProperty.call(data, "message")) {
+				return data.message;
+			}
+
+			if (Object.prototype.hasOwnProperty.call(data, "data")) {
+				return data.data;
+			}
+
+			return data;
 		}
 
 		function extractErrorMessage(errorData) {
@@ -1051,8 +1094,10 @@
 			const ctx = getScoreContextParams();
 			state.lastQueuedScores = {};
 			Object.values(state.studentScores || {}).forEach(item => {
-				const key = buildScoreKey(item.student, ctx.subject, ctx.exam, ctx.academic_year, ctx.semester);
-				state.lastQueuedScores[key] = item.score;
+				if (typeof item.score === "number" && !Number.isNaN(item.score)) {
+					const key = buildScoreKey(item.student, ctx.subject, ctx.exam, ctx.academic_year, ctx.semester);
+					state.lastQueuedScores[key] = item.score;
+				}
 			});
 		}
 
