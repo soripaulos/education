@@ -593,6 +593,63 @@
 			return csrfToken;
 		}
 
+		async function fetchServerCsrfToken() {
+			try {
+				const response = await fetch("/api/method/frappe.sessions.get_csrf_token", {
+					method: "GET",
+					headers: {
+						"Accept": "application/json",
+						"X-Requested-With": "XMLHttpRequest"
+					},
+					credentials: "include"
+				});
+				const data = await response.json().catch(() => ({}));
+				const token = data?.message || data?.data;
+				if (token) {
+					csrfToken = token;
+				} else {
+					refreshCsrfToken();
+				}
+			} catch (error) {
+				logDebug("Failed to fetch CSRF token from server", { error: error?.message || error });
+			}
+			return csrfToken;
+		}
+
+		function isCsrfError(status, payload) {
+			if (status === 403 || status === 401) {
+				return true;
+			}
+			if (!payload) {
+				return false;
+			}
+			if (payload.exc_type === "CSRFTokenError") {
+				return true;
+			}
+			if (payload._server_messages && typeof payload._server_messages === "string") {
+				try {
+					const messages = JSON.parse(payload._server_messages);
+					return messages.some(message => {
+						try {
+							const parsed = JSON.parse(message);
+							return (
+								parsed?.message?.toLowerCase().includes("invalid request") ||
+								parsed?.indicator === "red"
+							);
+						} catch {
+							return typeof message === "string" && message.toLowerCase().includes("csrf");
+						}
+					});
+				} catch {
+					return payload._server_messages.toLowerCase().includes("csrf");
+				}
+			}
+			if (payload.exc && typeof payload.exc === "string" && payload.exc.toLowerCase().includes("csrf")) {
+				return true;
+			}
+			return false;
+		}
+
 		function logDebug(message, payload) {
 			const panel = document.getElementById("debug-panel");
 			const pre = document.getElementById("debug-log");
@@ -1498,68 +1555,85 @@
 			const method = (options && options.method) || "POST";
 			let url = endpoint;
 			let body;
+			let attemptedCsrfRefresh = false;
 
-			if (method === "GET") {
-				const params = new URLSearchParams(payload || {}).toString();
-				if (params) {
-					url += (url.includes("?") ? "&" : "?") + params;
-				}
-			} else {
-				body = JSON.stringify(payload || {});
-			}
+			const buildRequest = () => {
+				let finalUrl = url;
+				let finalBody;
 
-			const headers = {
-				"Accept": "application/json",
-				"X-Requested-With": "XMLHttpRequest"
-			};
-
-			if (method !== "GET") {
-				headers["Content-Type"] = "application/json";
-				const latestToken = refreshCsrfToken();
-				if (latestToken && latestToken.trim()) {
-					headers["X-Frappe-CSRF-Token"] = latestToken;
+				if (method === "GET") {
+					finalBody = undefined;
+					const params = new URLSearchParams(payload || {}).toString();
+					if (params) {
+						finalUrl += (finalUrl.includes("?") ? "&" : "?") + params;
+					}
 				} else {
-					logDebug("Missing CSRF token", { method, url, currentToken: csrfToken });
-					// Try to get token from meta tag if available
-					const metaToken = document.querySelector('meta[name="csrf-token"]');
-					if (metaToken && metaToken.content) {
-						csrfToken = metaToken.content;
-						headers["X-Frappe-CSRF-Token"] = csrfToken;
+					finalBody = JSON.stringify(payload || {});
+				}
+
+				const headers = {
+					"Accept": "application/json",
+					"X-Requested-With": "XMLHttpRequest"
+				};
+
+				if (method !== "GET") {
+					headers["Content-Type"] = "application/json";
+					const latestToken = refreshCsrfToken();
+					if (latestToken && latestToken.trim()) {
+						headers["X-Frappe-CSRF-Token"] = latestToken;
 					} else {
-						// Last resort: try to get from cookie one more time
-						const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
-						if (cookieToken) {
-							csrfToken = cookieToken;
+						logDebug("Missing CSRF token", { method, finalUrl, currentToken: csrfToken });
+						const metaToken = document.querySelector('meta[name="csrf-token"]');
+						if (metaToken && metaToken.content) {
+							csrfToken = metaToken.content;
 							headers["X-Frappe-CSRF-Token"] = csrfToken;
+						} else {
+							const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
+							if (cookieToken) {
+								csrfToken = cookieToken;
+								headers["X-Frappe-CSRF-Token"] = csrfToken;
+							}
 						}
 					}
 				}
+
+				return {
+					finalUrl,
+					requestInit: {
+						method,
+						headers,
+						credentials: "include",
+						body: finalBody
+					}
+				};
+			};
+
+			while (true) {
+				const { finalUrl, requestInit } = buildRequest();
+				const response = await fetch(finalUrl, requestInit);
+				const data = await response.json().catch(() => ({}));
+
+				if (!response.ok || data.exc) {
+					if (!attemptedCsrfRefresh && method !== "GET" && isCsrfError(response.status, data)) {
+						attemptedCsrfRefresh = true;
+						await fetchServerCsrfToken();
+						continue;
+					}
+					const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
+					logDebug("API error", { url: finalUrl, method, payload, status: response.status, response: data });
+					throw new Error(errorMessage);
+				}
+
+				if (Object.prototype.hasOwnProperty.call(data, "message")) {
+					return data.message;
+				}
+
+				if (Object.prototype.hasOwnProperty.call(data, "data")) {
+					return data.data;
+				}
+
+				return data;
 			}
-
-			const response = await fetch(url, {
-				method,
-				headers,
-				credentials: "include",
-				body
-			});
-
-			const data = await response.json().catch(() => ({}));
-
-			if (!response.ok || data.exc) {
-				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
-				logDebug("API error", { url, method, payload, status: response.status, response: data });
-				throw new Error(errorMessage);
-			}
-
-			if (Object.prototype.hasOwnProperty.call(data, "message")) {
-				return data.message;
-			}
-
-			if (Object.prototype.hasOwnProperty.call(data, "data")) {
-				return data.data;
-			}
-
-			return data;
 		}
 
 		function extractErrorMessage(errorData) {
