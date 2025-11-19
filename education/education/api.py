@@ -1224,11 +1224,12 @@ def get_existing_teacher_reviews(student=None):
 def get_students_for_group(student_group):
 	if not student_group:
 		frappe.throw(_("Please select a Student Group first"))
+
 	return frappe.get_all(
 		"Student Group Student",
 		filters={"parent": student_group},
-		fields=["student", "student_name"],
-		order_by="student_name",
+		fields=["student", "student_name", "group_roll_number"],
+		order_by="ifnull(group_roll_number, 999999), student_name",
 	)
 
 @frappe.whitelist()
@@ -1370,6 +1371,42 @@ def save_student_term_subject_results(entries):
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Bulk Student Term Subject Result Save Error")
 		frappe.throw(str(e))
+
+
+@frappe.whitelist(allow_guest=True)
+def delete_student_term_subject_results(student_group, academic_year, semester, subject, exam, grade=None):
+	required = {
+		"student_group": student_group,
+		"academic_year": academic_year,
+		"semester": semester,
+		"subject": subject,
+		"exam": exam,
+	}
+
+	missing = [label for label, value in required.items() if not value]
+	if missing:
+		frappe.throw(_("Missing required filters: {0}").format(", ".join(missing)))
+
+	filters = {
+		"student_group": student_group,
+		"academic_year": academic_year,
+		"semester": semester,
+		"subject": subject,
+		"exam": exam,
+		"docstatus": 0,
+	}
+	if grade:
+		filters["grade"] = grade
+
+	names = frappe.get_all("Student Term Subject Result", filters=filters, pluck="name")
+
+	deleted = 0
+	for name in names:
+		frappe.delete_doc("Student Term Subject Result", name, ignore_permissions=True)
+		deleted += 1
+
+	frappe.db.commit()
+	return {"deleted": deleted}
 
 
 @frappe.whitelist(allow_guest=True)

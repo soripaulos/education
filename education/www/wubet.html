@@ -120,6 +120,15 @@
 			background: #15803d;
 		}
 
+		.btn-danger {
+			background: #dc2626;
+			color: #fff;
+		}
+
+		.btn-danger:hover {
+			background: #b91c1c;
+		}
+
 		.table-wrapper {
 			overflow-x: auto;
 		}
@@ -284,6 +293,7 @@
 				<div class="actions-row">
 					<button type="button" class="btn-secondary" id="clear-form-btn">{{ _("Reset Form") }}</button>
 					<button type="button" class="btn-primary" id="log-score-btn">{{ _("Log Scores") }}</button>
+					<button type="button" class="btn-danger" id="remove-all-btn" disabled>{{ _("Remove All Results") }}</button>
 					<button type="button" class="btn-success" id="submit-scores-btn" disabled>{{ _("Submit Logged Scores") }}</button>
 				</div>
 			</form>
@@ -296,8 +306,10 @@
 				<table>
 					<thead>
 						<tr>
+							<th>#</th>
 							<th>{{ _("Student ID") }}</th>
 							<th>{{ _("Student Name") }}</th>
+							<th>{{ _("Roll Number") }}</th>
 							<th>{{ _("Score") }}</th>
 						</tr>
 					</thead>
@@ -339,6 +351,13 @@
 				<h4>{{ _("Debug Info") }}</h4>
 				<pre id="debug-log" style="white-space:pre-wrap;"></pre>
 			</div>
+			<div id="form-feedback-bottom" class="alert" style="display: none;"></div>
+			<div class="actions-row actions-row-secondary">
+				<button type="button" class="btn-secondary" id="clear-form-btn-bottom">{{ _("Reset Form") }}</button>
+				<button type="button" class="btn-primary" id="log-score-btn-bottom">{{ _("Log Scores") }}</button>
+				<button type="button" class="btn-danger" id="remove-all-btn-bottom" disabled>{{ _("Remove All Results") }}</button>
+				<button type="button" class="btn-success" id="submit-scores-btn-bottom" disabled>{{ _("Submit Logged Scores") }}</button>
+			</div>
 		</section>
 	</div>
 
@@ -363,7 +382,10 @@
 			someFailed: "Some submissions failed:",
 			allSuccess: "All scores were submitted successfully.",
 			someFailedSummary: "Some scores failed to submit. Please review the messages below.",
-			allFailed: "Unable to submit any of the queued scores."
+			allFailed: "Unable to submit any of the queued scores.",
+			removeAllConfirm: "Remove all saved scores for the selected filters?",
+			removeAllSuccess: "Removed {0} score(s) successfully.",
+			removeAllContextMissing: "Select Student Group, Academic Year, Semester, Subject, and Exam before removing saved scores."
 		};
 
 		let csrfToken = "{{ csrf_token | default('', true) }}";
@@ -371,6 +393,11 @@
 		const elements = {};
 		const examScoreMap = {};
 		const programLabelMap = {};
+		const programSubjectsMap = wubetBoot.program_courses || {};
+		let allSubjects = [];
+		let subjectPlaceholderText = "";
+		let scoreFetchRequestId = 0;
+		let buttonsBusy = false;
 		const state = {
 			loggedEntries: [],
 			students: [],
@@ -389,11 +416,13 @@
 			registerListeners();
 			setDefaultValues();
 			renderStudentsTable();
+			updateActionButtonsState();
 		});
 
 		function cacheElements() {
 			elements.form = document.getElementById("result-entry-form");
 			elements.feedback = document.getElementById("form-feedback");
+			elements.feedbackBottom = document.getElementById("form-feedback-bottom");
 			elements.studentGroup = document.getElementById("student-group");
 			elements.gradeDisplay = document.getElementById("grade-display");
 			elements.subject = document.getElementById("subject");
@@ -404,6 +433,11 @@
 			elements.logButton = document.getElementById("log-score-btn");
 			elements.submitButton = document.getElementById("submit-scores-btn");
 			elements.clearButton = document.getElementById("clear-form-btn");
+			elements.logButtonBottom = document.getElementById("log-score-btn-bottom");
+			elements.submitButtonBottom = document.getElementById("submit-scores-btn-bottom");
+			elements.clearButtonBottom = document.getElementById("clear-form-btn-bottom");
+			elements.removeAllButton = document.getElementById("remove-all-btn");
+			elements.removeAllButtonBottom = document.getElementById("remove-all-btn-bottom");
 			elements.entriesBody = document.getElementById("logged-entries-body");
 			elements.noEntriesRow = document.getElementById("no-entries-row");
 			elements.studentLoading = document.getElementById("student-loading");
@@ -411,6 +445,9 @@
 			elements.studentsHelperText = document.getElementById("students-helper-text");
 			elements.studentsTableWrapper = document.getElementById("students-table-wrapper");
 			elements.studentsTableBody = document.getElementById("students-table-body");
+
+			const subjectPlaceholderOption = elements.subject?.querySelector('option[value=""]');
+			subjectPlaceholderText = subjectPlaceholderOption ? subjectPlaceholderOption.textContent : "";
 		}
 
 		function buildProgramLabelMap() {
@@ -431,16 +468,45 @@
 				addOption(elements.exam, option.value, option.label);
 			});
 
-			(wubetBoot.subjects || []).forEach(subject => {
-				const label = subject.course_name || subject.name;
-				addOption(elements.subject, subject.name, label);
-			});
+			allSubjects = (wubetBoot.subjects || []).map(subject => ({
+				value: subject.name,
+				label: subject.course_name || subject.name,
+			}));
+			refreshSubjectOptions(state.currentGrade.value || "");
 
 			(wubetBoot.student_groups || []).forEach(group => {
 				const label = group.student_group_name || group.name;
 				const option = addOption(elements.studentGroup, group.name, label);
 				option.dataset.program = group.program || "";
 			});
+		}
+
+		function refreshSubjectOptions(programId) {
+			if (!elements.subject) return;
+
+			const allowedCourses = programId && programSubjectsMap[programId]
+				? new Set((programSubjectsMap[programId] || []).map(item => item.course))
+				: null;
+
+			const previousValue = elements.subject.value;
+			const placeholder = subjectPlaceholderText || "{{ _('Select Subject') }}";
+
+			elements.subject.innerHTML = "";
+			addOption(elements.subject, "", placeholder);
+
+			(allSubjects || []).forEach(subject => {
+				if (allowedCourses && !allowedCourses.has(subject.value)) {
+					return;
+				}
+
+				addOption(elements.subject, subject.value, subject.label);
+			});
+
+			if (allowedCourses && !allowedCourses.has(previousValue)) {
+				elements.subject.value = "";
+			} else {
+				elements.subject.value = previousValue;
+			}
 		}
 
 		function registerListeners() {
@@ -453,6 +519,20 @@
 			elements.logButton.addEventListener("click", logScores);
 			elements.submitButton.addEventListener("click", submitLoggedScores);
 			elements.clearButton.addEventListener("click", resetForm);
+			if (elements.logButtonBottom) {
+				elements.logButtonBottom.addEventListener("click", logScores);
+			}
+			if (elements.submitButtonBottom) {
+				elements.submitButtonBottom.addEventListener("click", submitLoggedScores);
+			}
+			if (elements.clearButtonBottom) {
+				elements.clearButtonBottom.addEventListener("click", resetForm);
+			}
+			[elements.removeAllButton, elements.removeAllButtonBottom].forEach(button => {
+				if (button) {
+					button.addEventListener("click", removeAllEntries);
+				}
+			});
 		}
 
 		function getCookie(name) {
@@ -517,6 +597,7 @@
 					input.value = "";
 				});
 			}
+			updateActionButtonsState();
 		}
 
 		function applyScoresToInputs() {
@@ -532,8 +613,10 @@
 		}
 
 		async function fetchExistingScores() {
-			if (!hasScoreContext()) return;
+			if (!hasScoreContext() || !state.students.length) return;
+
 			const params = getScoreContextParams();
+			const requestId = ++scoreFetchRequestId;
 			const filters = [
 				["Student Term Subject Result", "student_group", "=", params.student_group],
 				["Student Term Subject Result", "academic_year", "=", params.academic_year],
@@ -552,6 +635,9 @@
 					{ method: "GET" }
 				);
 				logDebug("Fetched existing drafts", { params, records });
+				if (requestId !== scoreFetchRequestId) {
+					return;
+				}
 				state.studentScores = {};
 				state.resultDocs = {};
 				state.lastQueuedScores = {};
@@ -572,6 +658,7 @@
 					}
 				});
 				applyScoresToInputs();
+				updateActionButtonsState();
 			} catch (error) {
 				console.error("Failed to fetch existing scores", error);
 				showFeedback(TEXT.scoreFetchError, "danger");
@@ -600,7 +687,7 @@
 			return option;
 		}
 
-		function handleStudentGroupChange(event) {
+		async function handleStudentGroupChange(event) {
 			clearScoreState();
 			const selectedOption = event.target.selectedOptions[0];
 			const programId = selectedOption ? selectedOption.dataset.program : "";
@@ -610,21 +697,24 @@
 				label: label || ""
 			};
 			elements.gradeDisplay.value = label || "";
-			loadStudentsForGroup(event.target.value);
+			refreshSubjectOptions(programId);
+			await loadStudentsForGroup(event.target.value);
+			updateActionButtonsState();
 		}
 
-		function handleContextChange() {
+		async function handleContextChange() {
 			clearScoreState();
+			updateActionButtonsState();
 			if (state.students.length && hasScoreContext()) {
-				fetchExistingScores();
+				await fetchExistingScores();
 			}
 		}
 
-		function handleExamChange(event) {
+		async function handleExamChange(event) {
 			const exam = event.target.value;
 			elements.maxScore.value = exam ? (examScoreMap[exam] || "") : "";
 			updateAllScoreInputsMax();
-			handleContextChange();
+			await handleContextChange();
 		}
 
 		function resetForm() {
@@ -632,10 +722,12 @@
 			elements.gradeDisplay.value = "";
 			state.currentGrade = { value: "", label: "" };
 			state.students = [];
+			refreshSubjectOptions("");
 			clearScoreState();
 			setDefaultValues();
 			renderStudentsTable();
 			clearFeedback();
+			updateActionButtonsState();
 		}
 
 		async function loadStudentsForGroup(studentGroup) {
@@ -644,6 +736,7 @@
 			renderStudentsTable();
 
 			if (!studentGroup) {
+				updateActionButtonsState();
 				return;
 			}
 
@@ -656,7 +749,7 @@
 					{ method: "GET" }
 				);
 				logDebug("Loaded students", { student_group: studentGroup, count: (students || []).length });
-				state.students = students || [];
+				state.students = sortStudents(students || []);
 				renderStudentsTable();
 				if (!state.students.length) {
 					showFeedback(TEXT.noStudents, "warning");
@@ -673,7 +766,29 @@
 				showFeedback(TEXT.loadStudentsError, "danger");
 			} finally {
 				elements.studentLoading.style.display = "none";
+				updateActionButtonsState();
 			}
+		}
+
+		function getRollNumberValue(value) {
+			if (value === null || value === undefined || value === "") {
+				return Number.POSITIVE_INFINITY;
+			}
+			const numeric = Number(value);
+			return Number.isNaN(numeric) ? Number.POSITIVE_INFINITY : numeric;
+		}
+
+		function sortStudents(students) {
+			return (students || []).slice().sort((a, b) => {
+				const rollA = getRollNumberValue(a.group_roll_number);
+				const rollB = getRollNumberValue(b.group_roll_number);
+				if (rollA !== rollB) {
+					return rollA - rollB;
+				}
+				const nameA = (a.student_name || a.student || "").toLowerCase();
+				const nameB = (b.student_name || b.student || "").toLowerCase();
+				return nameA.localeCompare(nameB);
+			});
 		}
 
 		function renderStudentsTable() {
@@ -688,15 +803,22 @@
 			elements.studentsTableWrapper.style.display = "block";
 
 			const rows = state.students
-				.map(student => {
+				.map((student, index) => {
 					const studentIdRaw = student.student || "";
 					const studentNameRaw = student.student_name || "";
+					const rollRaw = student.group_roll_number;
 					const studentId = escapeHtml(studentIdRaw);
 					const studentName = escapeHtml(studentNameRaw);
+					const rollDisplay =
+						rollRaw === null || rollRaw === undefined || rollRaw === ""
+							? ""
+							: escapeHtml(String(rollRaw));
 					return `
 						<tr>
+							<td>${index + 1}</td>
 							<td>${studentId}</td>
 							<td>${studentName}</td>
+							<td>${rollDisplay}</td>
 							<td>
 								<input
 									type="number"
@@ -733,14 +855,6 @@
 					const nextInput = allInputs[currentIndex + 1];
 					nextInput.focus();
 					nextInput.select(); // Select the text for easy replacement
-				} else if (currentIndex === allInputs.length - 1) {
-					// If on last row, optionally move to first row or just blur
-					// For better UX, we'll cycle back to the first input
-					const firstInput = allInputs[0];
-					if (firstInput) {
-						firstInput.focus();
-						firstInput.select();
-					}
 				}
 			}
 		}
@@ -893,7 +1007,7 @@
 
 			renderEntries();
 			showFeedback(TEXT.entryQueued, "success");
-			enableSubmit();
+			updateActionButtonsState();
 		}
 
 		function renderEntries() {
@@ -901,9 +1015,9 @@
 			if (!state.loggedEntries.length) {
 				elements.entriesBody.appendChild(elements.noEntriesRow);
 				elements.noEntriesRow.style.display = "table-row";
-				disableSubmit();
 				elements.summary.style.display = "none";
 				elements.summary.innerHTML = "";
+				updateActionButtonsState();
 				return;
 			}
 
@@ -928,6 +1042,7 @@
 				row.querySelector("button").addEventListener("click", () => removeEntry(index));
 				elements.entriesBody.appendChild(row);
 			});
+			updateActionButtonsState();
 		}
 
 		function removeEntry(index) {
@@ -966,12 +1081,32 @@
 			}
 		}
 
-		function enableSubmit() {
-			elements.submitButton.disabled = state.loggedEntries.length === 0;
-		}
-
-		function disableSubmit() {
-			elements.submitButton.disabled = true;
+		function updateActionButtonsState() {
+			if (buttonsBusy) {
+				return;
+			}
+			const hasEntries = state.loggedEntries.length > 0;
+			const canRemoveAll = hasScoreContext() && state.students.length > 0;
+			[elements.logButton, elements.logButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = false;
+				}
+			});
+			[elements.submitButton, elements.submitButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = !hasEntries;
+				}
+			});
+			[elements.clearButton, elements.clearButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = false;
+				}
+			});
+			[elements.removeAllButton, elements.removeAllButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = !canRemoveAll;
+				}
+			});
 		}
 
 		function formatNumber(number) {
@@ -1010,10 +1145,65 @@
 			handleSubmissionSummary(summary);
 		}
 
+		async function removeAllEntries() {
+			if (!hasScoreContext()) {
+				showFeedback(TEXT.removeAllContextMissing, "warning");
+				return;
+			}
+
+			if (!state.students.length) {
+				showFeedback(TEXT.noStudents, "warning");
+				return;
+			}
+
+			if (!window.confirm(TEXT.removeAllConfirm)) {
+				return;
+			}
+
+			disableButtons(true);
+			try {
+				const params = {
+					...getScoreContextParams(),
+					grade: state.currentGrade.value || "",
+				};
+				const response = await apiCall(
+					"/api/method/education.education.api.delete_student_term_subject_results",
+					params,
+					{ method: "POST" }
+				);
+				logDebug("Removed saved scores", { params, response });
+				clearScoreState();
+				await fetchExistingScores();
+				const removed = response?.deleted || 0;
+				const message = TEXT.removeAllSuccess.replace("{0}", removed);
+				showFeedback(message, "success");
+			} catch (error) {
+				showFeedback(error.message || TEXT.scoreSaveError, "danger");
+			} finally {
+				disableButtons(false);
+			}
+		}
+
 		function disableButtons(isDisabled) {
-			elements.logButton.disabled = isDisabled;
-			elements.submitButton.disabled = isDisabled;
-			elements.clearButton.disabled = isDisabled;
+			buttonsBusy = isDisabled;
+			const targets = [
+				elements.logButton,
+				elements.logButtonBottom,
+				elements.submitButton,
+				elements.submitButtonBottom,
+				elements.clearButton,
+				elements.clearButtonBottom,
+				elements.removeAllButton,
+				elements.removeAllButtonBottom,
+			];
+			targets.forEach(button => {
+				if (button) {
+					button.disabled = isDisabled;
+				}
+			});
+			if (!isDisabled) {
+				updateActionButtonsState();
+			}
 		}
 
 		async function callCreateResult(entries) {
@@ -1156,14 +1346,25 @@
 		}
 
 		function showFeedback(message, level) {
-			elements.feedback.className = `alert alert-${level}`;
-			elements.feedback.textContent = message;
-			elements.feedback.style.display = "block";
+			[elements.feedback, elements.feedbackBottom].forEach(target => {
+				setFeedbackMessage(target, message, level);
+			});
 		}
 
 		function clearFeedback() {
-			elements.feedback.style.display = "none";
-			elements.feedback.textContent = "";
+			[elements.feedback, elements.feedbackBottom].forEach(target => {
+				if (target) {
+					target.style.display = "none";
+					target.textContent = "";
+				}
+			});
+		}
+
+		function setFeedbackMessage(target, message, level) {
+			if (!target) return;
+			target.className = `alert alert-${level}`;
+			target.textContent = message;
+			target.style.display = "block";
 		}
 
 		function rebuildQueuedScoreMap() {

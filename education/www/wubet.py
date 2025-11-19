@@ -13,7 +13,7 @@ def get_context(context):
     exam_options = [
         {"label": "First Test", "value": "First Test", "max_score": 15},
         {"label": "Second Test", "value": "Second Test", "max_score": 15},
-        {"label": "Mid Exam", "value": "Mid Exam", "max_score": 30},
+        {"label": "Mid Exam", "value": "Mid Exam", "max_score": 20},
         {"label": "Final Exam", "value": "Final Exam", "max_score": 50},
     ]
 
@@ -33,6 +33,18 @@ def get_context(context):
         order_by="program_name",
     )
 
+    program_course_rows = frappe.get_all(
+        "Program Course",
+        filters={"parenttype": "Program"},
+        fields=["parent", "course", "course_name", "idx"],
+        order_by="parent asc, idx asc",
+    )
+    program_courses = {}
+    for row in program_course_rows:
+        program_courses.setdefault(row.parent, []).append(
+            {"course": row.course, "course_name": row.course_name or row.course}
+        )
+
     context.wubet_boot = frappe.as_json(
         {
             "student_groups": student_groups,
@@ -41,6 +53,7 @@ def get_context(context):
             "default_academic_year": default_academic_year,
             "semesters": semester_options,
             "exam_options": exam_options,
+            "program_courses": program_courses,
         }
     )
     
