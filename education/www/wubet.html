@@ -607,6 +607,12 @@
 				const token = data?.message || data?.data;
 				if (token) {
 					csrfToken = token;
+					try {
+						document.cookie = `frappe-csrf-token=${token}; path=/`;
+						document.cookie = `csrf_token=${token}; path=/`;
+					} catch (cookieError) {
+						logDebug("Unable to set CSRF cookies", { error: cookieError?.message || cookieError });
+					}
 				} else {
 					refreshCsrfToken();
 				}
@@ -1556,6 +1562,12 @@
 			let url = endpoint;
 			let body;
 			let attemptedCsrfRefresh = false;
+
+			if (method !== "GET") {
+				if (!csrfToken || !csrfToken.trim()) {
+					await fetchServerCsrfToken();
+				}
+			}
 
 			const buildRequest = () => {
 				let finalUrl = url;
