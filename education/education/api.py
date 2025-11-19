@@ -1232,6 +1232,57 @@ def get_students_for_group(student_group):
 		order_by="ifnull(group_roll_number, 999999), student_name",
 	)
 
+
+def _get_student_term_subject_records(student_group, academic_year, semester, subject, exam=None, include_submitted=True):
+	if not (student_group and academic_year and semester and subject):
+		frappe.throw(_("Missing required filters to fetch student scores"))
+
+	filters = [
+		["Student Term Subject Result", "student_group", "=", student_group],
+		["Student Term Subject Result", "academic_year", "=", academic_year],
+		["Student Term Subject Result", "semester", "=", semester],
+		["Student Term Subject Result", "subject", "=", subject],
+	]
+
+	if exam:
+		filters.append(["Student Term Subject Result", "exam", "=", exam])
+
+	docstatus_filter = [0]
+	if cint(include_submitted):
+		docstatus_filter.append(1)
+
+	filters.append(["Student Term Subject Result", "docstatus", "in", docstatus_filter])
+
+	records = frappe.get_all(
+		"Student Term Subject Result",
+		filters=filters,
+		fields=[
+			"name",
+			"student",
+			"student_name",
+			"student_group",
+			"grade",
+			"exam",
+			"score",
+			"max_score",
+			"docstatus",
+			"modified",
+		],
+		order_by="modified desc",
+	)
+
+	unique_records = []
+	seen = set()
+
+	for row in records:
+		key = (row.student, row.exam if not exam else exam)
+		if key in seen:
+			continue
+		seen.add(key)
+		unique_records.append(row)
+
+	return unique_records
+
 @frappe.whitelist()
 def create_and_submit_score(academic_year, academic_term, course, assessment_criteria, student, score, student_group):
 	try:
@@ -1374,6 +1425,30 @@ def save_student_term_subject_results(entries):
 
 
 @frappe.whitelist(allow_guest=True)
+def get_student_term_subject_results(student_group, academic_year, semester, subject, exam=None, include_submitted=1):
+	return _get_student_term_subject_records(
+		student_group,
+		academic_year,
+		semester,
+		subject,
+		exam=exam,
+		include_submitted=cint(include_submitted),
+	)
+
+
+@frappe.whitelist(allow_guest=True)
+def get_student_exam_summary(student_group, academic_year, semester, subject):
+	return _get_student_term_subject_records(
+		student_group,
+		academic_year,
+		semester,
+		subject,
+		exam=None,
+		include_submitted=True,
+	)
+
+
+@frappe.whitelist(allow_guest=True)
 def delete_student_term_subject_results(student_group, academic_year, semester, subject, exam, grade=None):
 	required = {
 		"student_group": student_group,
@@ -1411,19 +1486,13 @@ def delete_student_term_subject_results(student_group, academic_year, semester, 
 
 @frappe.whitelist(allow_guest=True)
 def get_student_group_scores(student_group, academic_year, semester, subject, exam):
-	filters = {
-		"student_group": student_group,
-		"academic_year": academic_year,
-		"semester": semester,
-		"subject": subject,
-		"exam": exam,
-		"docstatus": 0,
-	}
-	return frappe.get_all(
-		"Student Term Subject Result",
-		filters=filters,
-		fields=["name", "student", "student_name", "score", "max_score"],
-		order_by="student asc",
+	return _get_student_term_subject_records(
+		student_group,
+		academic_year,
+		semester,
+		subject,
+		exam=exam,
+		include_submitted=False,
 	)
 
 

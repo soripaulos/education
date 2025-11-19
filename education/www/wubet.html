@@ -359,6 +359,29 @@
 				<button type="button" class="btn-success" id="submit-scores-btn-bottom" disabled>{{ _("Submit Logged Scores") }}</button>
 			</div>
 		</section>
+
+		<section class="card">
+			<h3>{{ _("Exam Summary") }}</h3>
+			<p class="small-text" id="exam-summary-helper">{{ _("Select a student group, academic year, semester, subject, and exam to view the summary.") }}</p>
+			<div class="table-wrapper" id="exam-summary-table-wrapper" style="display: none;">
+				<table>
+					<thead>
+						<tr>
+							<th>#</th>
+							<th>{{ _("Student ID") }}</th>
+							<th>{{ _("Student Name") }}</th>
+							<th>{{ _("Roll Number") }}</th>
+							<th>{{ _("First Test") }}</th>
+							<th>{{ _("Second Test") }}</th>
+							<th>{{ _("Mid Exam") }}</th>
+							<th>{{ _("Final Exam") }}</th>
+							<th>{{ _("Total") }}</th>
+						</tr>
+					</thead>
+					<tbody id="exam-summary-table-body"></tbody>
+				</table>
+			</div>
+		</section>
 	</div>
 
 	<script>
@@ -385,8 +408,13 @@
 			allFailed: "Unable to submit any of the queued scores.",
 			removeAllConfirm: "Remove all saved scores for the selected filters?",
 			removeAllSuccess: "Removed {0} score(s) successfully.",
-			removeAllContextMissing: "Select Student Group, Academic Year, Semester, Subject, and Exam before removing saved scores."
+			removeAllContextMissing: "Select Student Group, Academic Year, Semester, Subject, and Exam before removing saved scores.",
+			summarySelectContext: "Select Student Group, Academic Year, Semester, Subject, and Exam to view the summary.",
+			summaryNoStudents: "No students available for the selected Student Group.",
+			summaryNoScores: "No exam results recorded yet for the selected filters."
 		};
+
+		const EXAM_SEQUENCE = ["First Test", "Second Test", "Mid Exam", "Final Exam"];
 
 		let csrfToken = "{{ csrf_token | default('', true) }}";
 		const wubetBoot = {{ wubet_boot | safe }};
@@ -397,6 +425,7 @@
 		let allSubjects = [];
 		let subjectPlaceholderText = "";
 		let scoreFetchRequestId = 0;
+		let summaryFetchRequestId = 0;
 		let buttonsBusy = false;
 		const state = {
 			loggedEntries: [],
@@ -404,7 +433,9 @@
 			studentScores: {},
 			resultDocs: {},
 			lastQueuedScores: {},
-			currentGrade: { value: "", label: "" }
+			currentGrade: { value: "", label: "" },
+			examSummaryBase: {},
+			examSummary: {}
 		};
 
 		document.addEventListener("DOMContentLoaded", () => {
@@ -417,6 +448,7 @@
 			setDefaultValues();
 			renderStudentsTable();
 			updateActionButtonsState();
+			renderExamSummaryTable();
 		});
 
 		function cacheElements() {
@@ -448,6 +480,10 @@
 
 			const subjectPlaceholderOption = elements.subject?.querySelector('option[value=""]');
 			subjectPlaceholderText = subjectPlaceholderOption ? subjectPlaceholderOption.textContent : "";
+
+			elements.examSummaryHelper = document.getElementById("exam-summary-helper");
+			elements.examSummaryTableWrapper = document.getElementById("exam-summary-table-wrapper");
+			elements.examSummaryTableBody = document.getElementById("exam-summary-table-body");
 		}
 
 		function buildProgramLabelMap() {
@@ -598,6 +634,13 @@
 				});
 			}
 			updateActionButtonsState();
+			resetExamSummary();
+		}
+
+		function resetExamSummary() {
+			state.examSummaryBase = {};
+			state.examSummary = {};
+			renderExamSummaryTable();
 		}
 
 		function applyScoresToInputs() {
@@ -617,20 +660,16 @@
 
 			const params = getScoreContextParams();
 			const requestId = ++scoreFetchRequestId;
-			const filters = [
-				["Student Term Subject Result", "student_group", "=", params.student_group],
-				["Student Term Subject Result", "academic_year", "=", params.academic_year],
-				["Student Term Subject Result", "semester", "=", params.semester],
-				["Student Term Subject Result", "subject", "=", params.subject],
-				["Student Term Subject Result", "exam", "=", params.exam],
-				["Student Term Subject Result", "docstatus", "=", 0]
-			];
 			try {
 				const records = await apiCall(
-					"/api/resource/Student Term Subject Result",
+					"/api/method/education.education.api.get_student_term_subject_results",
 					{
-						filters: JSON.stringify(filters),
-						fields: JSON.stringify(["name", "student", "student_name", "score", "max_score"])
+						student_group: params.student_group,
+						academic_year: params.academic_year,
+						semester: params.semester,
+						subject: params.subject,
+						exam: params.exam,
+						include_submitted: 1
 					},
 					{ method: "GET" }
 				);
@@ -646,13 +685,19 @@
 					const scoreValue = rawScore === null || rawScore === undefined ? null : parseFloat(rawScore);
 					const studentId = record.student;
 					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
+					const isDraft = Number(record.docstatus) === 0;
 					state.studentScores[studentId] = {
 						student: studentId,
 						student_name: record.student_name || "",
 						score: Number.isNaN(scoreValue) ? null : scoreValue,
-						docname: record.name
+						docname: isDraft ? record.name : null,
+						docstatus: Number(record.docstatus)
 					};
-					state.resultDocs[key] = record.name;
+					if (isDraft) {
+						state.resultDocs[key] = record.name;
+					} else {
+						delete state.resultDocs[key];
+					}
 					if (!Number.isNaN(scoreValue) && scoreValue !== null) {
 						state.lastQueuedScores[key] = scoreValue;
 					}
@@ -706,7 +751,10 @@
 			clearScoreState();
 			updateActionButtonsState();
 			if (state.students.length && hasScoreContext()) {
-				await fetchExistingScores();
+				await Promise.all([fetchExistingScores(), fetchExamSummaryAllExams()]);
+			} else {
+				resetExamSummary();
+				renderExamSummaryTable();
 			}
 		}
 
@@ -753,12 +801,16 @@
 				renderStudentsTable();
 				if (!state.students.length) {
 					showFeedback(TEXT.noStudents, "warning");
+					resetExamSummary();
+					renderExamSummaryTable();
 				} else {
 					clearFeedback();
 					if (hasScoreContext()) {
 						await fetchExistingScores();
+						await fetchExamSummaryAllExams();
 					} else {
-						applyScoresToInputs();
+						resetExamSummary();
+						renderExamSummaryTable();
 					}
 				}
 			} catch (error) {
@@ -841,6 +893,7 @@
 				input.addEventListener("keydown", handleScoreInputKeydown);
 			});
 			applyScoresToInputs();
+			renderExamSummaryTable();
 		}
 
 		function handleScoreInputKeydown(event) {
@@ -911,6 +964,172 @@
 					input.removeAttribute("max");
 				}
 			});
+		}
+
+		function cloneSummaryMap(map) {
+			const clone = {};
+			Object.keys(map || {}).forEach(studentId => {
+				clone[studentId] = {};
+				Object.keys(map[studentId] || {}).forEach(exam => {
+					clone[studentId][exam] = { ...(map[studentId][exam] || {}) };
+				});
+			});
+			return clone;
+		}
+
+		function updateSummaryEntry(target, entry) {
+			if (!entry || !entry.student || !entry.exam) {
+				return;
+			}
+			const studentId = entry.student;
+			const examName = entry.exam;
+			const rawScore = entry.score;
+			const parsedScore = rawScore === null || rawScore === undefined || rawScore === ""
+				? null
+				: parseFloat(rawScore);
+			const rawMax = entry.max_score;
+			const parsedMax = rawMax === null || rawMax === undefined || rawMax === ""
+				? null
+				: parseFloat(rawMax);
+
+			if (!target[studentId]) {
+				target[studentId] = {};
+			}
+			target[studentId][examName] = {
+				score: Number.isNaN(parsedScore) ? null : parsedScore,
+				max_score: Number.isNaN(parsedMax) ? null : parsedMax,
+				source: entry.source || (Number(entry.docstatus) === 0 ? "draft" : "submitted")
+			};
+		}
+
+		function syncExamSummaryWithLoggedEntries() {
+			state.examSummary = cloneSummaryMap(state.examSummaryBase);
+			(state.loggedEntries || []).forEach(entry => {
+				updateSummaryEntry(state.examSummary, { ...entry, source: "queued" });
+			});
+			renderExamSummaryTable();
+		}
+
+		function renderExamSummaryTable() {
+			if (!elements.examSummaryTableBody) {
+				return;
+			}
+
+			if (!hasScoreContext()) {
+				setSummaryHelper(TEXT.summarySelectContext, true);
+				if (elements.examSummaryTableWrapper) {
+					elements.examSummaryTableWrapper.style.display = "none";
+				}
+				elements.examSummaryTableBody.innerHTML = "";
+				return;
+			}
+
+			if (!state.students.length) {
+				setSummaryHelper(TEXT.summaryNoStudents, true);
+				if (elements.examSummaryTableWrapper) {
+					elements.examSummaryTableWrapper.style.display = "none";
+				}
+				elements.examSummaryTableBody.innerHTML = "";
+				return;
+			}
+
+			if (elements.examSummaryTableWrapper) {
+				elements.examSummaryTableWrapper.style.display = "block";
+			}
+
+			const rows = state.students
+				.map((student, index) => {
+					const studentId = student.student;
+					const summary = state.examSummary[studentId] || {};
+					let total = 0;
+					let hasTotal = false;
+					const examCells = EXAM_SEQUENCE.map(exam => {
+						const entry = summary[exam];
+						const display =
+							entry && typeof entry.score === "number" && !Number.isNaN(entry.score)
+								? formatNumber(entry.score)
+								: "";
+						if (display) {
+							total += entry.score;
+							hasTotal = true;
+						}
+						return `<td>${display}</td>`;
+					}).join("");
+					const totalDisplay = hasTotal ? formatNumber(total) : "";
+					const rollRaw = student.group_roll_number;
+					const rollDisplay =
+						rollRaw === null || rollRaw === undefined || rollRaw === ""
+							? ""
+							: escapeHtml(String(rollRaw));
+					return `
+						<tr>
+							<td>${index + 1}</td>
+							<td>${escapeHtml(studentId || "")}</td>
+							<td>${escapeHtml(student.student_name || "")}</td>
+							<td>${rollDisplay}</td>
+							${examCells}
+							<td>${totalDisplay}</td>
+						</tr>
+					`;
+				})
+				.join("");
+
+			elements.examSummaryTableBody.innerHTML = rows;
+			const hasScores = hasSummaryScores();
+			setSummaryHelper(TEXT.summaryNoScores, !hasScores);
+		}
+
+		function setSummaryHelper(message, shouldShow) {
+			if (!elements.examSummaryHelper) return;
+			if (shouldShow && message) {
+				elements.examSummaryHelper.textContent = message;
+				elements.examSummaryHelper.style.display = "block";
+			} else {
+				elements.examSummaryHelper.style.display = "none";
+			}
+		}
+
+		function hasSummaryScores() {
+			return Object.keys(state.examSummary || {}).some(studentId => {
+				const summary = state.examSummary[studentId] || {};
+				return EXAM_SEQUENCE.some(exam => {
+					const entry = summary[exam];
+					return typeof entry?.score === "number" && !Number.isNaN(entry.score);
+				});
+			});
+		}
+
+		async function fetchExamSummaryAllExams() {
+			if (!hasScoreContext() || !state.students.length) {
+				resetExamSummary();
+				return;
+			}
+
+			const params = getScoreContextParams();
+			const requestId = ++summaryFetchRequestId;
+			try {
+				const records = await apiCall(
+					"/api/method/education.education.api.get_student_exam_summary",
+					{
+						student_group: params.student_group,
+						academic_year: params.academic_year,
+						semester: params.semester,
+						subject: params.subject
+					},
+					{ method: "GET" }
+				);
+				if (requestId !== summaryFetchRequestId) {
+					return;
+				}
+				const summaryMap = {};
+				(records || []).forEach(record => {
+					updateSummaryEntry(summaryMap, record);
+				});
+				state.examSummaryBase = summaryMap;
+				syncExamSummaryWithLoggedEntries();
+			} catch (error) {
+				console.error("Failed to fetch exam summary", error);
+			}
 		}
 
 		function getCommonEntryData() {
@@ -1018,6 +1237,7 @@
 				elements.summary.style.display = "none";
 				elements.summary.innerHTML = "";
 				updateActionButtonsState();
+				syncExamSummaryWithLoggedEntries();
 				return;
 			}
 
@@ -1043,6 +1263,7 @@
 				elements.entriesBody.appendChild(row);
 			});
 			updateActionButtonsState();
+			syncExamSummaryWithLoggedEntries();
 		}
 
 		function removeEntry(index) {
@@ -1142,7 +1363,7 @@
 			}
 
 			disableButtons(false);
-			handleSubmissionSummary(summary);
+			await handleSubmissionSummary(summary);
 		}
 
 		async function removeAllEntries() {
@@ -1174,6 +1395,7 @@
 				logDebug("Removed saved scores", { params, response });
 				clearScoreState();
 				await fetchExistingScores();
+				await fetchExamSummaryAllExams();
 				const removed = response?.deleted || 0;
 				const message = TEXT.removeAllSuccess.replace("{0}", removed);
 				showFeedback(message, "success");
@@ -1225,14 +1447,15 @@
 					student: entry.student,
 					student_name: entry.student_name,
 					score: entry.score,
-					docname: record.name
+					docname: record.name,
+					docstatus: 0
 				};
 			});
 
 			return response;
 		}
 
-		function handleSubmissionSummary(summary) {
+		async function handleSubmissionSummary(summary) {
 			let summaryHtml = "";
 			if (summary.success.length) {
 				const message = TEXT.submittedTemplate.replace("{0}", summary.success.length);
@@ -1267,6 +1490,8 @@
 			} else {
 				showFeedback(TEXT.allFailed, "danger");
 			}
+
+			await fetchExamSummaryAllExams();
 		}
 
 		async function apiCall(endpoint, payload, options) {
