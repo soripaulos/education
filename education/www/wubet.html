@@ -591,6 +591,9 @@
 		}
 
 		function refreshCsrfToken() {
+			if (csrfToken && csrfToken.trim()) {
+				return csrfToken;
+			}
 			// Try multiple cookie names that Frappe might use
 			const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
 			if (cookieToken) {
@@ -607,7 +610,7 @@
 
 		async function fetchServerCsrfToken() {
 			try {
-				const response = await fetch("/api/method/frappe.sessions.get_csrf_token", {
+				const response = await fetch("/api/method/education.education.api.refresh_result_entry_session", {
 					method: "GET",
 					headers: {
 						"Accept": "application/json",
@@ -616,15 +619,13 @@
 					credentials: "include"
 				});
 				const data = await response.json().catch(() => ({}));
-				const token = data?.message || data?.data;
+				const token =
+					data?.message?.csrf_token ||
+					(typeof data?.message === "string" && data.message) ||
+					data?.csrf_token ||
+					data?.data;
 				if (token) {
 					csrfToken = token;
-					try {
-						document.cookie = `frappe-csrf-token=${token}; path=/`;
-						document.cookie = `csrf_token=${token}; path=/`;
-					} catch (cookieError) {
-						logDebug("Unable to set CSRF cookies", { error: cookieError?.message || cookieError });
-					}
 				} else {
 					refreshCsrfToken();
 				}

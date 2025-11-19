@@ -8,6 +8,7 @@ import frappe
 from frappe import _
 from frappe.email.doctype.email_group.email_group import add_subscribers
 from frappe.model.mapper import get_mapped_doc
+from frappe.sessions import get_csrf_token as frappe_get_csrf_token
 from frappe.utils import cstr, cint, flt, getdate
 from frappe.utils.dateutils import get_dates_from_timegrain
 
@@ -25,6 +26,13 @@ def ensure_result_entry_user():
 	allowed = {u.lower() for u in ALLOWED_RESULT_ENTRY_USERS}
 	if email not in allowed and username not in allowed:
 		frappe.throw(_("You are not authorized to perform this action."), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def refresh_result_entry_session():
+	ensure_result_entry_user()
+	token = frappe_get_csrf_token()
+	return {"csrf_token": token}
 
 
 def get_course(program):
