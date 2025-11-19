@@ -716,8 +716,33 @@
 			updateAllScoreInputsMax();
 			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
 				input.addEventListener("input", handleStudentScoreInput);
+				input.addEventListener("keydown", handleScoreInputKeydown);
 			});
 			applyScoresToInputs();
+		}
+
+		function handleScoreInputKeydown(event) {
+			if (event.key === "Enter" || event.keyCode === 13) {
+				event.preventDefault();
+				const currentInput = event.target;
+				const allInputs = Array.from(elements.studentsTableBody.querySelectorAll(".score-input"));
+				const currentIndex = allInputs.indexOf(currentInput);
+				
+				if (currentIndex >= 0 && currentIndex < allInputs.length - 1) {
+					// Move to next input
+					const nextInput = allInputs[currentIndex + 1];
+					nextInput.focus();
+					nextInput.select(); // Select the text for easy replacement
+				} else if (currentIndex === allInputs.length - 1) {
+					// If on last row, optionally move to first row or just blur
+					// For better UX, we'll cycle back to the first input
+					const firstInput = allInputs[0];
+					if (firstInput) {
+						firstInput.focus();
+						firstInput.select();
+					}
+				}
+			}
 		}
 
 		function handleStudentScoreInput(event) {
