@@ -12,6 +12,21 @@ from frappe.utils import cstr, cint, flt, getdate
 from frappe.utils.dateutils import get_dates_from_timegrain
 
 
+ALLOWED_RESULT_ENTRY_USERS = {"wubet", "sori", "administrator"}
+
+
+def ensure_result_entry_user():
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in to continue."), frappe.AuthenticationError)
+
+	user = frappe.session.user or ""
+	username = (frappe.db.get_value("User", user, "username") or "").lower()
+	email = user.lower()
+	allowed = {u.lower() for u in ALLOWED_RESULT_ENTRY_USERS}
+	if email not in allowed and username not in allowed:
+		frappe.throw(_("You are not authorized to perform this action."), frappe.PermissionError)
+
+
 def get_course(program):
 	"""Return list of courses for a particular program
 	:param program: Program
@@ -1327,8 +1342,9 @@ def create_and_submit_term_subject_result(data):
 		frappe.throw(str(e))
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def create_student_term_subject_result(result_data):
+	ensure_result_entry_user()
 	"""Create and submit a Student Term Subject Result document from frontend payload."""
 	try:
 		if isinstance(result_data, str):
@@ -1393,8 +1409,9 @@ def create_student_term_subject_result(result_data):
 		frappe.throw(str(e))
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def save_student_term_subject_results(entries):
+	ensure_result_entry_user()
 	try:
 		entries = frappe.parse_json(entries)
 		if not isinstance(entries, list):
@@ -1424,8 +1441,9 @@ def save_student_term_subject_results(entries):
 		frappe.throw(str(e))
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_student_term_subject_results(student_group, academic_year, semester, subject, exam=None, include_submitted=1):
+	ensure_result_entry_user()
 	return _get_student_term_subject_records(
 		student_group,
 		academic_year,
@@ -1436,8 +1454,9 @@ def get_student_term_subject_results(student_group, academic_year, semester, sub
 	)
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_student_exam_summary(student_group, academic_year, semester, subject):
+	ensure_result_entry_user()
 	return _get_student_term_subject_records(
 		student_group,
 		academic_year,
@@ -1448,8 +1467,9 @@ def get_student_exam_summary(student_group, academic_year, semester, subject):
 	)
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def delete_student_term_subject_results(student_group, academic_year, semester, subject, exam, grade=None):
+	ensure_result_entry_user()
 	required = {
 		"student_group": student_group,
 		"academic_year": academic_year,
@@ -1484,8 +1504,9 @@ def delete_student_term_subject_results(student_group, academic_year, semester, 
 	return {"deleted": deleted}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_student_group_scores(student_group, academic_year, semester, subject, exam):
+	ensure_result_entry_user()
 	return _get_student_term_subject_records(
 		student_group,
 		academic_year,

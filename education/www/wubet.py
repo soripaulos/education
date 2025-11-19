@@ -2,7 +2,25 @@ import frappe
 from frappe import _
 
 
+ALLOWED_RESULT_USERS = {"wubet", "sori"}
+
+
+def ensure_result_page_access():
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(
+            _("Please log in to access the Student Result Entry page."), frappe.PermissionError
+        )
+
+    username = (frappe.db.get_value("User", user, "username") or "").lower()
+    email = (user or "").lower()
+    allowed = {u.lower() for u in ALLOWED_RESULT_USERS}
+    if email not in allowed and username not in allowed and email != "administrator":
+        frappe.throw(_("You are not authorized to access this page."), frappe.PermissionError)
+
+
 def get_context(context):
+    ensure_result_page_access()
     context.title = _("Student Result Entry")
 
     default_academic_year = "2018 E.C."

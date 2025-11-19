@@ -292,6 +292,7 @@
 
 				<div class="actions-row">
 					<button type="button" class="btn-secondary" id="clear-form-btn">{{ _("Reset Form") }}</button>
+					<button type="button" class="btn-secondary" id="refresh-session-btn">{{ _("Refresh Security Token") }}</button>
 					<button type="button" class="btn-primary" id="log-score-btn">{{ _("Log Scores") }}</button>
 					<button type="button" class="btn-danger" id="remove-all-btn" disabled>{{ _("Remove All Results") }}</button>
 					<button type="button" class="btn-success" id="submit-scores-btn" disabled>{{ _("Submit Logged Scores") }}</button>
@@ -354,6 +355,7 @@
 			<div id="form-feedback-bottom" class="alert" style="display: none;"></div>
 			<div class="actions-row actions-row-secondary">
 				<button type="button" class="btn-secondary" id="clear-form-btn-bottom">{{ _("Reset Form") }}</button>
+				<button type="button" class="btn-secondary" id="refresh-session-btn-bottom">{{ _("Refresh Security Token") }}</button>
 				<button type="button" class="btn-primary" id="log-score-btn-bottom">{{ _("Log Scores") }}</button>
 				<button type="button" class="btn-danger" id="remove-all-btn-bottom" disabled>{{ _("Remove All Results") }}</button>
 				<button type="button" class="btn-success" id="submit-scores-btn-bottom" disabled>{{ _("Submit Logged Scores") }}</button>
@@ -411,7 +413,9 @@
 			removeAllContextMissing: "Select Student Group, Academic Year, Semester, Subject, and Exam before removing saved scores.",
 			summarySelectContext: "Select Student Group, Academic Year, Semester, Subject, and Exam to view the summary.",
 			summaryNoStudents: "No students available for the selected Student Group.",
-			summaryNoScores: "No exam results recorded yet for the selected filters."
+			summaryNoScores: "No exam results recorded yet for the selected filters.",
+			securityRefreshSuccess: "Security token refreshed.",
+			securityRefreshFailed: "Unable to refresh security token. Please reload the page."
 		};
 
 		const EXAM_SEQUENCE = ["First Test", "Second Test", "Mid Exam", "Final Exam"];
@@ -465,9 +469,11 @@
 			elements.logButton = document.getElementById("log-score-btn");
 			elements.submitButton = document.getElementById("submit-scores-btn");
 			elements.clearButton = document.getElementById("clear-form-btn");
+			elements.refreshSecurityButton = document.getElementById("refresh-session-btn");
 			elements.logButtonBottom = document.getElementById("log-score-btn-bottom");
 			elements.submitButtonBottom = document.getElementById("submit-scores-btn-bottom");
 			elements.clearButtonBottom = document.getElementById("clear-form-btn-bottom");
+			elements.refreshSecurityButtonBottom = document.getElementById("refresh-session-btn-bottom");
 			elements.removeAllButton = document.getElementById("remove-all-btn");
 			elements.removeAllButtonBottom = document.getElementById("remove-all-btn-bottom");
 			elements.entriesBody = document.getElementById("logged-entries-body");
@@ -555,6 +561,9 @@
 			elements.logButton.addEventListener("click", logScores);
 			elements.submitButton.addEventListener("click", submitLoggedScores);
 			elements.clearButton.addEventListener("click", resetForm);
+			if (elements.refreshSecurityButton) {
+				elements.refreshSecurityButton.addEventListener("click", manualRefreshSecurity);
+			}
 			if (elements.logButtonBottom) {
 				elements.logButtonBottom.addEventListener("click", logScores);
 			}
@@ -563,6 +572,9 @@
 			}
 			if (elements.clearButtonBottom) {
 				elements.clearButtonBottom.addEventListener("click", resetForm);
+			}
+			if (elements.refreshSecurityButtonBottom) {
+				elements.refreshSecurityButtonBottom.addEventListener("click", manualRefreshSecurity);
 			}
 			[elements.removeAllButton, elements.removeAllButtonBottom].forEach(button => {
 				if (button) {
@@ -1386,6 +1398,11 @@
 					button.disabled = false;
 				}
 			});
+			[elements.refreshSecurityButton, elements.refreshSecurityButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = buttonsBusy;
+				}
+			});
 			[elements.removeAllButton, elements.removeAllButtonBottom].forEach(button => {
 				if (button) {
 					button.disabled = !canRemoveAll;
@@ -1469,6 +1486,24 @@
 			}
 		}
 
+		async function manualRefreshSecurity(event) {
+			const button = event?.currentTarget;
+			if (button) {
+				button.disabled = true;
+			}
+			try {
+				await fetchServerCsrfToken();
+				showFeedback(TEXT.securityRefreshSuccess, "success");
+			} catch (error) {
+				showFeedback(error?.message || TEXT.securityRefreshFailed, "danger");
+			} finally {
+				if (button) {
+					button.disabled = false;
+				}
+				updateActionButtonsState();
+			}
+		}
+
 		function disableButtons(isDisabled) {
 			buttonsBusy = isDisabled;
 			const targets = [
@@ -1478,6 +1513,8 @@
 				elements.submitButtonBottom,
 				elements.clearButton,
 				elements.clearButtonBottom,
+				elements.refreshSecurityButton,
+				elements.refreshSecurityButtonBottom,
 				elements.removeAllButton,
 				elements.removeAllButtonBottom,
 			];
