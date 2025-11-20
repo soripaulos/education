@@ -63,7 +63,7 @@
                 </div>
                 <div class="form-group col-md-4">
                     <label for="roster-exam">{{ _("Exam") }}</label>
-                    <select id="roster-exam" class="form-control" disabled>
+                    <select id="roster-exam" class="form-control">
                         <option value="">{{ _("Select an exam type") }}</option>
                         {% for exam in exam_options %}
                             <option value="{{ exam.value }}">{{ exam.label }}</option>

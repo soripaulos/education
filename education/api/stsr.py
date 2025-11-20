@@ -68,12 +68,18 @@ def get_student_group_students(student_group):
             "academic_year",
             "batch",
             "course",
+            "grade",
         ],
         as_dict=True,
     )
 
     if not group:
         frappe.throw(_("Student Group {0} not found").format(frappe.bold(student_group)))
+
+    # Some schools store the Program link in a custom "grade" field.
+    program = group.get("program") or group.get("grade")
+    if program:
+        group["program"] = program
 
     students = frappe.db.get_all(
         "Student Group Student",
@@ -91,12 +97,13 @@ def get_student_group_students(student_group):
 
 
 @frappe.whitelist()
-def get_program_subjects(program):
+def get_program_subjects(program=None):
     """Return subjects (courses) configured for a program."""
     _require_login()
 
     if not program:
-        frappe.throw(_("Program is required to load subjects"))
+        # No linked program; allow the caller to handle the empty list gracefully.
+        return []
 
     courses = frappe.db.get_all(
         "Program Course",

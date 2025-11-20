@@ -302,7 +302,6 @@
       this.elements.subjectSelect.value = "";
       this.elements.subjectSelect.setAttribute("disabled", "disabled");
       this.elements.examSelect.value = "";
-      this.elements.examSelect.setAttribute("disabled", "disabled");
       this.elements.maxScoreInput.value = "";
       this.elements.refreshButton.setAttribute("disabled", "disabled");
       this.elements.deleteExistingButton.setAttribute("disabled", "disabled");
