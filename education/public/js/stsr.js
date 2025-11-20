@@ -32,6 +32,23 @@
     return div.innerHTML;
   };
 
+  const formatText = (text, args = []) => {
+    if (!text) {
+      return "";
+    }
+    const template = typeof __ === "function" ? __(text) : text;
+    if (!args.length) {
+      return template;
+    }
+    if (frappe.utils?.string_format) {
+      return frappe.utils.string_format(template, args);
+    }
+    return template.replace(/{(\d+)}/g, (match, index) => {
+      const value = args[Number(index)];
+      return value !== undefined ? value : match;
+    });
+  };
+
   class RosterPage {
     constructor(rootEl, config) {
       this.root = rootEl;
@@ -261,7 +278,7 @@
     }
 
     async loadProgramSubjects(program) {
-      this.updateStatus(__("Loading subjects for program {0}").format(program), "info");
+        this.updateStatus(formatText("Loading subjects for program {0}", [program]), "info");
       try {
         const response = await frappe.call({
           method: "education.api.stsr.get_program_subjects",
@@ -400,7 +417,9 @@
     }
 
     updateScoreCount() {
-      this.elements.scoreCount.textContent = __("{0} students loaded").format(this.state.students.length);
+        this.elements.scoreCount.textContent = formatText("{0} students loaded", [
+          this.state.students.length,
+        ]);
     }
 
     attachInputHandlers(input, studentId) {
@@ -547,10 +566,10 @@
         return;
       }
       entries.forEach((entry) => this.upsertQueueEntry(entry));
-      frappe.show_alert({
-        message: __("{0} score(s) added to the queue.").format(entries.length),
-        indicator: "green",
-      });
+        frappe.show_alert({
+          message: formatText("{0} score(s) added to the queue.", [entries.length]),
+          indicator: "green",
+        });
       this.resetDirtyInputs();
       this.refreshQueueTable();
       this.updateActionStates();
@@ -651,11 +670,11 @@
         });
 
         const { saved = [], errors = [] } = response.message || {};
-        if (saved.length) {
-          frappe.show_alert({
-            message: __("{0} scores submitted successfully.").format(saved.length),
-            indicator: "green",
-          });
+          if (saved.length) {
+            frappe.show_alert({
+              message: formatText("{0} scores submitted successfully.", [saved.length]),
+              indicator: "green",
+            });
         }
         if (errors.length) {
           frappe.msgprint({
