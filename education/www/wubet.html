@@ -5,6 +5,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>{{ _("Student Result Entry") }}</title>
 	<meta name="description" content="{{ _("Quickly log exam scores and submit Student Term Subject Results.") }}">
+	<meta name="csrf-token" content="{{ csrf_token }}">
 	<style>
 		body {
 			margin: 0;
@@ -119,6 +120,24 @@
 			background: #15803d;
 		}
 
+		.btn-danger {
+			background: #dc2626;
+			color: #fff;
+		}
+
+		.btn-danger:hover {
+			background: #b91c1c;
+		}
+
+		.btn-info {
+			background: #0891b2;
+			color: #fff;
+		}
+
+		.btn-info:hover {
+			background: #0e7490;
+		}
+
 		.table-wrapper {
 			overflow-x: auto;
 		}
@@ -226,7 +245,7 @@
 			<ul class="help-list">
 				<li>{{ _("Select a Student Group to load available students and auto-fill the grade.") }}</li>
 				<li>{{ _("Queue multiple scores before submitting them together.") }}</li>
-				<li>{{ _("Exam options predefine their maximum score: 15 for First/Second Test, 30 for Mid Exam, and 50 for Final Exam.") }}</li>
+				<li>{{ _("Exam options predefine their maximum score: 15 for First/Second Test, 20 for Mid Exam, and 50 for Final Exam.") }}</li>
 			</ul>
 		</header>
 
@@ -284,6 +303,7 @@
 					<button type="button" class="btn-secondary" id="clear-form-btn">{{ _("Reset Form") }}</button>
 					<button type="button" class="btn-primary" id="log-score-btn">{{ _("Log Scores") }}</button>
 					<button type="button" class="btn-success" id="submit-scores-btn" disabled>{{ _("Submit Logged Scores") }}</button>
+					<button type="button" class="btn-danger" id="remove-all-btn">{{ _("Remove All") }}</button>
 				</div>
 			</form>
 		</section>
@@ -295,13 +315,20 @@
 				<table>
 					<thead>
 						<tr>
+							<th>{{ _("#") }}</th>
 							<th>{{ _("Student ID") }}</th>
 							<th>{{ _("Student Name") }}</th>
+							<th>{{ _("Roll No") }}</th>
 							<th>{{ _("Score") }}</th>
 						</tr>
 					</thead>
 					<tbody id="students-table-body"></tbody>
 				</table>
+				<div class="actions-row" style="margin-top: 20px;">
+					<button type="button" class="btn-primary" id="log-score-btn-bottom">{{ _("Log Scores") }}</button>
+					<button type="button" class="btn-success" id="submit-scores-btn-bottom" disabled>{{ _("Submit Logged Scores") }}</button>
+					<button type="button" class="btn-info" id="generate-report-btn">{{ _("Generate Report") }}</button>
+				</div>
 			</div>
 		</section>
 
@@ -370,6 +397,7 @@
 		const elements = {};
 		const examScoreMap = {};
 		const programLabelMap = {};
+		const programCoursesMap = wubetBoot.program_courses || {};
 		const state = {
 			loggedEntries: [],
 			students: [],
@@ -401,6 +429,10 @@
 			elements.logButton = document.getElementById("log-score-btn");
 			elements.submitButton = document.getElementById("submit-scores-btn");
 			elements.clearButton = document.getElementById("clear-form-btn");
+			elements.removeAllButton = document.getElementById("remove-all-btn");
+			elements.logButtonBottom = document.getElementById("log-score-btn-bottom");
+			elements.submitButtonBottom = document.getElementById("submit-scores-btn-bottom");
+			elements.generateReportButton = document.getElementById("generate-report-btn");
 			elements.entriesBody = document.getElementById("logged-entries-body");
 			elements.noEntriesRow = document.getElementById("no-entries-row");
 			elements.studentLoading = document.getElementById("student-loading");
@@ -450,6 +482,10 @@
 			elements.logButton.addEventListener("click", logScores);
 			elements.submitButton.addEventListener("click", submitLoggedScores);
 			elements.clearButton.addEventListener("click", resetForm);
+			elements.removeAllButton.addEventListener("click", removeAllScores);
+			elements.logButtonBottom.addEventListener("click", logScores);
+			elements.submitButtonBottom.addEventListener("click", submitLoggedScores);
+			elements.generateReportButton.addEventListener("click", generateReport);
 		}
 
 		function getCookie(name) {
@@ -460,10 +496,22 @@
 		}
 
 		function refreshCsrfToken() {
-			const cookieToken = getCookie("frappe-csrf-token");
-			if (cookieToken) {
-				csrfToken = cookieToken;
+			// Try multiple cookie names
+			const cookieNames = ['csrf_token', 'frappe-csrf-token', 'frappe_csrf_token'];
+			for (const name of cookieNames) {
+				const cookieToken = getCookie(name);
+				if (cookieToken) {
+					csrfToken = cookieToken;
+					return csrfToken;
+				}
 			}
+			
+			// Try meta tag
+			const metaTag = document.querySelector('meta[name="csrf-token"]');
+			if (metaTag && metaTag.content) {
+				csrfToken = metaTag.content;
+			}
+			
 			return csrfToken;
 		}
 
@@ -600,7 +648,38 @@
 				label: label || ""
 			};
 			elements.gradeDisplay.value = label || "";
+			
+			// Filter subjects based on program
+			populateSubjectsForProgram(programId);
+			
 			loadStudentsForGroup(event.target.value);
+		}
+		
+		function populateSubjectsForProgram(programId) {
+			// Clear existing options except the first one
+			elements.subject.innerHTML = "";
+			const defaultOption = document.createElement("option");
+			defaultOption.value = "";
+			defaultOption.textContent = "{{ _('Select Subject') }}";
+			elements.subject.appendChild(defaultOption);
+			
+			// Get courses for this program
+			const programCourses = programCoursesMap[programId] || [];
+			
+			// Filter and add subjects
+			(wubetBoot.subjects || []).forEach(subject => {
+				// If program has specific courses, filter by them
+				if (programId && programCourses.length > 0) {
+					if (programCourses.includes(subject.name)) {
+						const label = subject.course_name || subject.name;
+						addOption(elements.subject, subject.name, label);
+					}
+				} else {
+					// If no program or no specific courses, show all
+					const label = subject.course_name || subject.name;
+					addOption(elements.subject, subject.name, label);
+				}
+			});
 		}
 
 		function handleContextChange() {
@@ -646,7 +725,15 @@
 					{ method: "GET" }
 				);
 				logDebug("Loaded students", { student_group: studentGroup, count: (students || []).length });
-				state.students = students || [];
+				
+				// Sort students by roll number
+				const sortedStudents = (students || []).sort((a, b) => {
+					const rollA = parseInt(a.group_roll_number || a.roll_number || 9999);
+					const rollB = parseInt(b.group_roll_number || b.roll_number || 9999);
+					return rollA - rollB;
+				});
+				
+				state.students = sortedStudents;
 				renderStudentsTable();
 				if (!state.students.length) {
 					showFeedback(TEXT.noStudents, "warning");
@@ -678,21 +765,26 @@
 			elements.studentsTableWrapper.style.display = "block";
 
 			const rows = state.students
-				.map(student => {
+				.map((student, index) => {
 					const studentIdRaw = student.student || "";
 					const studentNameRaw = student.student_name || "";
+					const rollNumber = student.group_roll_number || student.roll_number || "";
 					const studentId = escapeHtml(studentIdRaw);
 					const studentName = escapeHtml(studentNameRaw);
+					const rollNo = escapeHtml(String(rollNumber));
 					return `
 						<tr>
+							<td>${index + 1}</td>
 							<td>${studentId}</td>
 							<td>${studentName}</td>
+							<td>${rollNo}</td>
 							<td>
 								<input
 									type="number"
 									class="score-input"
 									data-student="${studentIdRaw}"
 									data-student-name="${studentNameRaw}"
+									data-index="${index}"
 									min="0"
 									step="0.01"
 								/>
@@ -706,8 +798,24 @@
 			updateAllScoreInputsMax();
 			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
 				input.addEventListener("input", handleStudentScoreInput);
+				input.addEventListener("keydown", handleScoreInputKeydown);
 			});
 			applyScoresToInputs();
+		}
+
+		function handleScoreInputKeydown(event) {
+			if (event.key === "Enter") {
+				event.preventDefault();
+				const currentInput = event.target;
+				const currentIndex = parseInt(currentInput.dataset.index);
+				const allInputs = Array.from(elements.studentsTableBody.querySelectorAll(".score-input"));
+				
+				// Move to next row if not the last one
+				if (currentIndex < allInputs.length - 1) {
+					allInputs[currentIndex + 1].focus();
+				}
+				// Don't cycle back to first row when on last row
+			}
 		}
 
 		function handleStudentScoreInput(event) {
@@ -933,10 +1041,12 @@
 
 		function enableSubmit() {
 			elements.submitButton.disabled = state.loggedEntries.length === 0;
+			elements.submitButtonBottom.disabled = state.loggedEntries.length === 0;
 		}
 
 		function disableSubmit() {
 			elements.submitButton.disabled = true;
+			elements.submitButtonBottom.disabled = true;
 		}
 
 		function formatNumber(number) {
@@ -979,6 +1089,10 @@
 			elements.logButton.disabled = isDisabled;
 			elements.submitButton.disabled = isDisabled;
 			elements.clearButton.disabled = isDisabled;
+			elements.removeAllButton.disabled = isDisabled;
+			elements.logButtonBottom.disabled = isDisabled;
+			elements.submitButtonBottom.disabled = isDisabled;
+			elements.generateReportButton.disabled = isDisabled;
 		}
 
 		async function callCreateResult(entries) {
@@ -1065,11 +1179,21 @@
 
 			if (method !== "GET") {
 				headers["Content-Type"] = "application/json";
-				const latestToken = refreshCsrfToken();
-				if (latestToken) {
-					headers["X-Frappe-CSRF-Token"] = latestToken;
+				
+				// Try multiple sources for CSRF token
+				let token = refreshCsrfToken();
+				
+				// Additional fallback: try to get from window/template
+				if (!token && typeof csrfToken !== 'undefined' && csrfToken) {
+					token = csrfToken;
+				}
+				
+				if (token) {
+					headers["X-Frappe-CSRF-Token"] = token;
+					logDebug("CSRF token added to request", { token: token.substring(0, 10) + "...", method, url });
 				} else {
-					logDebug("Missing CSRF token", { method, url });
+					logDebug("WARNING: Missing CSRF token", { method, url });
+					console.error("CSRF token not found. Request may fail.");
 				}
 			}
 
@@ -1141,6 +1265,232 @@
 			const div = document.createElement("div");
 			div.textContent = value || "";
 			return div.innerHTML;
+		}
+
+		async function removeAllScores() {
+			const common = getCommonEntryData();
+			if (!common) {
+				showFeedback("Please select Grade, Subject, and Exam to remove scores.", "warning");
+				return;
+			}
+
+			const confirmed = confirm(
+				`Are you sure you want to remove all scores for:\n\nGrade: ${common.grade_label}\nSubject: ${common.subject_label}\nExam: ${common.exam_label}\n\nThis will delete all draft entries matching these criteria.`
+			);
+
+			if (!confirmed) return;
+
+			try {
+				disableButtons(true);
+				showFeedback("Removing all scores...", "info");
+
+				// Fetch all draft records matching the criteria
+				const filters = [
+					["Student Term Subject Result", "student_group", "=", common.student_group],
+					["Student Term Subject Result", "academic_year", "=", common.academic_year],
+					["Student Term Subject Result", "semester", "=", common.semester],
+					["Student Term Subject Result", "subject", "=", common.subject],
+					["Student Term Subject Result", "exam", "=", common.exam],
+					["Student Term Subject Result", "docstatus", "=", 0]
+				];
+
+				const records = await apiCall(
+					"/api/resource/Student Term Subject Result",
+					{
+						filters: JSON.stringify(filters),
+						fields: JSON.stringify(["name"])
+					},
+					{ method: "GET" }
+				);
+
+				// Delete each record
+				let deletedCount = 0;
+				for (const record of records || []) {
+					try {
+						await apiCall(
+							`/api/resource/Student Term Subject Result/${record.name}`,
+							{},
+							{ method: "DELETE" }
+						);
+						deletedCount++;
+					} catch (error) {
+						console.error(`Failed to delete ${record.name}:`, error);
+					}
+				}
+
+				showFeedback(`Successfully removed ${deletedCount} score(s).`, "success");
+				
+				// Clear local state
+				clearScoreState();
+				
+				// Reload scores
+				if (hasScoreContext()) {
+					await fetchExistingScores();
+				}
+			} catch (error) {
+				console.error("Remove all failed:", error);
+				showFeedback(`Failed to remove scores: ${error.message}`, "danger");
+			} finally {
+				disableButtons(false);
+			}
+		}
+
+		async function generateReport() {
+			const common = getCommonEntryData();
+			if (!common) {
+				showFeedback("Please select all required fields to generate a report.", "warning");
+				return;
+			}
+
+			if (!state.students.length) {
+				showFeedback("No students loaded. Please select a student group.", "warning");
+				return;
+			}
+
+			try {
+				disableButtons(true);
+				showFeedback("Generating report...", "info");
+
+				// Fetch all exam results for the selected criteria
+				const examTypes = ["First Test", "Second Test", "Mid Exam", "Final Exam"];
+				const studentResults = {};
+
+				// Initialize structure for each student
+				state.students.forEach(student => {
+					studentResults[student.student] = {
+						student_id: student.student,
+						student_name: student.student_name,
+						roll_number: student.group_roll_number || student.roll_number || "",
+						first_test: null,
+						second_test: null,
+						mid_exam: null,
+						final_exam: null
+					};
+				});
+
+				// Fetch scores for each exam type
+				for (const examType of examTypes) {
+					const filters = [
+						["Student Term Subject Result", "student_group", "=", common.student_group],
+						["Student Term Subject Result", "academic_year", "=", common.academic_year],
+						["Student Term Subject Result", "semester", "=", common.semester],
+						["Student Term Subject Result", "subject", "=", common.subject],
+						["Student Term Subject Result", "exam", "=", examType],
+						["Student Term Subject Result", "docstatus", "=", 0]
+					];
+
+					const records = await apiCall(
+						"/api/resource/Student Term Subject Result",
+						{
+							filters: JSON.stringify(filters),
+							fields: JSON.stringify(["student", "score"])
+						},
+						{ method: "GET" }
+					);
+
+					// Map results
+					(records || []).forEach(record => {
+						if (studentResults[record.student]) {
+							const fieldName = examType.toLowerCase().replace(/ /g, "_");
+							studentResults[record.student][fieldName] = record.score;
+						}
+					});
+				}
+
+				// Generate HTML report
+				let reportHtml = `
+					<div style="font-family: Arial, sans-serif; padding: 20px;">
+						<h2 style="text-align: center;">Student Results Report</h2>
+						<div style="margin-bottom: 20px;">
+							<p><strong>Grade/Program:</strong> ${escapeHtml(common.grade_label)}</p>
+							<p><strong>Subject:</strong> ${escapeHtml(common.subject_label)}</p>
+							<p><strong>Academic Year:</strong> ${escapeHtml(common.academic_year)}</p>
+							<p><strong>Semester:</strong> ${escapeHtml(common.semester_label)}</p>
+						</div>
+						<table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+							<thead>
+								<tr style="background-color: #f2f2f2;">
+									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Student ID</th>
+									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Student Name</th>
+									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Roll No</th>
+									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">First Test</th>
+									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Second Test</th>
+									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Mid Exam</th>
+									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Final Exam</th>
+									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Total</th>
+								</tr>
+							</thead>
+							<tbody>
+				`;
+
+				// Sort by roll number
+				const sortedResults = Object.values(studentResults).sort((a, b) => {
+					const rollA = parseInt(a.roll_number || 9999);
+					const rollB = parseInt(b.roll_number || 9999);
+					return rollA - rollB;
+				});
+
+				sortedResults.forEach(result => {
+					const firstTest = result.first_test !== null ? parseFloat(result.first_test) : 0;
+					const secondTest = result.second_test !== null ? parseFloat(result.second_test) : 0;
+					const midExam = result.mid_exam !== null ? parseFloat(result.mid_exam) : 0;
+					const finalExam = result.final_exam !== null ? parseFloat(result.final_exam) : 0;
+					
+					// Calculate total from available scores
+					let total = 0;
+					if (result.first_test !== null) total += firstTest;
+					if (result.second_test !== null) total += secondTest;
+					if (result.mid_exam !== null) total += midExam;
+					if (result.final_exam !== null) total += finalExam;
+
+					const formatScore = (score) => score !== null ? score.toFixed(2) : "-";
+
+					reportHtml += `
+						<tr>
+							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.student_id)}</td>
+							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.student_name)}</td>
+							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.roll_number)}</td>
+							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.first_test)}</td>
+							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.second_test)}</td>
+							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.mid_exam)}</td>
+							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.final_exam)}</td>
+							<td style="border: 1px solid #ddd; padding: 8px; text-align: center; font-weight: bold;">${total.toFixed(2)}</td>
+						</tr>
+					`;
+				});
+
+				reportHtml += `
+							</tbody>
+						</table>
+						<div style="margin-top: 20px; text-align: center;">
+							<button onclick="window.print()" style="padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print Report</button>
+						</div>
+					</div>
+				`;
+
+				// Open report in new window
+				const reportWindow = window.open("", "_blank", "width=1000,height=800");
+				reportWindow.document.write(`
+					<!DOCTYPE html>
+					<html>
+					<head>
+						<title>Student Results Report</title>
+						<meta charset="UTF-8">
+					</head>
+					<body>
+						${reportHtml}
+					</body>
+					</html>
+				`);
+				reportWindow.document.close();
+
+				showFeedback("Report generated successfully!", "success");
+			} catch (error) {
+				console.error("Report generation failed:", error);
+				showFeedback(`Failed to generate report: ${error.message}`, "danger");
+			} finally {
+				disableButtons(false);
+			}
 		}
 	</script>
 </body>
