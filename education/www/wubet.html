@@ -292,7 +292,6 @@
 
 				<div class="actions-row">
 					<button type="button" class="btn-secondary" id="clear-form-btn">{{ _("Reset Form") }}</button>
-					<button type="button" class="btn-secondary" id="refresh-session-btn">{{ _("Refresh Security Token") }}</button>
 					<button type="button" class="btn-primary" id="log-score-btn">{{ _("Log Scores") }}</button>
 					<button type="button" class="btn-danger" id="remove-all-btn" disabled>{{ _("Remove All Results") }}</button>
 					<button type="button" class="btn-success" id="submit-scores-btn" disabled>{{ _("Submit Logged Scores") }}</button>
@@ -355,7 +354,6 @@
 			<div id="form-feedback-bottom" class="alert" style="display: none;"></div>
 			<div class="actions-row actions-row-secondary">
 				<button type="button" class="btn-secondary" id="clear-form-btn-bottom">{{ _("Reset Form") }}</button>
-				<button type="button" class="btn-secondary" id="refresh-session-btn-bottom">{{ _("Refresh Security Token") }}</button>
 				<button type="button" class="btn-primary" id="log-score-btn-bottom">{{ _("Log Scores") }}</button>
 				<button type="button" class="btn-danger" id="remove-all-btn-bottom" disabled>{{ _("Remove All Results") }}</button>
 				<button type="button" class="btn-success" id="submit-scores-btn-bottom" disabled>{{ _("Submit Logged Scores") }}</button>
@@ -413,14 +411,11 @@
 			removeAllContextMissing: "Select Student Group, Academic Year, Semester, Subject, and Exam before removing saved scores.",
 			summarySelectContext: "Select Student Group, Academic Year, Semester, Subject, and Exam to view the summary.",
 			summaryNoStudents: "No students available for the selected Student Group.",
-			summaryNoScores: "No exam results recorded yet for the selected filters.",
-			securityRefreshSuccess: "Security token refreshed.",
-			securityRefreshFailed: "Unable to refresh security token. Please reload the page."
+			summaryNoScores: "No exam results recorded yet for the selected filters."
 		};
 
 		const EXAM_SEQUENCE = ["First Test", "Second Test", "Mid Exam", "Final Exam"];
 
-		let csrfToken = "{{ csrf_token | default('', true) }}";
 		const wubetBoot = {{ wubet_boot | safe }};
 		const elements = {};
 		const examScoreMap = {};
@@ -469,11 +464,9 @@
 			elements.logButton = document.getElementById("log-score-btn");
 			elements.submitButton = document.getElementById("submit-scores-btn");
 			elements.clearButton = document.getElementById("clear-form-btn");
-			elements.refreshSecurityButton = document.getElementById("refresh-session-btn");
 			elements.logButtonBottom = document.getElementById("log-score-btn-bottom");
 			elements.submitButtonBottom = document.getElementById("submit-scores-btn-bottom");
 			elements.clearButtonBottom = document.getElementById("clear-form-btn-bottom");
-			elements.refreshSecurityButtonBottom = document.getElementById("refresh-session-btn-bottom");
 			elements.removeAllButton = document.getElementById("remove-all-btn");
 			elements.removeAllButtonBottom = document.getElementById("remove-all-btn-bottom");
 			elements.entriesBody = document.getElementById("logged-entries-body");
@@ -561,9 +554,6 @@
 			elements.logButton.addEventListener("click", logScores);
 			elements.submitButton.addEventListener("click", submitLoggedScores);
 			elements.clearButton.addEventListener("click", resetForm);
-			if (elements.refreshSecurityButton) {
-				elements.refreshSecurityButton.addEventListener("click", manualRefreshSecurity);
-			}
 			if (elements.logButtonBottom) {
 				elements.logButtonBottom.addEventListener("click", logScores);
 			}
@@ -573,9 +563,6 @@
 			if (elements.clearButtonBottom) {
 				elements.clearButtonBottom.addEventListener("click", resetForm);
 			}
-			if (elements.refreshSecurityButtonBottom) {
-				elements.refreshSecurityButtonBottom.addEventListener("click", manualRefreshSecurity);
-			}
 			[elements.removeAllButton, elements.removeAllButtonBottom].forEach(button => {
 				if (button) {
 					button.addEventListener("click", removeAllEntries);
@@ -583,98 +570,8 @@
 			});
 		}
 
-		function getCookie(name) {
-			const value = `; ${document.cookie}`;
-			const parts = value.split(`; ${name}=`);
-			if (parts.length === 2) return parts.pop().split(";").shift();
+		function getCookie() {
 			return "";
-		}
-
-		function refreshCsrfToken() {
-			if (csrfToken && csrfToken.trim()) {
-				return csrfToken;
-			}
-			if (window.frappe && window.frappe.csrf_token) {
-				csrfToken = window.frappe.csrf_token;
-				return csrfToken;
-			}
-			if (typeof window.csrf_token === "string" && window.csrf_token.trim()) {
-				csrfToken = window.csrf_token;
-				return csrfToken;
-			}
-			// Try multiple cookie names that Frappe might use
-			const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
-			if (cookieToken) {
-				csrfToken = cookieToken;
-				return csrfToken;
-			}
-			// If no cookie token, use the one from template if available
-			const templateToken = "{{ csrf_token | default('', true) }}";
-			if (templateToken && templateToken.trim()) {
-				csrfToken = templateToken;
-			}
-			return csrfToken;
-		}
-
-		async function fetchServerCsrfToken() {
-			try {
-				const response = await fetch("/api/method/education.education.api.refresh_result_entry_session", {
-					method: "GET",
-					headers: {
-						"Accept": "application/json",
-						"X-Requested-With": "XMLHttpRequest"
-					},
-					credentials: "include"
-				});
-				const data = await response.json().catch(() => ({}));
-				const token =
-					data?.message?.csrf_token ||
-					(typeof data?.message === "string" && data.message) ||
-					data?.csrf_token ||
-					data?.data;
-				if (token) {
-					csrfToken = token;
-				} else {
-					refreshCsrfToken();
-				}
-			} catch (error) {
-				logDebug("Failed to fetch CSRF token from server", { error: error?.message || error });
-			}
-			return csrfToken;
-		}
-
-		function isCsrfError(status, payload) {
-			if (status === 403 || status === 401) {
-				return true;
-			}
-			if (!payload) {
-				return false;
-			}
-			if (payload.exc_type === "CSRFTokenError") {
-				return true;
-			}
-			if (payload._server_messages && typeof payload._server_messages === "string") {
-				try {
-					const messages = JSON.parse(payload._server_messages);
-					return messages.some(message => {
-						try {
-							const parsed = JSON.parse(message);
-							return (
-								parsed?.message?.toLowerCase().includes("invalid request") ||
-								parsed?.indicator === "red"
-							);
-						} catch {
-							return typeof message === "string" && message.toLowerCase().includes("csrf");
-						}
-					});
-				} catch {
-					return payload._server_messages.toLowerCase().includes("csrf");
-				}
-			}
-			if (payload.exc && typeof payload.exc === "string" && payload.exc.toLowerCase().includes("csrf")) {
-				return true;
-			}
-			return false;
 		}
 
 		function logDebug(message, payload) {
@@ -745,8 +642,8 @@
 			const params = getScoreContextParams();
 			const requestId = ++scoreFetchRequestId;
 			try {
-				const records = await apiCall(
-					"/api/method/education.education.api.get_student_term_subject_results",
+				const records = await callFrappeMethod(
+					"education.education.api.get_student_term_subject_results",
 					{
 						student_group: params.student_group,
 						academic_year: params.academic_year,
@@ -754,8 +651,7 @@
 						subject: params.subject,
 						exam: params.exam,
 						include_submitted: 1
-					},
-					{ method: "GET" }
+					}
 				);
 				logDebug("Fetched existing drafts", { params, records });
 				if (requestId !== scoreFetchRequestId) {
@@ -875,10 +771,9 @@
 			elements.studentLoading.style.display = "block";
 
 			try {
-				const students = await apiCall(
-					"/api/method/education.education.api.get_students_for_group",
-					{ student_group: studentGroup },
-					{ method: "GET" }
+				const students = await callFrappeMethod(
+					"education.education.api.get_students_for_group",
+					{ student_group: studentGroup }
 				);
 				logDebug("Loaded students", { student_group: studentGroup, count: (students || []).length });
 				state.students = sortStudents(students || []);
@@ -1192,15 +1087,14 @@
 			const params = getScoreContextParams();
 			const requestId = ++summaryFetchRequestId;
 			try {
-				const records = await apiCall(
-					"/api/method/education.education.api.get_student_exam_summary",
+				const records = await callFrappeMethod(
+					"education.education.api.get_student_exam_summary",
 					{
 						student_group: params.student_group,
 						academic_year: params.academic_year,
 						semester: params.semester,
 						subject: params.subject
-					},
-					{ method: "GET" }
+					}
 				);
 				if (requestId !== summaryFetchRequestId) {
 					return;
@@ -1407,11 +1301,6 @@
 					button.disabled = false;
 				}
 			});
-			[elements.refreshSecurityButton, elements.refreshSecurityButtonBottom].forEach(button => {
-				if (button) {
-					button.disabled = buttonsBusy;
-				}
-			});
 			[elements.removeAllButton, elements.removeAllButtonBottom].forEach(button => {
 				if (button) {
 					button.disabled = !canRemoveAll;
@@ -1476,10 +1365,9 @@
 					...getScoreContextParams(),
 					grade: state.currentGrade.value || "",
 				};
-				const response = await apiCall(
-					"/api/method/education.education.api.delete_student_term_subject_results",
-					params,
-					{ method: "POST" }
+				const response = await callFrappeMethod(
+					"education.education.api.delete_student_term_subject_results",
+					params
 				);
 				logDebug("Removed saved scores", { params, response });
 				clearScoreState();
@@ -1522,8 +1410,6 @@
 				elements.submitButtonBottom,
 				elements.clearButton,
 				elements.clearButtonBottom,
-				elements.refreshSecurityButton,
-				elements.refreshSecurityButtonBottom,
 				elements.removeAllButton,
 				elements.removeAllButtonBottom,
 			];
@@ -1538,10 +1424,9 @@
 		}
 
 		async function callCreateResult(entries) {
-			const response = await apiCall(
-				"/api/method/education.education.api.save_student_term_subject_results",
-				{ entries: JSON.stringify(entries) },
-				{ method: "POST" }
+			const response = await callFrappeMethod(
+				"education.education.api.save_student_term_subject_results",
+				{ entries: JSON.stringify(entries) }
 			);
 
 			logDebug("Method response", response);
@@ -1603,95 +1488,49 @@
 			await fetchExamSummaryAllExams();
 		}
 
-		async function apiCall(endpoint, payload, options) {
-			const method = (options && options.method) || "POST";
-			let url = endpoint;
-			let body;
-			let attemptedCsrfRefresh = false;
-
-			if (method !== "GET") {
-				if (!csrfToken || !csrfToken.trim()) {
-					await fetchServerCsrfToken();
+		async function callFrappeMethod(methodName, args, options) {
+			return new Promise((resolve, reject) => {
+				if (!window.frappe || typeof frappe.call !== "function") {
+					reject(new Error("Frappe client is not available on this page."));
+					return;
 				}
-			}
-
-			const buildRequest = () => {
-				let finalUrl = url;
-				let finalBody;
-
-				if (method === "GET") {
-					finalBody = undefined;
-					const params = new URLSearchParams(payload || {}).toString();
-					if (params) {
-						finalUrl += (finalUrl.includes("?") ? "&" : "?") + params;
-					}
-				} else {
-					finalBody = JSON.stringify(payload || {});
-				}
-
-				const headers = {
-					"Accept": "application/json",
-					"X-Requested-With": "XMLHttpRequest"
-				};
-
-				if (method !== "GET") {
-					headers["Content-Type"] = "application/json";
-					const latestToken = refreshCsrfToken();
-					if (latestToken && latestToken.trim()) {
-						headers["X-Frappe-CSRF-Token"] = latestToken;
-					} else {
-						logDebug("Missing CSRF token", { method, finalUrl, currentToken: csrfToken });
-						const metaToken = document.querySelector('meta[name="csrf-token"]');
-						if (metaToken && metaToken.content) {
-							csrfToken = metaToken.content;
-							headers["X-Frappe-CSRF-Token"] = csrfToken;
-						} else {
-							const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
-							if (cookieToken) {
-								csrfToken = cookieToken;
-								headers["X-Frappe-CSRF-Token"] = csrfToken;
-							}
+				frappe.call({
+					method: methodName,
+					args: args || {},
+					freeze: options?.freeze || false,
+					callback: response => {
+						try {
+							const payload = normalizeCallResponse(response);
+							resolve(payload);
+						} catch (error) {
+							reject(error);
 						}
-					}
-				}
+					},
+					error: err => {
+						const message =
+							err?.message ||
+							(err?.statusText) ||
+							extractErrorMessage(err) ||
+							"Request failed";
+						reject(new Error(message));
+					},
+				});
+			});
+		}
 
-				return {
-					finalUrl,
-					requestInit: {
-						method,
-						headers,
-						credentials: "include",
-						body: finalBody
-					}
-				};
-			};
-
-			while (true) {
-				const { finalUrl, requestInit } = buildRequest();
-				const response = await fetch(finalUrl, requestInit);
-				const data = await response.json().catch(() => ({}));
-
-				if (!response.ok || data.exc) {
-					if (!attemptedCsrfRefresh && method !== "GET" && isCsrfError(response.status, data)) {
-						attemptedCsrfRefresh = true;
-						await fetchServerCsrfToken();
-						continue;
-					}
-					const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
-					logDebug("API error", { url: finalUrl, method, payload, status: response.status, response: data });
-					throw new Error(errorMessage);
-				}
-
-				if (Object.prototype.hasOwnProperty.call(data, "message")) {
-					return data.message;
-				}
-
-				if (Object.prototype.hasOwnProperty.call(data, "data")) {
-					return data.data;
-				}
-
-				return data;
+		function normalizeCallResponse(response) {
+			if (!response) return null;
+			if (response.exc || response._server_messages) {
+				const errorMsg = extractErrorMessage(response) || response._server_messages || response.exc;
+				throw new Error(errorMsg);
 			}
+			if (Object.prototype.hasOwnProperty.call(response, "message")) {
+				return response.message;
+			}
+			if (Object.prototype.hasOwnProperty.call(response, "data")) {
+				return response.data;
+			}
+			return response;
 		}
 
 		function extractErrorMessage(errorData) {
