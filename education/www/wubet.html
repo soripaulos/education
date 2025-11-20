@@ -675,65 +675,80 @@
 			return false;
 		}
 
-		// ============================================================
-		// API Communication with Retry Logic
-		// ============================================================
-		async function callFrappeMethod(methodName, args, retryCount = 0) {
-			const MAX_RETRIES = 2;
+	// ============================================================
+	// API Communication with Retry Logic
+	// ============================================================
+	async function callFrappeMethod(methodName, args, retryCount = 0) {
+		const MAX_RETRIES = 2;
+		
+		try {
+			// Check if frappe is available
+			console.log(`Attempting API call: ${methodName}`, {
+				hasFrappe: !!window.frappe,
+				hasFrappeCall: !!(window.frappe && typeof frappe.call === "function"),
+				args: args
+			});
 			
-			try {
-				// Try using frappe.call first (preferred for logged-in users)
-				if (window.frappe && typeof frappe.call === "function") {
-					return await new Promise((resolve, reject) => {
-						frappe.call({
-							method: methodName,
-							args: args || {},
-							freeze: false,
-							callback: (response) => {
-								try {
-									const payload = normalizeResponse(response);
-									console.log(`✓ API Success: ${methodName}`, payload);
-									resolve(payload);
-								} catch (error) {
-									console.error(`✗ API Error: ${methodName}`, error);
-									reject(error);
-								}
-							},
-							error: (err) => {
-								const message = extractErrorMessage(err) || "Request failed";
-								console.error(`✗ API Error: ${methodName}`, message, err);
-								reject(new Error(message));
-							},
-						});
+			// Try using frappe.call first (preferred for logged-in users)
+			if (window.frappe && typeof frappe.call === "function") {
+				console.log(`Using frappe.call for: ${methodName}`);
+				return await new Promise((resolve, reject) => {
+					frappe.call({
+						method: methodName,
+						args: args || {},
+						freeze: false,
+						callback: (response) => {
+							try {
+								const payload = normalizeResponse(response);
+								console.log(`✓ frappe.call Success: ${methodName}`, payload);
+								resolve(payload);
+							} catch (error) {
+								console.error(`✗ frappe.call Error: ${methodName}`, error);
+								reject(error);
+							}
+						},
+						error: (err) => {
+							const message = extractErrorMessage(err) || "Request failed";
+							console.error(`✗ frappe.call Error: ${methodName}`, message, err);
+							reject(new Error(message));
+						},
 					});
-				}
+				});
+			}
 
-				// Fallback to fetch API
-				return await callMethodViaFetch(methodName, args);
-				
-			} catch (error) {
-				const errorMessage = error.message || String(error);
-				console.error(`API call failed (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, methodName, errorMessage);
-				
-				// Check if it's a CSRF or authentication error
-				if ((errorMessage.includes('CSRF') || errorMessage.includes('403') || errorMessage.includes('401')) && retryCount < MAX_RETRIES) {
-					console.log('CSRF/Auth error detected, refreshing token and retrying...');
-					await refreshCsrfToken();
-					// Wait a bit before retrying
-					await new Promise(resolve => setTimeout(resolve, 500));
-					return callFrappeMethod(methodName, args, retryCount + 1);
-				}
-				
-				// For other errors, retry once more
-				if (retryCount < MAX_RETRIES) {
-					console.log('Retrying request...');
-					await new Promise(resolve => setTimeout(resolve, 1000));
-					return callFrappeMethod(methodName, args, retryCount + 1);
-				}
-				
+			// Fallback to fetch API (should rarely be used for logged-in users)
+			console.warn(`frappe.call not available, falling back to fetch for: ${methodName}`);
+			return await callMethodViaFetch(methodName, args);
+			
+		} catch (error) {
+			const errorMessage = error.message || String(error);
+			console.error(`API call failed (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, methodName, errorMessage);
+			
+			// Check if it's a CSRF or authentication error
+			if ((errorMessage.includes('CSRF') || errorMessage.includes('403') || errorMessage.includes('401')) && retryCount < MAX_RETRIES) {
+				console.log('CSRF/Auth error detected, refreshing token and retrying...');
+				await refreshCsrfToken();
+				// Wait a bit before retrying
+				await new Promise(resolve => setTimeout(resolve, 500));
+				return callFrappeMethod(methodName, args, retryCount + 1);
+			}
+			
+			// For 400 errors with fetch, don't retry - it's a format issue
+			if (errorMessage.includes('400') || errorMessage.includes('Invalid Request')) {
+				console.error('400 Bad Request - this is a request format issue, not retrying');
 				throw error;
 			}
+			
+			// For other errors, retry once more
+			if (retryCount < MAX_RETRIES) {
+				console.log('Retrying request...');
+				await new Promise(resolve => setTimeout(resolve, 1000));
+				return callFrappeMethod(methodName, args, retryCount + 1);
+			}
+			
+			throw error;
 		}
+	}
 
 	async function callMethodViaFetch(methodName, args) {
 		const csrfToken = getCsrfToken();
