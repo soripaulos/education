@@ -8,8 +8,31 @@ import frappe
 from frappe import _
 from frappe.email.doctype.email_group.email_group import add_subscribers
 from frappe.model.mapper import get_mapped_doc
+from frappe.sessions import get_csrf_token as frappe_get_csrf_token
 from frappe.utils import cstr, cint, flt, getdate
 from frappe.utils.dateutils import get_dates_from_timegrain
+
+
+ALLOWED_RESULT_ENTRY_USERS = {"wubet", "sori", "administrator"}
+
+
+def ensure_result_entry_user():
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in to continue."), frappe.AuthenticationError)
+
+	user = frappe.session.user or ""
+	username = (frappe.db.get_value("User", user, "username") or "").lower()
+	email = user.lower()
+	allowed = {u.lower() for u in ALLOWED_RESULT_ENTRY_USERS}
+	if email not in allowed and username not in allowed:
+		frappe.throw(_("You are not authorized to perform this action."), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def refresh_result_entry_session():
+	ensure_result_entry_user()
+	token = frappe_get_csrf_token()
+	return {"csrf_token": token}
 
 
 def get_course(program):
@@ -1224,12 +1247,64 @@ def get_existing_teacher_reviews(student=None):
 def get_students_for_group(student_group):
 	if not student_group:
 		frappe.throw(_("Please select a Student Group first"))
+
 	return frappe.get_all(
 		"Student Group Student",
 		filters={"parent": student_group},
-		fields=["student", "student_name"],
-		order_by="student_name",
+		fields=["student", "student_name", "group_roll_number"],
+		order_by="ifnull(group_roll_number, 999999), student_name",
 	)
+
+
+def _get_student_term_subject_records(student_group, academic_year, semester, subject, exam=None, include_submitted=True):
+	if not (student_group and academic_year and semester and subject):
+		frappe.throw(_("Missing required filters to fetch student scores"))
+
+	filters = [
+		["Student Term Subject Result", "student_group", "=", student_group],
+		["Student Term Subject Result", "academic_year", "=", academic_year],
+		["Student Term Subject Result", "semester", "=", semester],
+		["Student Term Subject Result", "subject", "=", subject],
+	]
+
+	if exam:
+		filters.append(["Student Term Subject Result", "exam", "=", exam])
+
+	docstatus_filter = [0]
+	if cint(include_submitted):
+		docstatus_filter.append(1)
+
+	filters.append(["Student Term Subject Result", "docstatus", "in", docstatus_filter])
+
+	records = frappe.get_all(
+		"Student Term Subject Result",
+		filters=filters,
+		fields=[
+			"name",
+			"student",
+			"student_name",
+			"student_group",
+			"grade",
+			"exam",
+			"score",
+			"max_score",
+			"docstatus",
+			"modified",
+		],
+		order_by="modified desc",
+	)
+
+	unique_records = []
+	seen = set()
+
+	for row in records:
+		key = (row.student, row.exam if not exam else exam)
+		if key in seen:
+			continue
+		seen.add(key)
+		unique_records.append(row)
+
+	return unique_records
 
 @frappe.whitelist()
 def create_and_submit_score(academic_year, academic_term, course, assessment_criteria, student, score, student_group):
@@ -1275,8 +1350,9 @@ def create_and_submit_term_subject_result(data):
 		frappe.throw(str(e))
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def create_student_term_subject_result(result_data):
+	ensure_result_entry_user()
 	"""Create and submit a Student Term Subject Result document from frontend payload."""
 	try:
 		if isinstance(result_data, str):
@@ -1341,8 +1417,9 @@ def create_student_term_subject_result(result_data):
 		frappe.throw(str(e))
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def save_student_term_subject_results(entries):
+	ensure_result_entry_user()
 	try:
 		entries = frappe.parse_json(entries)
 		if not isinstance(entries, list):
@@ -1372,8 +1449,47 @@ def save_student_term_subject_results(entries):
 		frappe.throw(str(e))
 
 
-@frappe.whitelist(allow_guest=True)
-def get_student_group_scores(student_group, academic_year, semester, subject, exam):
+@frappe.whitelist()
+def get_student_term_subject_results(student_group, academic_year, semester, subject, exam=None, include_submitted=1):
+	ensure_result_entry_user()
+	return _get_student_term_subject_records(
+		student_group,
+		academic_year,
+		semester,
+		subject,
+		exam=exam,
+		include_submitted=cint(include_submitted),
+	)
+
+
+@frappe.whitelist()
+def get_student_exam_summary(student_group, academic_year, semester, subject):
+	ensure_result_entry_user()
+	return _get_student_term_subject_records(
+		student_group,
+		academic_year,
+		semester,
+		subject,
+		exam=None,
+		include_submitted=True,
+	)
+
+
+@frappe.whitelist()
+def delete_student_term_subject_results(student_group, academic_year, semester, subject, exam, grade=None):
+	ensure_result_entry_user()
+	required = {
+		"student_group": student_group,
+		"academic_year": academic_year,
+		"semester": semester,
+		"subject": subject,
+		"exam": exam,
+	}
+
+	missing = [label for label, value in required.items() if not value]
+	if missing:
+		frappe.throw(_("Missing required filters: {0}").format(", ".join(missing)))
+
 	filters = {
 		"student_group": student_group,
 		"academic_year": academic_year,
@@ -1382,11 +1498,30 @@ def get_student_group_scores(student_group, academic_year, semester, subject, ex
 		"exam": exam,
 		"docstatus": 0,
 	}
-	return frappe.get_all(
-		"Student Term Subject Result",
-		filters=filters,
-		fields=["name", "student", "student_name", "score", "max_score"],
-		order_by="student asc",
+	if grade:
+		filters["grade"] = grade
+
+	names = frappe.get_all("Student Term Subject Result", filters=filters, pluck="name")
+
+	deleted = 0
+	for name in names:
+		frappe.delete_doc("Student Term Subject Result", name, ignore_permissions=True)
+		deleted += 1
+
+	frappe.db.commit()
+	return {"deleted": deleted}
+
+
+@frappe.whitelist()
+def get_student_group_scores(student_group, academic_year, semester, subject, exam):
+	ensure_result_entry_user()
+	return _get_student_term_subject_records(
+		student_group,
+		academic_year,
+		semester,
+		subject,
+		exam=exam,
+		include_submitted=False,
 	)
 
 
