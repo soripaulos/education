@@ -1,13 +1,13 @@
 {% extends "templates/web.html" %}
 
-{% block title %}{{ title or _("Roster Score Entry") }}{% endblock %}
+{% block title %}{{ title or _("STSR Score Entry") }}{% endblock %}
 
 {% block header %}
 <div class="page-header roster-page-header">
     <div class="container">
         <div class="d-flex align-items-center justify-content-between flex-wrap">
             <div>
-                <h2>{{ _("Instructor Roster") }}</h2>
+                <h2>{{ _("STSR Score Entry") }}</h2>
                 <p class="text-muted mb-0">{{ _("Enter, validate, queue, and submit exam scores for your student groups.") }}</p>
             </div>
             <div>
@@ -258,5 +258,5 @@
 {% endblock %}
 
 {% block script %}
-{{ include_script('assets/education/js/roster.js') }}
+{{ include_script('assets/education/js/stsr.js') }}
 {% endblock %}

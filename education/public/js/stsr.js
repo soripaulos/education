@@ -151,7 +151,7 @@
       this.updateStatus(__("Loading student groups..."), "info");
       try {
         const response = await frappe.call({
-          method: "education.api.roster.get_student_groups",
+          method: "education.api.stsr.get_student_groups",
         });
         const groups = response.message || [];
         this.populateStudentGroupOptions(groups);
@@ -201,7 +201,7 @@
 
       try {
         const response = await frappe.call({
-          method: "education.api.roster.get_student_group_students",
+          method: "education.api.stsr.get_student_group_students",
           args: { student_group: value },
         });
 
@@ -264,7 +264,7 @@
       this.updateStatus(__("Loading subjects for program {0}").format(program), "info");
       try {
         const response = await frappe.call({
-          method: "education.api.roster.get_program_subjects",
+          method: "education.api.stsr.get_program_subjects",
           args: { program },
         });
         const subjects = response.message || [];
@@ -644,7 +644,7 @@
 
       try {
         const response = await frappe.call({
-          method: "education.api.roster.save_scores_batch",
+          method: "education.api.stsr.save_scores_batch",
           args: { entries: this.state.queue },
           freeze: true,
           freeze_message: __("Submitting scores..."),
@@ -690,7 +690,7 @@
           this.setLoading(true);
           try {
             await frappe.call({
-              method: "education.api.roster.delete_scores",
+              method: "education.api.stsr.delete_scores",
               args: {
                 filters: {
                   academic_year: this.state.academicYear,
@@ -743,9 +743,9 @@
 
     fetchScoresForExam(exam) {
       if (!exam) return Promise.resolve([]);
-      return frappe
-        .call({
-          method: "education.api.roster.get_existing_scores",
+        return frappe
+          .call({
+            method: "education.api.stsr.get_existing_scores",
           args: {
             academic_year: this.state.academicYear,
             semester: this.state.semester,
