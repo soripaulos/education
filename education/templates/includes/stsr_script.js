@@ -70,6 +70,45 @@
       };
     }
 
+    isAuthError(error) {
+      if (!error) {
+        return false;
+      }
+      const statusCode = error.status || error.status_code;
+      if (statusCode === 401 || statusCode === 403) {
+        return true;
+      }
+      const payloadParts = [];
+      if (error.exc) payloadParts.push(error.exc);
+      if (error.exception) payloadParts.push(error.exception);
+      if (error._server_messages) {
+        try {
+          const serverMessages = frappe.utils.parse_json(error._server_messages);
+          payloadParts.push(serverMessages.join(" "));
+        } catch (parseError) {
+          payloadParts.push(error._server_messages);
+        }
+      }
+      if (error.message) payloadParts.push(error.message);
+      const payload = payloadParts.join(" ").toLowerCase();
+      return /authenticationerror|permissionerror|not authorized|login/.test(payload);
+    }
+
+    handleRequestError(error, fallbackMessage) {
+      console.error("[STSR] API failure", error);
+      const message = this.isAuthError(error)
+        ? __("You are not authorized to perform this action. Please log in with an instructor account and try again.")
+        : fallbackMessage;
+
+      frappe.msgprint({
+        title: __("STSR Score Entry"),
+        message,
+        indicator: this.isAuthError(error) ? "orange" : "red",
+      });
+
+      return message;
+    }
+
     init() {
       this.cacheElements();
       this.bindEvents();
@@ -179,13 +218,11 @@
           groups.length ? "success" : "danger"
         );
       } catch (error) {
-        console.error(error);
-        frappe.msgprint({
-          title: __("Roster"),
-          message: __("Unable to load student groups. Please try again."),
-          indicator: "red",
-        });
-        this.updateStatus(__("Failed to load student groups."), "danger");
+        const message = this.handleRequestError(
+          error,
+          __("Unable to load student groups. Please try again.")
+        );
+        this.updateStatus(message, "danger");
       } finally {
         this.setLoading(false);
       }
@@ -241,13 +278,11 @@
           this.updateStatus(__("No program found on this student group."), "warning");
         }
       } catch (error) {
-        console.error(error);
-        frappe.msgprint({
-          title: __("Roster"),
-          message: __("Unable to load the selected student group."),
-          indicator: "red",
-        });
-        this.updateStatus(__("Failed to load student group."), "danger");
+        const message = this.handleRequestError(
+          error,
+          __("Unable to load the selected student group.")
+        );
+        this.updateStatus(message, "danger");
       } finally {
         this.setLoading(false);
       }
@@ -287,22 +322,20 @@
         const subjects = response.message || [];
         this.state.subjects = subjects;
         this.renderSubjectOptions(subjects);
-        if (subjects.length === 0) {
-          this.updateStatus(
-            __("No subjects are linked with this program. Please update the Program document."),
-            "warning"
+          if (subjects.length === 0) {
+            this.updateStatus(
+              __("No subjects are linked with this program. Please update the Program document."),
+              "warning"
+            );
+          } else {
+            this.updateStatus(__("Select a subject to load scores."), "success");
+          }
+        } catch (error) {
+          const message = this.handleRequestError(
+            error,
+            __("Unable to load program subjects.")
           );
-        } else {
-          this.updateStatus(__("Select a subject to load scores."), "success");
-        }
-      } catch (error) {
-        console.error(error);
-        frappe.msgprint({
-          title: __("Roster"),
-          message: __("Unable to load program subjects."),
-          indicator: "red",
-        });
-        this.updateStatus(__("Failed to load program subjects."), "danger");
+          this.updateStatus(message, "danger");
       }
     }
 
@@ -566,10 +599,10 @@
         return;
       }
       entries.forEach((entry) => this.upsertQueueEntry(entry));
-        frappe.show_alert({
-          message: formatText("{0} score(s) added to the queue.", [entries.length]),
-          indicator: "green",
-        });
+      frappe.show_alert({
+        message: formatText("{0} score(s) added to the queue.", [entries.length]),
+        indicator: "green",
+      });
       this.resetDirtyInputs();
       this.refreshQueueTable();
       this.updateActionStates();
@@ -670,30 +703,28 @@
         });
 
         const { saved = [], errors = [] } = response.message || {};
-          if (saved.length) {
-            frappe.show_alert({
-              message: formatText("{0} scores submitted successfully.", [saved.length]),
-              indicator: "green",
-            });
+        if (saved.length) {
+          frappe.show_alert({
+            message: formatText("{0} scores submitted successfully.", [saved.length]),
+            indicator: "green",
+          });
         }
         if (errors.length) {
           frappe.msgprint({
             title: __("Some scores failed to submit"),
             indicator: "orange",
-              message: errors
-                .map((error) => `<p>${escapeHtml(error.entry.student_name || error.entry.student)}: ${escapeHtml(error.error)}</p>`)
-                .join(""),
+            message: errors
+              .map((error) => `<p>${escapeHtml(error.entry.student_name || error.entry.student)}: ${escapeHtml(error.error)}</p>`)
+              .join(""),
           });
         }
         this.clearQueue();
         await this.refreshCurrentExamScores();
       } catch (error) {
-        console.error(error);
-        frappe.msgprint({
-          title: __("Roster"),
-          message: __("Unable to submit scores. Please check the queue and try again."),
-          indicator: "red",
-        });
+        this.handleRequestError(
+          error,
+          __("Unable to submit scores. Please check the queue and try again.")
+        );
       } finally {
         this.setLoading(false);
       }
@@ -723,12 +754,7 @@
             frappe.show_alert({ message: __("Existing scores deleted."), indicator: "green" });
             await this.refreshCurrentExamScores();
           } catch (error) {
-            console.error(error);
-            frappe.msgprint({
-              title: __("Roster"),
-              message: __("Unable to delete existing scores."),
-              indicator: "red",
-            });
+            this.handleRequestError(error, __("Unable to delete existing scores."));
           } finally {
             this.setLoading(false);
           }
@@ -748,13 +774,8 @@
         await this.loadSummaryForAllExams(exam);
         this.updateStatus(__("Scores loaded."), "success");
       } catch (error) {
-        console.error(error);
-        this.updateStatus(__("Unable to fetch scores."), "danger");
-        frappe.msgprint({
-          title: __("Roster"),
-          message: __("Unable to fetch existing scores."),
-          indicator: "red",
-        });
+        const message = this.handleRequestError(error, __("Unable to fetch existing scores."));
+        this.updateStatus(message, "danger");
       } finally {
         this.updateActionStates();
       }
@@ -762,9 +783,9 @@
 
     fetchScoresForExam(exam) {
       if (!exam) return Promise.resolve([]);
-        return frappe
-          .call({
-            method: "education.api.stsr.get_existing_scores",
+      return frappe
+        .call({
+          method: "education.api.stsr.get_existing_scores",
           args: {
             academic_year: this.state.academicYear,
             semester: this.state.semester,
