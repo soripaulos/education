@@ -594,6 +594,14 @@
 			if (csrfToken && csrfToken.trim()) {
 				return csrfToken;
 			}
+			if (window.frappe && window.frappe.csrf_token) {
+				csrfToken = window.frappe.csrf_token;
+				return csrfToken;
+			}
+			if (typeof window.csrf_token === "string" && window.csrf_token.trim()) {
+				csrfToken = window.csrf_token;
+				return csrfToken;
+			}
 			// Try multiple cookie names that Frappe might use
 			const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
 			if (cookieToken) {
