@@ -58,18 +58,23 @@ def get_student_group_students(student_group):
     if not student_group:
         frappe.throw(_("Student Group is required"))
 
+    group_fields = [
+        "name",
+        "student_group_name",
+        "program",
+        "academic_year",
+        "batch",
+        "course",
+    ]
+
+    has_grade_column = frappe.db.has_column("Student Group", "grade")
+    if has_grade_column:
+        group_fields.append("grade")
+
     group = frappe.db.get_value(
         "Student Group",
         student_group,
-        [
-            "name",
-            "student_group_name",
-            "program",
-            "academic_year",
-            "batch",
-            "course",
-            "grade",
-        ],
+        group_fields,
         as_dict=True,
     )
 
@@ -77,7 +82,7 @@ def get_student_group_students(student_group):
         frappe.throw(_("Student Group {0} not found").format(frappe.bold(student_group)))
 
     # Some schools store the Program link in a custom "grade" field.
-    program = group.get("program") or group.get("grade")
+    program = group.get("program") or (group.get("grade") if has_grade_column else None)
     if program:
         group["program"] = program
 
