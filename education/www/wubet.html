@@ -3,7 +3,6 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta name="csrf-token" content="{{ csrf_token | default('', true) }}">
 	<title>{{ _("Student Result Entry") }}</title>
 	<meta name="description" content="{{ _("Quickly log exam scores and submit Student Term Subject Results.") }}">
 	<style>
@@ -92,12 +91,17 @@
 			transition: all 0.2s ease;
 		}
 
+		button:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
 		.btn-secondary {
 			background: #e5e7eb;
 			color: #111827;
 		}
 
-		.btn-secondary:hover {
+		.btn-secondary:hover:not(:disabled) {
 			background: #d1d5db;
 		}
 
@@ -106,7 +110,7 @@
 			color: #fff;
 		}
 
-		.btn-primary:hover {
+		.btn-primary:hover:not(:disabled) {
 			background: #1d4ed8;
 		}
 
@@ -116,7 +120,7 @@
 			margin-left: auto;
 		}
 
-		.btn-success:hover {
+		.btn-success:hover:not(:disabled) {
 			background: #15803d;
 		}
 
@@ -125,7 +129,7 @@
 			color: #fff;
 		}
 
-		.btn-danger:hover {
+		.btn-danger:hover:not(:disabled) {
 			background: #b91c1c;
 		}
 
@@ -215,16 +219,6 @@
 			outline: none;
 			border-color: #2563eb;
 			box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-		}
-
-		.debug-panel {
-			background: #0f172a;
-			color: #facc15;
-			border-radius: 8px;
-			padding: 12px;
-			font-size: 12px;
-			max-height: 240px;
-			overflow-y: auto;
 		}
 	</style>
 </head>
@@ -347,10 +341,6 @@
 				</table>
 			</div>
 			<div id="submission-summary" style="margin-top: 16px; display: none;"></div>
-			<div id="debug-panel" class="debug-panel" style="display:none;">
-				<h4>{{ _("Debug Info") }}</h4>
-				<pre id="debug-log" style="white-space:pre-wrap;"></pre>
-			</div>
 			<div id="form-feedback-bottom" class="alert" style="display: none;"></div>
 			<div class="actions-row actions-row-secondary">
 				<button type="button" class="btn-secondary" id="clear-form-btn-bottom">{{ _("Reset Form") }}</button>
@@ -385,6 +375,9 @@
 	</div>
 
 	<script>
+		// ============================================================
+		// Constants and Text Labels
+		// ============================================================
 		const TEXT = {
 			selectSemester: "Select Semester",
 			noStudents: "No students found for the selected group.",
@@ -416,11 +409,9 @@
 
 		const EXAM_SEQUENCE = ["First Test", "Second Test", "Mid Exam", "Final Exam"];
 
-		let csrfToken =
-			"{{ csrf_token | default('', true) }}" ||
-			(window.frappe && window.frappe.csrf_token) ||
-			(window.csrf_token || "");
-
+		// ============================================================
+		// Application State
+		// ============================================================
 		const wubetBoot = {{ wubet_boot | safe }};
 		const elements = {};
 		const examScoreMap = {};
@@ -431,6 +422,7 @@
 		let scoreFetchRequestId = 0;
 		let summaryFetchRequestId = 0;
 		let buttonsBusy = false;
+
 		const state = {
 			loggedEntries: [],
 			students: [],
@@ -442,9 +434,10 @@
 			examSummary: {}
 		};
 
+		// ============================================================
+		// Initialization
+		// ============================================================
 		document.addEventListener("DOMContentLoaded", () => {
-			// Initialize CSRF token on page load
-			refreshCsrfToken();
 			cacheElements();
 			buildProgramLabelMap();
 			populateStaticSelects();
@@ -575,48 +568,160 @@
 			});
 		}
 
-		function getCookie(name) {
-			const value = `; ${document.cookie}`;
-			const parts = value.split(`; ${name}=`);
-			if (parts.length === 2) return parts.pop().split(";").shift();
+		function setDefaultValues() {
+			if (wubetBoot.default_academic_year) {
+				elements.academicYear.value = wubetBoot.default_academic_year;
+			}
+			if (wubetBoot.semesters && wubetBoot.semesters.length) {
+				elements.semester.value = wubetBoot.semesters[0].value;
+			}
+			if (wubetBoot.exam_options && wubetBoot.exam_options.length) {
+				const firstExam = wubetBoot.exam_options[0].value;
+				elements.exam.value = firstExam;
+				elements.maxScore.value = examScoreMap[firstExam] || "";
+			}
+		}
+
+		function addOption(select, value, label) {
+			const option = document.createElement("option");
+			option.value = value;
+			option.textContent = label;
+			select.appendChild(option);
+			return option;
+		}
+
+		// ============================================================
+		// CSRF Token Handling (Simplified for Logged-in Users)
+		// ============================================================
+		function getCsrfToken() {
+			// For logged-in users, Frappe sets the CSRF token in cookies
+			// Try multiple cookie names that Frappe might use
+			const cookieNames = ['csrf_token', 'frappe_csrf_token', 'frappe-csrf-token'];
+			
+			for (const name of cookieNames) {
+				const value = getCookie(name);
+				if (value) return value;
+			}
+			
+			// Fallback to window.frappe if available
+			if (window.frappe && window.frappe.csrf_token) {
+				return window.frappe.csrf_token;
+			}
+			
 			return "";
 		}
 
-		function ensureCsrfToken() {
-			if (csrfToken && csrfToken.trim()) {
-				return csrfToken;
+		function getCookie(name) {
+			const value = `; ${document.cookie}`;
+			const parts = value.split(`; ${name}=`);
+			if (parts.length === 2) {
+				return parts.pop().split(";").shift();
 			}
-			if (window.frappe && window.frappe.csrf_token) {
-				csrfToken = window.frappe.csrf_token;
-				return csrfToken;
-			}
-			if (typeof window.csrf_token === "string" && window.csrf_token.trim()) {
-				csrfToken = window.csrf_token;
-				return csrfToken;
-			}
-			const metaTag = document.querySelector('meta[name="csrf-token"]');
-			if (metaTag && metaTag.content) {
-				csrfToken = metaTag.content;
-				return csrfToken;
-			}
-			const cookieToken = getCookie("csrf_token") || getCookie("frappe-csrf-token") || getCookie("frappe_csrf_token");
-			if (cookieToken) {
-				csrfToken = cookieToken;
-				return csrfToken;
-			}
-			return csrfToken || "";
+			return "";
 		}
 
-		function logDebug(message, payload) {
-			const panel = document.getElementById("debug-panel");
-			const pre = document.getElementById("debug-log");
-			if (!panel || !pre) return;
-			panel.style.display = "block";
-			const timestamp = new Date().toISOString();
-			const serialized = payload ? JSON.stringify(payload, null, 2) : "";
-			pre.textContent = `${timestamp} | ${message}\n${serialized}\n\n${pre.textContent}`.trim();
+		// ============================================================
+		// API Communication
+		// ============================================================
+		async function callFrappeMethod(methodName, args) {
+			// Try using frappe.call first (preferred for logged-in users)
+			if (window.frappe && typeof frappe.call === "function") {
+				return new Promise((resolve, reject) => {
+					frappe.call({
+						method: methodName,
+						args: args || {},
+						freeze: false,
+						callback: (response) => {
+							try {
+								const payload = normalizeResponse(response);
+								resolve(payload);
+							} catch (error) {
+								reject(error);
+							}
+						},
+						error: (err) => {
+							const message = extractErrorMessage(err) || "Request failed";
+							reject(new Error(message));
+						},
+					});
+				});
+			}
+
+			// Fallback to fetch API
+			return callMethodViaFetch(methodName, args);
 		}
 
+		async function callMethodViaFetch(methodName, args) {
+			const csrfToken = getCsrfToken();
+			
+			const response = await fetch(`/api/method/${methodName}`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"Accept": "application/json",
+					"X-Frappe-CSRF-Token": csrfToken
+				},
+				credentials: "include",
+				body: JSON.stringify(args || {})
+			});
+
+			const data = await response.json().catch(() => ({}));
+			
+			if (!response.ok || data.exc) {
+				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
+				throw new Error(errorMessage);
+			}
+			
+			return normalizeResponse(data);
+		}
+
+		function normalizeResponse(response) {
+			if (!response) return null;
+			
+			if (response.exc || response._server_messages) {
+				const errorMsg = extractErrorMessage(response);
+				throw new Error(errorMsg || "Request failed");
+			}
+			
+			if (Object.prototype.hasOwnProperty.call(response, "message")) {
+				return response.message;
+			}
+			
+			if (Object.prototype.hasOwnProperty.call(response, "data")) {
+				return response.data;
+			}
+			
+			return response;
+		}
+
+		function extractErrorMessage(errorData) {
+			if (!errorData) return "";
+			
+			if (errorData.message) return errorData.message;
+			if (errorData.exception) return errorData.exception;
+			
+			if (errorData._server_messages) {
+				try {
+					const messages = JSON.parse(errorData._server_messages);
+					if (Array.isArray(messages) && messages.length > 0) {
+						const firstMsg = JSON.parse(messages[0]);
+						return firstMsg.message || "";
+					}
+				} catch (e) {
+					// Ignore parsing errors
+				}
+			}
+			
+			if (errorData.exc) {
+				return Array.isArray(errorData.exc) ? errorData.exc.join(" ") : errorData.exc;
+			}
+			
+			return "";
+		}
+
+		// ============================================================
+		// Context and State Management
+		// ============================================================
 		function getScoreContextParams() {
 			return {
 				student_group: elements.studentGroup.value,
@@ -669,82 +774,9 @@
 			});
 		}
 
-		async function fetchExistingScores() {
-			if (!hasScoreContext() || !state.students.length) return;
-
-			const params = getScoreContextParams();
-			const requestId = ++scoreFetchRequestId;
-			try {
-				const records = await callFrappeMethod(
-					"education.education.api.get_student_term_subject_results",
-					{
-						student_group: params.student_group,
-						academic_year: params.academic_year,
-						semester: params.semester,
-						subject: params.subject,
-						exam: params.exam,
-						include_submitted: 1
-					}
-				);
-				logDebug("Fetched existing drafts", { params, records });
-				if (requestId !== scoreFetchRequestId) {
-					return;
-				}
-				state.studentScores = {};
-				state.resultDocs = {};
-				state.lastQueuedScores = {};
-				(records || []).forEach(record => {
-					const rawScore = record.score;
-					const scoreValue = rawScore === null || rawScore === undefined ? null : parseFloat(rawScore);
-					const studentId = record.student;
-					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
-					const isDraft = Number(record.docstatus) === 0;
-					state.studentScores[studentId] = {
-						student: studentId,
-						student_name: record.student_name || "",
-						score: Number.isNaN(scoreValue) ? null : scoreValue,
-						docname: isDraft ? record.name : null,
-						docstatus: Number(record.docstatus)
-					};
-					if (isDraft) {
-						state.resultDocs[key] = record.name;
-					} else {
-						delete state.resultDocs[key];
-					}
-					if (!Number.isNaN(scoreValue) && scoreValue !== null) {
-						state.lastQueuedScores[key] = scoreValue;
-					}
-				});
-				applyScoresToInputs();
-				updateActionButtonsState();
-			} catch (error) {
-				console.error("Failed to fetch existing scores", error);
-				showFeedback(TEXT.scoreFetchError, "danger");
-			}
-		}
-
-		function setDefaultValues() {
-			if (wubetBoot.default_academic_year) {
-				elements.academicYear.value = wubetBoot.default_academic_year;
-			}
-			if (wubetBoot.semesters && wubetBoot.semesters.length) {
-				elements.semester.value = wubetBoot.semesters[0].value;
-			}
-			if (wubetBoot.exam_options && wubetBoot.exam_options.length) {
-				const firstExam = wubetBoot.exam_options[0].value;
-				elements.exam.value = firstExam;
-				elements.maxScore.value = examScoreMap[firstExam] || "";
-			}
-		}
-
-		function addOption(select, value, label) {
-			const option = document.createElement("option");
-			option.value = value;
-			option.textContent = label;
-			select.appendChild(option);
-			return option;
-		}
-
+		// ============================================================
+		// Event Handlers
+		// ============================================================
 		async function handleStudentGroupChange(event) {
 			clearScoreState();
 			const selectedOption = event.target.selectedOptions[0];
@@ -791,6 +823,9 @@
 			updateActionButtonsState();
 		}
 
+		// ============================================================
+		// Student Loading and Management
+		// ============================================================
 		async function loadStudentsForGroup(studentGroup) {
 			state.students = [];
 			clearScoreState();
@@ -808,9 +843,10 @@
 					"education.education.api.get_students_for_group",
 					{ student_group: studentGroup }
 				);
-				logDebug("Loaded students", { student_group: studentGroup, count: (students || []).length });
+				
 				state.students = sortStudents(students || []);
 				renderStudentsTable();
+				
 				if (!state.students.length) {
 					showFeedback(TEXT.noStudents, "warning");
 					resetExamSummary();
@@ -916,10 +952,9 @@
 				const currentIndex = allInputs.indexOf(currentInput);
 				
 				if (currentIndex >= 0 && currentIndex < allInputs.length - 1) {
-					// Move to next input
 					const nextInput = allInputs[currentIndex + 1];
 					nextInput.focus();
-					nextInput.select(); // Select the text for easy replacement
+					nextInput.select();
 				}
 			}
 		}
@@ -978,6 +1013,77 @@
 			});
 		}
 
+		// ============================================================
+		// Score Fetching and Management
+		// ============================================================
+		async function fetchExistingScores() {
+			if (!hasScoreContext() || !state.students.length) return;
+
+			const params = getScoreContextParams();
+			const requestId = ++scoreFetchRequestId;
+			
+			try {
+				const records = await callFrappeMethod(
+					"education.education.api.get_student_term_subject_results",
+					{
+						student_group: params.student_group,
+						academic_year: params.academic_year,
+						semester: params.semester,
+						subject: params.subject,
+						exam: params.exam,
+						include_submitted: 1
+					}
+				);
+				
+				if (requestId !== scoreFetchRequestId) {
+					return;
+				}
+				
+				state.studentScores = {};
+				state.resultDocs = {};
+				state.lastQueuedScores = {};
+				
+				(records || []).forEach(record => {
+					const rawScore = record.score;
+					const scoreValue = rawScore === null || rawScore === undefined ? null : parseFloat(rawScore);
+					const studentId = record.student;
+					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
+					const isDraft = Number(record.docstatus) === 0;
+					
+					state.studentScores[studentId] = {
+						student: studentId,
+						student_name: record.student_name || "",
+						score: Number.isNaN(scoreValue) ? null : scoreValue,
+						docname: isDraft ? record.name : null,
+						docstatus: Number(record.docstatus)
+					};
+					
+					if (isDraft) {
+						state.resultDocs[key] = record.name;
+					} else {
+						delete state.resultDocs[key];
+					}
+					
+					if (!Number.isNaN(scoreValue) && scoreValue !== null) {
+						state.lastQueuedScores[key] = scoreValue;
+					}
+				});
+				
+				applyScoresToInputs();
+				updateActionButtonsState();
+			} catch (error) {
+				console.error("Failed to fetch existing scores", error);
+				showFeedback(TEXT.scoreFetchError, "danger");
+			}
+		}
+
+		function buildScoreKey(student, subject, exam, academicYear, semester) {
+			return [student || "", subject || "", exam || "", academicYear || "", semester || ""].join("::");
+		}
+
+		// ============================================================
+		// Exam Summary Functions
+		// ============================================================
 		function cloneSummaryMap(map) {
 			const clone = {};
 			Object.keys(map || {}).forEach(studentId => {
@@ -1119,6 +1225,7 @@
 
 			const params = getScoreContextParams();
 			const requestId = ++summaryFetchRequestId;
+			
 			try {
 				const records = await callFrappeMethod(
 					"education.education.api.get_student_exam_summary",
@@ -1129,13 +1236,16 @@
 						subject: params.subject
 					}
 				);
+				
 				if (requestId !== summaryFetchRequestId) {
 					return;
 				}
+				
 				const summaryMap = {};
 				(records || []).forEach(record => {
 					updateSummaryEntry(summaryMap, record);
 				});
+				
 				state.examSummaryBase = summaryMap;
 				syncExamSummaryWithLoggedEntries();
 			} catch (error) {
@@ -1143,6 +1253,9 @@
 			}
 		}
 
+		// ============================================================
+		// Score Logging and Submission
+		// ============================================================
 		function getCommonEntryData() {
 			const data = {
 				student_group: elements.studentGroup.value,
@@ -1190,10 +1303,6 @@
 
 		function getActiveScoreEntries() {
 			return Object.values(state.studentScores || {}).filter(item => typeof item.score === "number");
-		}
-
-		function buildScoreKey(student, subject, exam, academicYear, semester) {
-			return [student || "", subject || "", exam || "", academicYear || "", semester || ""].join("::");
 		}
 
 		function logScores() {
@@ -1313,38 +1422,6 @@
 			}
 		}
 
-		function updateActionButtonsState() {
-			if (buttonsBusy) {
-				return;
-			}
-			const hasEntries = state.loggedEntries.length > 0;
-			const canRemoveAll = hasScoreContext() && state.students.length > 0;
-			[elements.logButton, elements.logButtonBottom].forEach(button => {
-				if (button) {
-					button.disabled = false;
-				}
-			});
-			[elements.submitButton, elements.submitButtonBottom].forEach(button => {
-				if (button) {
-					button.disabled = !hasEntries;
-				}
-			});
-			[elements.clearButton, elements.clearButtonBottom].forEach(button => {
-				if (button) {
-					button.disabled = false;
-				}
-			});
-			[elements.removeAllButton, elements.removeAllButtonBottom].forEach(button => {
-				if (button) {
-					button.disabled = !canRemoveAll;
-				}
-			});
-		}
-
-		function formatNumber(number) {
-			return (Number(number || 0)).toFixed(2);
-		}
-
 		async function submitLoggedScores() {
 			if (!state.loggedEntries.length) {
 				showFeedback(TEXT.noEntriesSubmit, "warning");
@@ -1362,14 +1439,12 @@
 				};
 			});
 
-			logDebug("Submitting queued scores", payloadEntries);
-
 			let summary = { success: [], failed: [] };
 			try {
 				const response = await callCreateResult(payloadEntries);
 				summary = response || summary;
 			} catch (error) {
-				logDebug("Failed to save batch", { error: error.message || error });
+				console.error("Failed to save batch", error);
 				summary.failed = payloadEntries.map(entry => ({ entry, error: error.message || error }));
 			}
 
@@ -1377,92 +1452,11 @@
 			await handleSubmissionSummary(summary);
 		}
 
-		async function removeAllEntries() {
-			if (!hasScoreContext()) {
-				showFeedback(TEXT.removeAllContextMissing, "warning");
-				return;
-			}
-
-			if (!state.students.length) {
-				showFeedback(TEXT.noStudents, "warning");
-				return;
-			}
-
-			if (!window.confirm(TEXT.removeAllConfirm)) {
-				return;
-			}
-
-			disableButtons(true);
-			try {
-				const params = {
-					...getScoreContextParams(),
-					grade: state.currentGrade.value || "",
-				};
-				const response = await callFrappeMethod(
-					"education.education.api.delete_student_term_subject_results",
-					params
-				);
-				logDebug("Removed saved scores", { params, response });
-				clearScoreState();
-				await fetchExistingScores();
-				await fetchExamSummaryAllExams();
-				const removed = response?.deleted || 0;
-				const message = TEXT.removeAllSuccess.replace("{0}", removed);
-				showFeedback(message, "success");
-			} catch (error) {
-				showFeedback(error.message || TEXT.scoreSaveError, "danger");
-			} finally {
-				disableButtons(false);
-			}
-		}
-
-		async function manualRefreshSecurity(event) {
-			const button = event?.currentTarget;
-			if (button) {
-				button.disabled = true;
-			}
-			try {
-				await fetchServerCsrfToken();
-				showFeedback(TEXT.securityRefreshSuccess, "success");
-			} catch (error) {
-				showFeedback(error?.message || TEXT.securityRefreshFailed, "danger");
-			} finally {
-				if (button) {
-					button.disabled = false;
-				}
-				updateActionButtonsState();
-			}
-		}
-
-		function disableButtons(isDisabled) {
-			buttonsBusy = isDisabled;
-			const targets = [
-				elements.logButton,
-				elements.logButtonBottom,
-				elements.submitButton,
-				elements.submitButtonBottom,
-				elements.clearButton,
-				elements.clearButtonBottom,
-				elements.removeAllButton,
-				elements.removeAllButtonBottom,
-			];
-			targets.forEach(button => {
-				if (button) {
-					button.disabled = isDisabled;
-				}
-			});
-			if (!isDisabled) {
-				updateActionButtonsState();
-			}
-		}
-
 		async function callCreateResult(entries) {
 			const response = await callFrappeMethod(
 				"education.education.api.save_student_term_subject_results",
 				{ entries: JSON.stringify(entries) }
 			);
-
-			logDebug("Method response", response);
 
 			(response.success || []).forEach(record => {
 				const entry = entries.find(e => e.student === record.student && e.exam === record.exam && e.subject === record.subject);
@@ -1521,86 +1515,100 @@
 			await fetchExamSummaryAllExams();
 		}
 
-		async function callFrappeMethod(methodName, args, options) {
-			return new Promise((resolve, reject) => {
-				if (!window.frappe || typeof frappe.call !== "function") {
-					callMethodViaFetch(methodName, args)
-						.then(resolve)
-						.catch(reject);
-					return;
+		// ============================================================
+		// Remove All Scores
+		// ============================================================
+		async function removeAllEntries() {
+			if (!hasScoreContext()) {
+				showFeedback(TEXT.removeAllContextMissing, "warning");
+				return;
+			}
+
+			if (!state.students.length) {
+				showFeedback(TEXT.noStudents, "warning");
+				return;
+			}
+
+			if (!window.confirm(TEXT.removeAllConfirm)) {
+				return;
+			}
+
+			disableButtons(true);
+			try {
+				const params = {
+					...getScoreContextParams(),
+					grade: state.currentGrade.value || "",
+				};
+				const response = await callFrappeMethod(
+					"education.education.api.delete_student_term_subject_results",
+					params
+				);
+				
+				clearScoreState();
+				await fetchExistingScores();
+				await fetchExamSummaryAllExams();
+				const removed = response?.deleted || 0;
+				const message = TEXT.removeAllSuccess.replace("{0}", removed);
+				showFeedback(message, "success");
+			} catch (error) {
+				showFeedback(error.message || TEXT.scoreSaveError, "danger");
+			} finally {
+				disableButtons(false);
+			}
+		}
+
+		// ============================================================
+		// UI Helpers
+		// ============================================================
+		function updateActionButtonsState() {
+			if (buttonsBusy) {
+				return;
+			}
+			const hasEntries = state.loggedEntries.length > 0;
+			const canRemoveAll = hasScoreContext() && state.students.length > 0;
+			
+			[elements.logButton, elements.logButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = false;
 				}
-				frappe.call({
-					method: methodName,
-					args: args || {},
-					freeze: options?.freeze || false,
-					callback: response => {
-						try {
-							const payload = normalizeCallResponse(response);
-							resolve(payload);
-						} catch (error) {
-							reject(error);
-						}
-					},
-					error: err => {
-						const message =
-							err?.message ||
-							(err?.statusText) ||
-							extractErrorMessage(err) ||
-							"Request failed";
-						reject(new Error(message));
-					},
-				});
+			});
+			[elements.submitButton, elements.submitButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = !hasEntries;
+				}
+			});
+			[elements.clearButton, elements.clearButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = false;
+				}
+			});
+			[elements.removeAllButton, elements.removeAllButtonBottom].forEach(button => {
+				if (button) {
+					button.disabled = !canRemoveAll;
+				}
 			});
 		}
 
-		async function callMethodViaFetch(methodName, args) {
-			const token = ensureCsrfToken();
-			const response = await fetch(`/api/method/${methodName}`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"Accept": "application/json",
-					"X-Frappe-CSRF-Token": token || ""
-				},
-				credentials: "include",
-				body: JSON.stringify(args || {})
+		function disableButtons(isDisabled) {
+			buttonsBusy = isDisabled;
+			const targets = [
+				elements.logButton,
+				elements.logButtonBottom,
+				elements.submitButton,
+				elements.submitButtonBottom,
+				elements.clearButton,
+				elements.clearButtonBottom,
+				elements.removeAllButton,
+				elements.removeAllButtonBottom,
+			];
+			targets.forEach(button => {
+				if (button) {
+					button.disabled = isDisabled;
+				}
 			});
-
-			const data = await response.json().catch(() => ({}));
-			if (!response.ok || data.exc) {
-				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
-				throw new Error(errorMessage);
+			if (!isDisabled) {
+				updateActionButtonsState();
 			}
-			if (Object.prototype.hasOwnProperty.call(data, "message")) {
-				return data.message;
-			}
-			if (Object.prototype.hasOwnProperty.call(data, "data")) {
-				return data.data;
-			}
-			return data;
-		}
-
-		function normalizeCallResponse(response) {
-			if (!response) return null;
-			if (response.exc || response._server_messages) {
-				const errorMsg = extractErrorMessage(response) || response._server_messages || response.exc;
-				throw new Error(errorMsg);
-			}
-			if (Object.prototype.hasOwnProperty.call(response, "message")) {
-				return response.message;
-			}
-			if (Object.prototype.hasOwnProperty.call(response, "data")) {
-				return response.data;
-			}
-			return response;
-		}
-
-		function extractErrorMessage(errorData) {
-			if (!errorData) return "";
-			if (errorData.message) return errorData.message;
-			if (errorData.exception) return errorData.exception;
-			if (errorData.exc) return Array.isArray(errorData.exc) ? errorData.exc.join(" ") : errorData.exc;
-			return "";
 		}
 
 		function showFeedback(message, level) {
@@ -1625,6 +1633,16 @@
 			target.style.display = "block";
 		}
 
+		function formatNumber(number) {
+			return (Number(number || 0)).toFixed(2);
+		}
+
+		function escapeHtml(value) {
+			const div = document.createElement("div");
+			div.textContent = value || "";
+			return div.innerHTML;
+		}
+
 		function rebuildQueuedScoreMap() {
 			state.lastQueuedScores = {};
 			state.loggedEntries.forEach(entry => {
@@ -1642,12 +1660,6 @@
 					state.lastQueuedScores[key] = item.score;
 				}
 			});
-		}
-
-		function escapeHtml(value) {
-			const div = document.createElement("div");
-			div.textContent = value || "";
-			return div.innerHTML;
 		}
 	</script>
 </body>
