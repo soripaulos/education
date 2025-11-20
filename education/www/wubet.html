@@ -83,6 +83,14 @@
 			gap: 12px;
 		}
 
+		.actions-row-right {
+			margin-top: 20px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+			justify-content: flex-end;
+		}
+
 		button {
 			border: none;
 			border-radius: 8px;
@@ -324,11 +332,12 @@
 					</thead>
 					<tbody id="students-table-body"></tbody>
 				</table>
-				<div class="actions-row" style="margin-top: 20px;">
+				<div class="actions-row-right" style="margin-top: 20px;">
 					<button type="button" class="btn-primary" id="log-score-btn-bottom">{{ _("Log Scores") }}</button>
 					<button type="button" class="btn-success" id="submit-scores-btn-bottom" disabled>{{ _("Submit Logged Scores") }}</button>
 					<button type="button" class="btn-info" id="generate-report-btn">{{ _("Generate Report") }}</button>
 				</div>
+				<div id="bottom-feedback" class="alert" style="display: none; margin-top: 16px;"></div>
 			</div>
 		</section>
 
@@ -419,6 +428,7 @@
 		function cacheElements() {
 			elements.form = document.getElementById("result-entry-form");
 			elements.feedback = document.getElementById("form-feedback");
+			elements.bottomFeedback = document.getElementById("bottom-feedback");
 			elements.studentGroup = document.getElementById("student-group");
 			elements.gradeDisplay = document.getElementById("grade-display");
 			elements.subject = document.getElementById("subject");
@@ -975,12 +985,12 @@
 			});
 
 			if (!newEntries.length) {
-				showFeedback(TEXT.noNewScores, "info");
+				showFeedback(TEXT.noNewScores, "info", true);
 				return;
 			}
 
 			renderEntries();
-			showFeedback(TEXT.entryQueued, "success");
+			showFeedback(TEXT.entryQueued, "success", true);
 			enableSubmit();
 		}
 
@@ -1162,14 +1172,14 @@
 				state.loggedEntries = [];
 				syncLastQueuedScoresFromStudents();
 				renderEntries();
-				showFeedback(TEXT.allSuccess, "success");
+				showFeedback(TEXT.allSuccess, "success", true);
 			} else if (summary.success.length) {
 				state.loggedEntries = summary.failed.map(item => item.entry);
 				rebuildQueuedScoreMap();
 				renderEntries();
-				showFeedback(TEXT.someFailedSummary, "warning");
+				showFeedback(TEXT.someFailedSummary, "warning", true);
 			} else {
-				showFeedback(TEXT.allFailed, "danger");
+				showFeedback(TEXT.allFailed, "danger", true);
 			}
 		}
 
@@ -1246,15 +1256,33 @@
 			return "";
 		}
 
-		function showFeedback(message, level) {
+		function showFeedback(message, level, showBottom = false) {
 			elements.feedback.className = `alert alert-${level}`;
 			elements.feedback.textContent = message;
 			elements.feedback.style.display = "block";
+			
+			if (showBottom && elements.bottomFeedback) {
+				elements.bottomFeedback.className = `alert alert-${level}`;
+				elements.bottomFeedback.textContent = message;
+				elements.bottomFeedback.style.display = "block";
+				
+				// Auto-hide bottom feedback after 5 seconds
+				setTimeout(() => {
+					clearBottomFeedback();
+				}, 5000);
+			}
 		}
 
 		function clearFeedback() {
 			elements.feedback.style.display = "none";
 			elements.feedback.textContent = "";
+		}
+
+		function clearBottomFeedback() {
+			if (elements.bottomFeedback) {
+				elements.bottomFeedback.style.display = "none";
+				elements.bottomFeedback.textContent = "";
+			}
 		}
 
 		function rebuildQueuedScoreMap() {
@@ -1340,18 +1368,18 @@
 		async function generateReport() {
 			const common = getCommonEntryData();
 			if (!common) {
-				showFeedback("Please select all required fields to generate a report.", "warning");
+				showFeedback("Please select all required fields to generate a report.", "warning", true);
 				return;
 			}
 
 			if (!state.students.length) {
-				showFeedback("No students loaded. Please select a student group.", "warning");
+				showFeedback("No students loaded. Please select a student group.", "warning", true);
 				return;
 			}
 
 			try {
 				disableButtons(true);
-				showFeedback("Generating report...", "info");
+				showFeedback("Generating report...", "info", true);
 
 				// Fetch all exam results for the selected criteria
 				const examTypes = ["First Test", "Second Test", "Mid Exam", "Final Exam"];
@@ -1385,10 +1413,13 @@
 						"/api/resource/Student Term Subject Result",
 						{
 							filters: JSON.stringify(filters),
-							fields: JSON.stringify(["student", "score"])
+							fields: JSON.stringify(["student", "score"]),
+							limit_page_length: 999999
 						},
 						{ method: "GET" }
 					);
+
+					logDebug(`Fetched ${examType} results`, { count: (records || []).length, records });
 
 					// Map results
 					(records || []).forEach(record => {
@@ -1404,6 +1435,7 @@
 					<div style="font-family: Arial, sans-serif; padding: 20px;">
 						<h2 style="text-align: center;">Student Results Report</h2>
 						<div style="margin-bottom: 20px;">
+							<p><strong>Student Group:</strong> ${escapeHtml(common.student_group_label)}</p>
 							<p><strong>Grade/Program:</strong> ${escapeHtml(common.grade_label)}</p>
 							<p><strong>Subject:</strong> ${escapeHtml(common.subject_label)}</p>
 							<p><strong>Academic Year:</strong> ${escapeHtml(common.academic_year)}</p>
@@ -1486,10 +1518,11 @@
 				`);
 				reportWindow.document.close();
 
-				showFeedback("Report generated successfully!", "success");
+				showFeedback("Report generated successfully!", "success", true);
 			} catch (error) {
 				console.error("Report generation failed:", error);
-				showFeedback(`Failed to generate report: ${error.message}`, "danger");
+				logDebug("Report generation error", { error: error.message || error });
+				showFeedback(`Failed to generate report: ${error.message}`, "danger", true);
 			} finally {
 				disableButtons(false);
 			}
