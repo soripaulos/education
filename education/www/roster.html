@@ -1,0 +1,262 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title or _("Roster Score Entry") }}{% endblock %}
+
+{% block header %}
+<div class="page-header roster-page-header">
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-between flex-wrap">
+            <div>
+                <h2>{{ _("Instructor Roster") }}</h2>
+                <p class="text-muted mb-0">{{ _("Enter, validate, queue, and submit exam scores for your student groups.") }}</p>
+            </div>
+            <div>
+                <span class="badge badge-info">{{ _("Academic Year Default") }}: {{ default_academic_year }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_content %}
+<div class="container roster-page" id="roster-page-root">
+    <div id="roster-config"
+        data-default-year="{{ default_academic_year }}"
+        data-semesters='{{ semester_options | tojson }}'
+        data-exams='{{ exam_options | tojson }}'
+        data-exam-map='{{ exam_max_scores | tojson }}'>
+    </div>
+
+    <div class="card roster-card mb-4">
+        <div class="card-body">
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="roster-student-group">{{ _("Student Group") }}</label>
+                    <select id="roster-student-group" class="form-control">
+                        <option value="">{{ _("Select a Student Group") }}</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="roster-program">{{ _("Grade / Program") }}</label>
+                    <input type="text" id="roster-program" class="form-control" readonly>
+                </div>
+                <div class="form-group col-md-2">
+                    <label for="roster-academic-year">{{ _("Academic Year") }}</label>
+                    <input type="text" id="roster-academic-year" class="form-control" value="{{ default_academic_year }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label for="roster-semester">{{ _("Semester") }}</label>
+                    <select id="roster-semester" class="form-control">
+                        {% for option in semester_options %}
+                            <option value="{{ option }}">{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="roster-subject">{{ _("Subject") }}</label>
+                    <select id="roster-subject" class="form-control" disabled>
+                        <option value="">{{ _("Select a subject") }}</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="roster-exam">{{ _("Exam") }}</label>
+                    <select id="roster-exam" class="form-control" disabled>
+                        <option value="">{{ _("Select an exam type") }}</option>
+                        {% for exam in exam_options %}
+                            <option value="{{ exam.value }}">{{ exam.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-2">
+                    <label for="roster-max-score">{{ _("Maximum Score") }}</label>
+                    <input type="text" id="roster-max-score" class="form-control" readonly>
+                </div>
+                <div class="form-group col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary btn-block" id="roster-refresh-scores" disabled>
+                        {{ _("Refresh Scores") }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center action-button-row">
+                <button class="btn btn-primary mr-2" id="roster-queue-btn" disabled>{{ _("Queue Score") }}</button>
+                <button class="btn btn-success mr-2" id="roster-submit-btn" disabled>{{ _("Submit All") }}</button>
+                <button class="btn btn-warning mr-2" id="roster-clear-queue-btn" disabled>{{ _("Clear Queue") }}</button>
+                <button class="btn btn-danger" id="roster-delete-existing-btn" disabled>{{ _("Delete Existing Scores") }}</button>
+            </div>
+            <p class="text-muted mt-2 mb-0" id="roster-status-text">{{ _("Select a Student Group to begin.") }}</p>
+        </div>
+    </div>
+
+    <div class="card roster-card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">{{ _("Score Entry Table") }}</h5>
+            <span class="text-muted" id="roster-score-count">{{ _("0 students loaded") }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0" id="roster-score-table">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>{{ _("Roll No") }}</th>
+                            <th>{{ _("Student ID") }}</th>
+                            <th>{{ _("Student Name") }}</th>
+                            <th>{{ _("Existing Status") }}</th>
+                            <th>{{ _("Score") }}</th>
+                            <th>{{ _("Max Score") }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-score-table-body">
+                        <tr class="roster-empty-row">
+                            <td colspan="6" class="text-center text-muted p-4">
+                                {{ _("Student data will appear here once a group is selected.") }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card roster-card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">{{ _("Exam Summary Table") }}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered mb-0" id="roster-summary-table">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>{{ _("Student") }}</th>
+                            <th>{{ _("First Test") }}</th>
+                            <th>{{ _("Second Test") }}</th>
+                            <th>{{ _("Mid Exam") }}</th>
+                            <th>{{ _("Final Exam") }}</th>
+                            <th>{{ _("Total Score") }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-summary-body">
+                        <tr class="roster-empty-row">
+                            <td colspan="6" class="text-center text-muted p-4">
+                                {{ _("Summary will update automatically.") }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card roster-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">{{ _("Queued Entries") }}</h5>
+            <span class="badge badge-primary" id="roster-queue-count">0</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="roster-queue-table">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>{{ _("Student") }}</th>
+                            <th>{{ _("Subject") }}</th>
+                            <th>{{ _("Exam") }}</th>
+                            <th>{{ _("Score") }}</th>
+                            <th>{{ _("Actions") }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-queue-body">
+                        <tr class="roster-empty-row">
+                            <td colspan="5" class="text-center text-muted p-4">
+                                {{ _("No queued submissions yet. Queue validated scores before submitting.") }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block style %}
+<style>
+    .roster-page-header {
+        background: #f8f9fb;
+        border-bottom: 1px solid #e5e7eb;
+        margin-bottom: 2rem;
+    }
+
+    .roster-page .roster-card {
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    .action-button-row button {
+        min-width: 160px;
+        margin-bottom: 0.5rem;
+    }
+
+    #roster-score-table input[type="number"] {
+        min-width: 120px;
+    }
+
+    .score-input.invalid {
+        border-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+
+    .score-input.dirty {
+        border-color: #ffc107;
+        box-shadow: inset 0 0 0 1px #ffc107;
+    }
+
+    .roster-empty-row td {
+        font-style: italic;
+    }
+
+    .queue-remove-btn {
+        border: none;
+        background: transparent;
+        color: #dc3545;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .queue-remove-btn:disabled {
+        cursor: not-allowed;
+        color: #aaa;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.15rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-pill.draft {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .status-pill.submitted {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-pill.none {
+        background-color: #e2e8f0;
+        color: #475569;
+    }
+</style>
+{% endblock %}
+
+{% block script %}
+{{ include_script('assets/education/js/roster.js') }}
+{% endblock %}
