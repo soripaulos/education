@@ -585,19 +585,25 @@
 					"/api/resource/Student Term Subject Result",
 					{
 						filters: JSON.stringify(filters),
-						fields: JSON.stringify(["name", "student", "student_name", "score", "max_score"])
+						fields: JSON.stringify(["name", "student", "student_name", "score", "max_score"]),
+						limit_page_length: 999999
 					},
 					{ method: "GET" }
 				);
-				logDebug("Fetched existing drafts", { params, records });
+				logDebug("Fetched existing drafts", { params, count: (records || []).length, records });
+				
+				// Clear state
 				state.studentScores = {};
 				state.resultDocs = {};
 				state.lastQueuedScores = {};
+				
+				// Process each record
 				(records || []).forEach(record => {
 					const rawScore = record.score;
 					const scoreValue = rawScore === null || rawScore === undefined ? null : parseFloat(rawScore);
 					const studentId = record.student;
 					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
+					
 					state.studentScores[studentId] = {
 						student: studentId,
 						student_name: record.student_name || "",
@@ -609,9 +615,14 @@
 						state.lastQueuedScores[key] = scoreValue;
 					}
 				});
-				applyScoresToInputs();
+				
+				// Apply scores to inputs with a small delay to ensure DOM is ready
+				setTimeout(() => {
+					applyScoresToInputs();
+				}, 100);
 			} catch (error) {
 				console.error("Failed to fetch existing scores", error);
+				logDebug("Fetch error details", { error: error.message || error, params });
 				showFeedback(TEXT.scoreFetchError, "danger");
 			}
 		}
@@ -804,17 +815,21 @@
 		}
 
 		function handleScoreInputKeydown(event) {
-			if (event.key === "Enter") {
+			if (event.key === "Enter" || event.keyCode === 13) {
 				event.preventDefault();
+				event.stopPropagation();
+				
 				const currentInput = event.target;
-				const currentIndex = parseInt(currentInput.dataset.index);
 				const allInputs = Array.from(elements.studentsTableBody.querySelectorAll(".score-input"));
+				const currentIndex = allInputs.indexOf(currentInput);
 				
 				// Move to next row if not the last one
-				if (currentIndex < allInputs.length - 1) {
+				if (currentIndex >= 0 && currentIndex < allInputs.length - 1) {
 					allInputs[currentIndex + 1].focus();
+					allInputs[currentIndex + 1].select();
 				}
 				// Don't cycle back to first row when on last row
+				return false;
 			}
 		}
 
@@ -1275,7 +1290,7 @@
 			}
 
 			const confirmed = confirm(
-				`Are you sure you want to remove all scores for:\n\nGrade: ${common.grade_label}\nSubject: ${common.subject_label}\nExam: ${common.exam_label}\n\nThis will delete all draft entries matching these criteria.`
+				`Are you sure you want to remove all scores for:\n\nStudent Group: ${common.student_group_label}\nGrade: ${common.grade_label}\nSubject: ${common.subject_label}\nExam: ${common.exam_label}\nAcademic Year: ${common.academic_year}\nSemester: ${common.semester_label}\n\nThis will delete all draft entries matching these criteria.`
 			);
 
 			if (!confirmed) return;
@@ -1284,51 +1299,38 @@
 				disableButtons(true);
 				showFeedback("Removing all scores...", "info");
 
-				// Fetch all draft records matching the criteria
-				const filters = [
-					["Student Term Subject Result", "student_group", "=", common.student_group],
-					["Student Term Subject Result", "academic_year", "=", common.academic_year],
-					["Student Term Subject Result", "semester", "=", common.semester],
-					["Student Term Subject Result", "subject", "=", common.subject],
-					["Student Term Subject Result", "exam", "=", common.exam],
-					["Student Term Subject Result", "docstatus", "=", 0]
-				];
-
-				const records = await apiCall(
-					"/api/resource/Student Term Subject Result",
+				// Use backend API method to delete all matching records
+				const result = await apiCall(
+					"/api/method/education.education.api.delete_student_term_subject_results",
 					{
-						filters: JSON.stringify(filters),
-						fields: JSON.stringify(["name"])
+						student_group: common.student_group,
+						academic_year: common.academic_year,
+						semester: common.semester,
+						subject: common.subject,
+						exam: common.exam
 					},
-					{ method: "GET" }
+					{ method: "POST" }
 				);
 
-				// Delete each record
-				let deletedCount = 0;
-				for (const record of records || []) {
-					try {
-						await apiCall(
-							`/api/resource/Student Term Subject Result/${record.name}`,
-							{},
-							{ method: "DELETE" }
-						);
-						deletedCount++;
-					} catch (error) {
-						console.error(`Failed to delete ${record.name}:`, error);
-					}
-				}
+				logDebug("Delete result", result);
 
-				showFeedback(`Successfully removed ${deletedCount} score(s).`, "success");
+				if (result.deleted_count > 0) {
+					const message = `Successfully removed ${result.deleted_count} score(s).${result.failed_count > 0 ? ` Failed: ${result.failed_count}` : ''}`;
+					showFeedback(message, result.failed_count === 0 ? "success" : "warning");
+				} else {
+					showFeedback("No draft scores found to remove for the selected criteria.", "info");
+				}
 				
 				// Clear local state
 				clearScoreState();
 				
-				// Reload scores
+				// Reload scores to refresh the display
 				if (hasScoreContext()) {
 					await fetchExistingScores();
 				}
 			} catch (error) {
 				console.error("Remove all failed:", error);
+				logDebug("Remove all error", { error: error.message || error });
 				showFeedback(`Failed to remove scores: ${error.message}`, "danger");
 			} finally {
 				disableButtons(false);

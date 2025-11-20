@@ -1226,10 +1226,50 @@ def get_students_for_group(student_group):
 		frappe.throw(_("Please select a Student Group first"))
 	return frappe.get_all(
 		"Student Group Student",
-		filters={"parent": student_group},
-		fields=["student", "student_name"],
-		order_by="student_name",
+		filters={"parent": student_group, "active": 1},
+		fields=["student", "student_name", "group_roll_number"],
+		order_by="group_roll_number asc, student_name asc",
 	)
+
+@frappe.whitelist()
+def delete_student_term_subject_results(student_group, academic_year, semester, subject, exam):
+	"""Delete all draft Student Term Subject Results matching the given criteria"""
+	if not all([student_group, academic_year, semester, subject, exam]):
+		frappe.throw(_("All parameters are required"))
+	
+	filters = {
+		"student_group": student_group,
+		"academic_year": academic_year,
+		"semester": semester,
+		"subject": subject,
+		"exam": exam,
+		"docstatus": 0  # Only delete drafts
+	}
+	
+	# Get all matching records
+	records = frappe.get_all(
+		"Student Term Subject Result",
+		filters=filters,
+		fields=["name"]
+	)
+	
+	deleted_count = 0
+	failed_records = []
+	
+	for record in records:
+		try:
+			frappe.delete_doc("Student Term Subject Result", record.name, ignore_permissions=False)
+			deleted_count += 1
+		except Exception as e:
+			failed_records.append({"name": record.name, "error": str(e)})
+	
+	frappe.db.commit()
+	
+	return {
+		"deleted_count": deleted_count,
+		"failed_count": len(failed_records),
+		"failed_records": failed_records
+	}
 
 @frappe.whitelist()
 def create_and_submit_score(academic_year, academic_term, course, assessment_criteria, student, score, student_group):
