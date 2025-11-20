@@ -437,7 +437,7 @@
 		// ============================================================
 		// Initialization
 		// ============================================================
-		document.addEventListener("DOMContentLoaded", () => {
+		document.addEventListener("DOMContentLoaded", async () => {
 			cacheElements();
 			buildProgramLabelMap();
 			populateStaticSelects();
@@ -446,6 +446,16 @@
 			renderStudentsTable();
 			updateActionButtonsState();
 			renderExamSummaryTable();
+			
+			// Initialize CSRF token on page load
+			const token = getCsrfToken();
+			console.log('Page loaded. CSRF token available:', !!token);
+			
+			// If no token found, try to refresh it
+			if (!token) {
+				console.warn('No CSRF token found on page load, attempting to refresh...');
+				await refreshCsrfToken();
+			}
 		});
 
 		function cacheElements() {
@@ -593,18 +603,34 @@
 		// ============================================================
 		// CSRF Token Handling (Simplified for Logged-in Users)
 		// ============================================================
+		let csrfTokenCache = null;
+		let csrfTokenTimestamp = null;
+		const CSRF_TOKEN_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 		function getCsrfToken() {
+			// Check if cached token is still valid
+			if (csrfTokenCache && csrfTokenTimestamp && 
+				(Date.now() - csrfTokenTimestamp) < CSRF_TOKEN_CACHE_DURATION) {
+				return csrfTokenCache;
+			}
+
 			// For logged-in users, Frappe sets the CSRF token in cookies
 			// Try multiple cookie names that Frappe might use
 			const cookieNames = ['csrf_token', 'frappe_csrf_token', 'frappe-csrf-token'];
 			
 			for (const name of cookieNames) {
 				const value = getCookie(name);
-				if (value) return value;
+				if (value) {
+					csrfTokenCache = value;
+					csrfTokenTimestamp = Date.now();
+					return value;
+				}
 			}
 			
 			// Fallback to window.frappe if available
 			if (window.frappe && window.frappe.csrf_token) {
+				csrfTokenCache = window.frappe.csrf_token;
+				csrfTokenTimestamp = Date.now();
 				return window.frappe.csrf_token;
 			}
 			
@@ -620,39 +646,99 @@
 			return "";
 		}
 
-		// ============================================================
-		// API Communication
-		// ============================================================
-		async function callFrappeMethod(methodName, args) {
-			// Try using frappe.call first (preferred for logged-in users)
-			if (window.frappe && typeof frappe.call === "function") {
-				return new Promise((resolve, reject) => {
-					frappe.call({
-						method: methodName,
-						args: args || {},
-						freeze: false,
-						callback: (response) => {
-							try {
-								const payload = normalizeResponse(response);
-								resolve(payload);
-							} catch (error) {
-								reject(error);
-							}
-						},
-						error: (err) => {
-							const message = extractErrorMessage(err) || "Request failed";
-							reject(new Error(message));
-						},
-					});
+		async function refreshCsrfToken() {
+			try {
+				const response = await fetch('/api/method/education.education.api.refresh_result_entry_session', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'Accept': 'application/json'
+					},
+					credentials: 'include'
 				});
+				
+				if (response.ok) {
+					const data = await response.json();
+					if (data.message && data.message.csrf_token) {
+						csrfTokenCache = data.message.csrf_token;
+						csrfTokenTimestamp = Date.now();
+						if (window.frappe) {
+							window.frappe.csrf_token = data.message.csrf_token;
+						}
+						console.log('CSRF token refreshed successfully');
+						return true;
+					}
+				}
+			} catch (error) {
+				console.error('Failed to refresh CSRF token:', error);
 			}
+			return false;
+		}
 
-			// Fallback to fetch API
-			return callMethodViaFetch(methodName, args);
+		// ============================================================
+		// API Communication with Retry Logic
+		// ============================================================
+		async function callFrappeMethod(methodName, args, retryCount = 0) {
+			const MAX_RETRIES = 2;
+			
+			try {
+				// Try using frappe.call first (preferred for logged-in users)
+				if (window.frappe && typeof frappe.call === "function") {
+					return await new Promise((resolve, reject) => {
+						frappe.call({
+							method: methodName,
+							args: args || {},
+							freeze: false,
+							callback: (response) => {
+								try {
+									const payload = normalizeResponse(response);
+									console.log(`✓ API Success: ${methodName}`, payload);
+									resolve(payload);
+								} catch (error) {
+									console.error(`✗ API Error: ${methodName}`, error);
+									reject(error);
+								}
+							},
+							error: (err) => {
+								const message = extractErrorMessage(err) || "Request failed";
+								console.error(`✗ API Error: ${methodName}`, message, err);
+								reject(new Error(message));
+							},
+						});
+					});
+				}
+
+				// Fallback to fetch API
+				return await callMethodViaFetch(methodName, args);
+				
+			} catch (error) {
+				const errorMessage = error.message || String(error);
+				console.error(`API call failed (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, methodName, errorMessage);
+				
+				// Check if it's a CSRF or authentication error
+				if ((errorMessage.includes('CSRF') || errorMessage.includes('403') || errorMessage.includes('401')) && retryCount < MAX_RETRIES) {
+					console.log('CSRF/Auth error detected, refreshing token and retrying...');
+					await refreshCsrfToken();
+					// Wait a bit before retrying
+					await new Promise(resolve => setTimeout(resolve, 500));
+					return callFrappeMethod(methodName, args, retryCount + 1);
+				}
+				
+				// For other errors, retry once more
+				if (retryCount < MAX_RETRIES) {
+					console.log('Retrying request...');
+					await new Promise(resolve => setTimeout(resolve, 1000));
+					return callFrappeMethod(methodName, args, retryCount + 1);
+				}
+				
+				throw error;
+			}
 		}
 
 		async function callMethodViaFetch(methodName, args) {
 			const csrfToken = getCsrfToken();
+			
+			console.log(`→ Fetch API: ${methodName}`, { args, hasToken: !!csrfToken });
 			
 			const response = await fetch(`/api/method/${methodName}`, {
 				method: "POST",
@@ -669,10 +755,13 @@
 			
 			if (!response.ok || data.exc) {
 				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
+				console.error(`✗ Fetch failed: ${methodName}`, { status: response.status, error: errorMessage, data });
 				throw new Error(errorMessage);
 			}
 			
-			return normalizeResponse(data);
+			const result = normalizeResponse(data);
+			console.log(`✓ Fetch Success: ${methodName}`, result);
+			return result;
 		}
 
 		function normalizeResponse(response) {
@@ -837,6 +926,7 @@
 			}
 
 			elements.studentLoading.style.display = "block";
+			console.log('Loading students for group:', studentGroup);
 
 			try {
 				const students = await callFrappeMethod(
@@ -844,6 +934,7 @@
 					{ student_group: studentGroup }
 				);
 				
+				console.log('Loaded students:', students);
 				state.students = sortStudents(students || []);
 				renderStudentsTable();
 				
@@ -862,8 +953,9 @@
 					}
 				}
 			} catch (error) {
-				console.error(error);
-				showFeedback(TEXT.loadStudentsError, "danger");
+				console.error('Failed to load students:', error);
+				const errorMsg = error.message || TEXT.loadStudentsError;
+				showFeedback(`${TEXT.loadStudentsError} (${errorMsg}). Please try refreshing the page.`, "danger");
 			} finally {
 				elements.studentLoading.style.display = "none";
 				updateActionButtonsState();
@@ -1439,13 +1531,21 @@
 				};
 			});
 
+			console.log('Submitting scores:', payloadEntries);
+
 			let summary = { success: [], failed: [] };
 			try {
 				const response = await callCreateResult(payloadEntries);
+				console.log('Submission response:', response);
 				summary = response || summary;
 			} catch (error) {
-				console.error("Failed to save batch", error);
-				summary.failed = payloadEntries.map(entry => ({ entry, error: error.message || error }));
+				console.error("Failed to save batch:", error);
+				const errorMsg = error.message || String(error);
+				showFeedback(`${TEXT.scoreSaveError} (${errorMsg}). Please try again.`, "danger");
+				summary.failed = payloadEntries.map(entry => ({ 
+					entry, 
+					error: errorMsg
+				}));
 			}
 
 			disableButtons(false);
