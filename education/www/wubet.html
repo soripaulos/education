@@ -735,34 +735,47 @@
 			}
 		}
 
-		async function callMethodViaFetch(methodName, args) {
-			const csrfToken = getCsrfToken();
-			
-			console.log(`→ Fetch API: ${methodName}`, { args, hasToken: !!csrfToken });
-			
-			const response = await fetch(`/api/method/${methodName}`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"Accept": "application/json",
-					"X-Frappe-CSRF-Token": csrfToken
-				},
-				credentials: "include",
-				body: JSON.stringify(args || {})
-			});
-
-			const data = await response.json().catch(() => ({}));
-			
-			if (!response.ok || data.exc) {
-				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
-				console.error(`✗ Fetch failed: ${methodName}`, { status: response.status, error: errorMessage, data });
-				throw new Error(errorMessage);
+	async function callMethodViaFetch(methodName, args) {
+		const csrfToken = getCsrfToken();
+		
+		console.log(`→ Fetch API: ${methodName}`, { args, hasToken: !!csrfToken });
+		
+		// Frappe expects parameters as form data, not raw JSON body
+		const formData = new URLSearchParams();
+		
+		// Add each argument as a form parameter
+		Object.keys(args || {}).forEach(key => {
+			const value = args[key];
+			// If value is an object/array, stringify it
+			if (typeof value === 'object' && value !== null) {
+				formData.append(key, JSON.stringify(value));
+			} else {
+				formData.append(key, value);
 			}
-			
-			const result = normalizeResponse(data);
-			console.log(`✓ Fetch Success: ${methodName}`, result);
-			return result;
+		});
+		
+		const response = await fetch(`/api/method/${methodName}`, {
+			method: "POST",
+			headers: {
+				"Accept": "application/json",
+				"X-Frappe-CSRF-Token": csrfToken
+			},
+			credentials: "include",
+			body: formData
+		});
+
+		const data = await response.json().catch(() => ({}));
+		
+		if (!response.ok || data.exc) {
+			const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
+			console.error(`✗ Fetch failed: ${methodName}`, { status: response.status, error: errorMessage, data });
+			throw new Error(errorMessage);
 		}
+		
+		const result = normalizeResponse(data);
+		console.log(`✓ Fetch Success: ${methodName}`, result);
+		return result;
+	}
 
 		function normalizeResponse(response) {
 			if (!response) return null;
