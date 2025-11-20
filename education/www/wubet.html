@@ -5,6 +5,17 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>{{ _("Student Result Entry") }}</title>
 	<meta name="description" content="{{ _("Quickly log exam scores and submit Student Term Subject Results.") }}">
+	
+	<!-- Include Frappe JS libraries for API calls -->
+	<script src="/assets/frappe/js/lib/jquery/jquery.min.js"></script>
+	<script src="/assets/frappe/js/frappe/class.js"></script>
+	<script src="/assets/frappe/js/frappe/polyfill.js"></script>
+	<script src="/assets/frappe/js/frappe/provide.js"></script>
+	<script src="/assets/frappe/js/frappe/translate.js"></script>
+	<script src="/assets/frappe/js/frappe/utils/common.js"></script>
+	<script src="/assets/frappe/js/frappe/ui/messages.js"></script>
+	<script src="/assets/frappe/js/frappe/request.js"></script>
+	
 	<style>
 		body {
 			margin: 0;
@@ -376,6 +387,34 @@
 
 	<script>
 		// ============================================================
+		// Initialize Frappe Framework
+		// ============================================================
+		window.frappe = window.frappe || {};
+		frappe.boot = frappe.boot || {};
+		frappe.session = frappe.session || {};
+		frappe.session.user = "{{ frappe.session.user }}";
+		
+		// Get CSRF token from cookie or context
+		frappe.csrf_token = "{{ frappe.session.csrf_token if frappe.session.csrf_token else '' }}";
+		
+		// If not in context, try to get from cookie
+		if (!frappe.csrf_token) {
+			const getCookieValue = (name) => {
+				const value = `; ${document.cookie}`;
+				const parts = value.split(`; ${name}=`);
+				if (parts.length === 2) return parts.pop().split(';').shift();
+				return '';
+			};
+			frappe.csrf_token = getCookieValue('csrf_token') || getCookieValue('frappe_csrf_token');
+		}
+		
+		console.log('Frappe initialized:', {
+			user: frappe.session.user,
+			hasCSRF: !!frappe.csrf_token,
+			hasFrappeCall: typeof frappe.call === 'function'
+		});
+		
+		// ============================================================
 		// Constants and Text Labels
 		// ============================================================
 		const TEXT = {
@@ -447,12 +486,20 @@
 			updateActionButtonsState();
 			renderExamSummaryTable();
 			
+			// Verify Frappe is ready
+			console.log('DOM loaded. Frappe status:', {
+				hasFrappe: !!window.frappe,
+				hasFrappeCall: typeof frappe?.call === 'function',
+				hasCSRF: !!frappe?.csrf_token,
+				user: frappe?.session?.user
+			});
+			
 			// Initialize CSRF token on page load
 			const token = getCsrfToken();
-			console.log('Page loaded. CSRF token available:', !!token);
+			console.log('CSRF token available:', !!token);
 			
 			// If no token found, try to refresh it
-			if (!token) {
+			if (!token && !frappe?.csrf_token) {
 				console.warn('No CSRF token found on page load, attempting to refresh...');
 				await refreshCsrfToken();
 			}

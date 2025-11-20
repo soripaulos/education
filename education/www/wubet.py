@@ -103,4 +103,9 @@ def get_context(context):
 		"program_courses": program_courses,
 	})
 	
+	# Ensure CSRF token is available
+	# Frappe's get_csrf_token will create one if it doesn't exist
+	from frappe.sessions import get_csrf_token
+	context.csrf_token = get_csrf_token()
+	
 	return context
