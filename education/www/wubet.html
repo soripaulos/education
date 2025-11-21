@@ -312,7 +312,9 @@
 					<button type="button" class="btn-primary" id="log-score-btn">{{ _("Log Scores") }}</button>
 					<button type="button" class="btn-success" id="submit-scores-btn" disabled>{{ _("Submit Logged Scores") }}</button>
 					<button type="button" class="btn-danger" id="remove-all-btn">{{ _("Remove All") }}</button>
+					<button type="button" class="btn-info" id="refresh-token-btn" title="{{ _('Refresh Session Token') }}">🔄 {{ _("Refresh Token") }}</button>
 				</div>
+				<div id="token-status" class="small-text" style="margin-top: 8px; color: #10b981;"></div>
 			</form>
 		</section>
 
@@ -429,6 +431,7 @@
 			elements.form = document.getElementById("result-entry-form");
 			elements.feedback = document.getElementById("form-feedback");
 			elements.bottomFeedback = document.getElementById("bottom-feedback");
+			elements.tokenStatus = document.getElementById("token-status");
 			elements.studentGroup = document.getElementById("student-group");
 			elements.gradeDisplay = document.getElementById("grade-display");
 			elements.subject = document.getElementById("subject");
@@ -440,6 +443,7 @@
 			elements.submitButton = document.getElementById("submit-scores-btn");
 			elements.clearButton = document.getElementById("clear-form-btn");
 			elements.removeAllButton = document.getElementById("remove-all-btn");
+			elements.refreshTokenButton = document.getElementById("refresh-token-btn");
 			elements.logButtonBottom = document.getElementById("log-score-btn-bottom");
 			elements.submitButtonBottom = document.getElementById("submit-scores-btn-bottom");
 			elements.generateReportButton = document.getElementById("generate-report-btn");
@@ -493,6 +497,7 @@
 			elements.submitButton.addEventListener("click", submitLoggedScores);
 			elements.clearButton.addEventListener("click", resetForm);
 			elements.removeAllButton.addEventListener("click", removeAllScores);
+			elements.refreshTokenButton.addEventListener("click", manualRefreshToken);
 			elements.logButtonBottom.addEventListener("click", logScores);
 			elements.submitButtonBottom.addEventListener("click", submitLoggedScores);
 			elements.generateReportButton.addEventListener("click", generateReport);
@@ -503,6 +508,79 @@
 			const parts = value.split(`; ${name}=`);
 			if (parts.length === 2) return parts.pop().split(";").shift();
 			return "";
+		}
+
+		async function fetchFreshCsrfToken() {
+			/**
+			 * Fetch a fresh CSRF token from the server using our dedicated endpoint
+			 * This is the most reliable way to get a valid token
+			 */
+			try {
+				logDebug("Fetching fresh CSRF token from server");
+				
+				// Method 1: Use our custom endpoint to get fresh token (most reliable)
+				const response = await fetch('/api/method/education.education.api.get_csrf_token', {
+					method: 'POST',
+					credentials: 'include',
+					headers: {
+						'Accept': 'application/json',
+						'Content-Type': 'application/json',
+						'X-Requested-With': 'XMLHttpRequest'
+					}
+				});
+
+				if (response.ok) {
+					const data = await response.json();
+					const tokenData = data.message || data;
+					
+					if (tokenData && tokenData.csrf_token) {
+						csrfToken = tokenData.csrf_token;
+						logDebug("Fresh CSRF token obtained from API", { token: csrfToken.substring(0, 10) + "...", sid: tokenData.sid });
+						return csrfToken;
+					}
+				}
+				
+				// Method 2: Check cookies after the request
+				const cookieNames = ['csrf_token', 'frappe-csrf-token', 'frappe_csrf_token'];
+				for (const name of cookieNames) {
+					const cookieToken = getCookie(name);
+					if (cookieToken) {
+						csrfToken = cookieToken;
+						logDebug("Got CSRF token from cookies", { token: csrfToken.substring(0, 10) + "..." });
+						return csrfToken;
+					}
+				}
+				
+				// Method 3: Try frappe session check
+				const sessionResponse = await fetch('/api/method/frappe.auth.get_logged_user', {
+					method: 'GET',
+					credentials: 'include',
+					headers: {
+						'Accept': 'application/json',
+						'X-Requested-With': 'XMLHttpRequest'
+					}
+				});
+
+				if (sessionResponse.ok) {
+					// Check cookies again after session check
+					for (const name of cookieNames) {
+						const cookieToken = getCookie(name);
+						if (cookieToken) {
+							csrfToken = cookieToken;
+							logDebug("Got CSRF token after session check", { token: csrfToken.substring(0, 10) + "..." });
+							return csrfToken;
+						}
+					}
+				}
+				
+			} catch (error) {
+				console.error("Failed to fetch fresh CSRF token:", error);
+				logDebug("Token fetch error", { error: error.message });
+			}
+			
+			// Last resort: return existing token
+			logDebug("Using existing token as fallback", { token: csrfToken ? csrfToken.substring(0, 10) + "..." : "none" });
+			return csrfToken;
 		}
 
 		function refreshCsrfToken() {
@@ -523,6 +601,27 @@
 			}
 			
 			return csrfToken;
+		}
+
+		async function manualRefreshToken() {
+			try {
+				elements.refreshTokenButton.disabled = true;
+				elements.refreshTokenButton.textContent = "🔄 Refreshing...";
+				showFeedback("Refreshing session token...", "info", true);
+				
+				const oldToken = csrfToken ? csrfToken.substring(0, 10) + "..." : "none";
+				await fetchFreshCsrfToken();
+				const newToken = csrfToken ? csrfToken.substring(0, 10) + "..." : "none";
+				
+				logDebug("Manual token refresh", { oldToken, newToken });
+				showFeedback("Session token refreshed successfully!", "success", true);
+			} catch (error) {
+				console.error("Manual token refresh failed:", error);
+				showFeedback("Failed to refresh token. Please reload the page.", "danger", true);
+			} finally {
+				elements.refreshTokenButton.disabled = false;
+				elements.refreshTokenButton.textContent = "🔄 Refresh Token";
+			}
 		}
 
 		function logDebug(message, payload) {
@@ -1080,12 +1179,16 @@
 
 		async function submitLoggedScores() {
 			if (!state.loggedEntries.length) {
-				showFeedback(TEXT.noEntriesSubmit, "warning");
+				showFeedback(TEXT.noEntriesSubmit, "warning", true);
 				return;
 			}
 
 			disableButtons(true);
-			showFeedback(TEXT.submitting, "info");
+			showFeedback(TEXT.submitting, "info", true);
+
+			// Proactively refresh CSRF token before submission
+			logDebug("Proactively refreshing CSRF token before submission");
+			await fetchFreshCsrfToken();
 
 			const payloadEntries = state.loggedEntries.map(entry => {
 				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
@@ -1103,6 +1206,12 @@
 				summary = response || summary;
 			} catch (error) {
 				logDebug("Failed to save batch", { error: error.message || error });
+				
+				// Check if it's a CSRF error and suggest manual refresh
+				if (error.message && (error.message.includes('CSRF') || error.message.includes('Invalid Request'))) {
+					showFeedback("Session expired. Please click 'Refresh Token' button and try again.", "danger", true);
+				}
+				
 				summary.failed = payloadEntries.map(entry => ({ entry, error: error.message || error }));
 			}
 
@@ -1115,6 +1224,7 @@
 			elements.submitButton.disabled = isDisabled;
 			elements.clearButton.disabled = isDisabled;
 			elements.removeAllButton.disabled = isDisabled;
+			elements.refreshTokenButton.disabled = isDisabled;
 			elements.logButtonBottom.disabled = isDisabled;
 			elements.submitButtonBottom.disabled = isDisabled;
 			elements.generateReportButton.disabled = isDisabled;
@@ -1184,6 +1294,88 @@
 		}
 
 		async function apiCall(endpoint, payload, options) {
+			const maxRetries = 2;
+			let attempt = 0;
+			const method = (options && options.method) || "POST";
+			
+			// For critical POST operations, always fetch fresh token before first attempt
+			const isCriticalOperation = method === "POST" && (
+				endpoint.includes('save_student_term_subject_results') ||
+				endpoint.includes('delete_student_term_subject_results')
+			);
+			
+			if (isCriticalOperation && attempt === 0) {
+				logDebug("Critical operation detected, fetching fresh token preemptively", { endpoint, method });
+				await fetchFreshCsrfToken();
+			}
+			
+			while (attempt <= maxRetries) {
+				try {
+					const result = await apiCallInternal(endpoint, payload, options, attempt);
+					
+					// Update token status on success
+					if (isCriticalOperation) {
+						updateTokenStatus("✓ Request successful", "success");
+					}
+					
+					return result;
+				} catch (error) {
+					const isCsrfError = error.message && (
+						error.message.includes('CSRF') || 
+						error.message.includes('Invalid Request') ||
+						error.message.includes('403') ||
+						error.message.includes('401')
+					);
+					
+					if (isCsrfError && attempt < maxRetries) {
+						attempt++;
+						logDebug(`CSRF error detected, attempting retry ${attempt}/${maxRetries}`, { error: error.message });
+						console.warn(`CSRF token error. Refreshing token and retrying (${attempt}/${maxRetries})...`);
+						updateTokenStatus(`🔄 Refreshing token (attempt ${attempt}/${maxRetries})`, "warning");
+						
+						// Fetch fresh token from server
+						await fetchFreshCsrfToken();
+						
+						// Wait a bit before retrying
+						await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+						continue;
+					}
+					
+					// If not a CSRF error or max retries exceeded, throw the error
+					if (isCsrfError) {
+						updateTokenStatus("❌ Token refresh failed - click Refresh Token button", "error");
+					}
+					throw error;
+				}
+			}
+		}
+
+		function updateTokenStatus(message, type = "success") {
+			/**
+			 * Update the token status display
+			 */
+			if (!elements.tokenStatus) return;
+			
+			const colors = {
+				success: "#10b981",
+				warning: "#f59e0b",
+				error: "#ef4444",
+				info: "#3b82f6"
+			};
+			
+			elements.tokenStatus.textContent = message;
+			elements.tokenStatus.style.color = colors[type] || colors.info;
+			elements.tokenStatus.style.display = "block";
+			
+			// Auto-hide after 5 seconds for success messages
+			if (type === "success") {
+				setTimeout(() => {
+					elements.tokenStatus.style.display = "none";
+				}, 5000);
+			}
+		}
+
+		async function apiCallInternal(endpoint, payload, options, attemptNumber) {
 			const method = (options && options.method) || "POST";
 			let url = endpoint;
 			let body;
@@ -1215,9 +1407,14 @@
 				
 				if (token) {
 					headers["X-Frappe-CSRF-Token"] = token;
-					logDebug("CSRF token added to request", { token: token.substring(0, 10) + "...", method, url });
+					logDebug("CSRF token added to request", { 
+						token: token.substring(0, 10) + "...", 
+						method, 
+						url,
+						attempt: attemptNumber 
+					});
 				} else {
-					logDebug("WARNING: Missing CSRF token", { method, url });
+					logDebug("WARNING: Missing CSRF token", { method, url, attempt: attemptNumber });
 					console.error("CSRF token not found. Request may fail.");
 				}
 			}
@@ -1233,7 +1430,13 @@
 
 			if (!response.ok || data.exc) {
 				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
-				logDebug("API error", { url, method, payload, status: response.status, response: data });
+				logDebug("API error", { url, method, payload, status: response.status, response: data, attempt: attemptNumber });
+				
+				// Check if it's a CSRF error
+				if (data.exc_type === 'CSRFTokenError' || errorMessage.includes('CSRF') || errorMessage.includes('Invalid Request')) {
+					throw new Error(`CSRF Token Error: ${errorMessage}`);
+				}
+				
 				throw new Error(errorMessage);
 			}
 
@@ -1313,7 +1516,7 @@
 		async function removeAllScores() {
 			const common = getCommonEntryData();
 			if (!common) {
-				showFeedback("Please select Grade, Subject, and Exam to remove scores.", "warning");
+				showFeedback("Please select Grade, Subject, and Exam to remove scores.", "warning", true);
 				return;
 			}
 
@@ -1325,7 +1528,11 @@
 
 			try {
 				disableButtons(true);
-				showFeedback("Removing all scores...", "info");
+				showFeedback("Removing all scores...", "info", true);
+
+				// Proactively refresh CSRF token before deletion
+				logDebug("Proactively refreshing CSRF token before deletion");
+				await fetchFreshCsrfToken();
 
 				// Use backend API method to delete all matching records
 				const result = await apiCall(

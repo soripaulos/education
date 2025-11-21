@@ -1272,6 +1272,14 @@ def delete_student_term_subject_results(student_group, academic_year, semester, 
 	}
 
 @frappe.whitelist()
+def get_csrf_token():
+	"""Return a fresh CSRF token for the current session"""
+	return {
+		"csrf_token": frappe.session.data.csrf_token if hasattr(frappe.session, 'data') else frappe.local.csrf_token,
+		"sid": frappe.session.sid if hasattr(frappe.session, 'sid') else None
+	}
+
+@frappe.whitelist()
 def create_and_submit_score(academic_year, academic_term, course, assessment_criteria, student, score, student_group):
 	try:
 		doc = frappe.new_doc("Student Assessment Score")
