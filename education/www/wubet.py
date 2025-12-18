@@ -33,6 +33,7 @@ def get_context(context):
         "Student Group",
         fields=["name", "student_group_name", "program"],
         order_by="student_group_name",
+        limit_page_length=0,
     )
     
     # Get all courses with their associated programs for filtering
@@ -40,16 +41,18 @@ def get_context(context):
         "Course",
         fields=["name", "course_name"],
         order_by="course_name",
+        limit_page_length=0,
     )
     
     # Get program courses mapping
     program_courses = {}
-    for program in frappe.get_all("Program", fields=["name"]):
+    for program in frappe.get_all("Program", fields=["name"], limit_page_length=0):
         courses = frappe.get_all(
             "Program Course",
             filters={"parent": program.name},
             fields=["course"],
-            pluck="course"
+            pluck="course",
+            limit_page_length=0,
         )
         program_courses[program.name] = courses
     
@@ -57,6 +60,7 @@ def get_context(context):
         "Program",
         fields=["name", "program_name"],
         order_by="program_name",
+        limit_page_length=0,
     )
 
     context.wubet_boot = frappe.as_json(
