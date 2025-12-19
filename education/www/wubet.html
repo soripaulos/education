@@ -483,6 +483,7 @@
 				const label = group.student_group_name || group.name;
 				const option = addOption(elements.studentGroup, group.name, label);
 				option.dataset.program = group.program || "";
+				option.dataset.subjectProgram = group.subject_program || "";
 			});
 		}
 
@@ -761,16 +762,17 @@
 		function handleStudentGroupChange(event) {
 			clearScoreState();
 			const selectedOption = event.target.selectedOptions[0];
-			const programId = selectedOption ? selectedOption.dataset.program : "";
-			const label = programLabelMap[programId] || programId || "";
+			const gradeProgramId = selectedOption ? selectedOption.dataset.program : "";
+			const subjectProgramId = selectedOption ? (selectedOption.dataset.subjectProgram || selectedOption.dataset.program) : "";
+			const label = programLabelMap[gradeProgramId] || gradeProgramId || "";
 			state.currentGrade = {
-				value: programId || "",
+				value: gradeProgramId || "",
 				label: label || ""
 			};
 			elements.gradeDisplay.value = label || "";
 			
 			// Filter subjects based on program
-			populateSubjectsForProgram(programId);
+			populateSubjectsForProgram(subjectProgramId);
 			
 			loadStudentsForGroup(event.target.value);
 		}

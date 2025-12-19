@@ -35,6 +35,18 @@ def get_context(context):
         order_by="student_group_name",
         limit_page_length=0,
     )
+
+    # Some Student Groups need subject lists from a different Program.
+    # Example: "Nursery I" should use the same subjects as "Nursery AO".
+    # We keep `program` intact (used for grade/program display), and add a
+    # separate `subject_program` key used only for subject filtering on /wubet.
+    def _normalize_label(value: str) -> str:
+        return " ".join((value or "").strip().lower().replace("-", " ").split())
+
+    for group in student_groups:
+        label = _normalize_label(group.get("student_group_name") or group.get("name") or "")
+        if label in {"nursery i", "nursery 1"}:
+            group["subject_program"] = "Nursery AO"
     
     # Get all courses with their associated programs for filtering
     subjects = frappe.get_all(
