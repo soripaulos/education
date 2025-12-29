@@ -1708,7 +1708,7 @@
 							</tbody>
 						</table>
 						<div style="margin-top: 20px; text-align: center;">
-							<button id="print-report-btn" onclick="window.__wubetPrintReport && window.__wubetPrintReport()" style="padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print Report</button>
+							<button id="print-report-btn" onclick="window.wubetPrintReport && window.wubetPrintReport()" style="padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print Report</button>
 						</div>
 					</div>
 				`;
@@ -1834,7 +1834,7 @@
 								}
 
 								// Expose a safe print entrypoint for the button.
-								window.__wubetPrintReport = function () {
+								window.wubetPrintReport = function () {
 									applyPrintScale();
 									window.print();
 								};
