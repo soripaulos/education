@@ -31,12 +31,36 @@ def execute(filters=None):
 	data = get_data_sql(filters, subjects)
 	
 	# Get dynamic columns
-	columns = get_columns_sql(subjects)
+	columns = get_columns_sql(filters, subjects)
 	
 	# Generate chart
 	chart = get_chart(data)
 	
-	return columns, data, None, chart
+	# Generate message about exam selection
+	message = get_report_message(filters)
+	
+	return columns, data, message, chart
+
+
+def get_report_message(filters):
+	"""
+	Generate informational message about the report parameters
+	"""
+	selected_exams = filters.get("exam")
+	if selected_exams and isinstance(selected_exams, str):
+		import json
+		try:
+			selected_exams = json.loads(selected_exams)
+		except:
+			selected_exams = [e.strip() for e in selected_exams.split(",") if e.strip()]
+	
+	if not selected_exams:
+		return _("Showing total scores from <b>all exams</b> for the selected filters.")
+	elif len(selected_exams) == 1:
+		return _("Showing individual scores for exam: <b>{0}</b>").format(selected_exams[0])
+	else:
+		exam_list = ", ".join(selected_exams)
+		return _("Showing summed scores for exams: <b>{0}</b>").format(exam_list)
 
 
 def get_subjects_sql(filters):
@@ -73,6 +97,15 @@ def get_data_sql(filters, subjects):
 	"""
 	Fetch all data using a single optimized SQL query with pivot
 	"""
+	# Get selected exams (if any)
+	selected_exams = filters.get("exam")
+	if selected_exams and isinstance(selected_exams, str):
+		import json
+		try:
+			selected_exams = json.loads(selected_exams)
+		except:
+			selected_exams = [e.strip() for e in selected_exams.split(",") if e.strip()]
+	
 	# Build conditions (include both draft and submitted)
 	conditions = ["stsr.docstatus IN (0, 1)"]
 	conditions.append("stsr.student_group = %(student_group)s")
@@ -80,6 +113,11 @@ def get_data_sql(filters, subjects):
 	
 	if filters.get("semester"):
 		conditions.append("stsr.semester = %(semester)s")
+	
+	# Add exam filter if specified
+	if selected_exams:
+		exam_placeholders = ", ".join(["%s"] * len(selected_exams))
+		conditions.append(f"stsr.exam IN ({exam_placeholders})")
 	
 	where_clause = " AND ".join(conditions)
 	
@@ -106,6 +144,14 @@ def get_data_sql(filters, subjects):
 		return []
 	
 	# Main query with pivot logic - get results for students who have them
+	query_params = {
+		"student_group": filters.get("student_group"),
+		"academic_year": filters.get("academic_year")
+	}
+	
+	if filters.get("semester"):
+		query_params["semester"] = filters.get("semester")
+	
 	query = f"""
 		SELECT 
 			stsr.student,
@@ -119,7 +165,12 @@ def get_data_sql(filters, subjects):
 		GROUP BY stsr.student, stsr.student_group
 	"""
 	
-	results_data = frappe.db.sql(query, filters, as_dict=True)
+	# Execute query with parameters
+	if selected_exams:
+		# Add exam values to parameters
+		results_data = frappe.db.sql(query, tuple(list(query_params.values()) + selected_exams), as_dict=True)
+	else:
+		results_data = frappe.db.sql(query, query_params, as_dict=True)
 	
 	# Create a dict for quick lookup
 	results_dict = {row.student: row for row in results_data}
@@ -189,10 +240,22 @@ def calculate_ranks_sql(data):
 	return data
 
 
-def get_columns_sql(subjects):
+def get_columns_sql(filters, subjects):
 	"""
 	Generate column definitions
 	"""
+	# Get selected exams
+	selected_exams = filters.get("exam")
+	if selected_exams and isinstance(selected_exams, str):
+		import json
+		try:
+			selected_exams = json.loads(selected_exams)
+		except:
+			selected_exams = [e.strip() for e in selected_exams.split(",") if e.strip()]
+	
+	# Check if single exam is selected
+	is_single_exam = selected_exams and len(selected_exams) == 1
+	
 	columns = [
 		{
 			"fieldname": "student",
@@ -218,11 +281,16 @@ def get_columns_sql(subjects):
 	
 	# Add subject columns
 	for subject in subjects:
+		subject_label = subject
+		if is_single_exam:
+			# Add exam name to column label for single exam
+			subject_label = f"{subject} ({selected_exams[0]})"
+		
 		columns.append({
 			"fieldname": "subject_" + frappe.scrub(subject),
-			"label": subject,
+			"label": subject_label,
 			"fieldtype": "Float",
-			"width": 100,
+			"width": 120 if is_single_exam else 100,
 			"precision": 2
 		})
 	

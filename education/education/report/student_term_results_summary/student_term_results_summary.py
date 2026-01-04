@@ -28,7 +28,31 @@ def execute(filters=None):
 	# Generate chart
 	chart = get_chart(data)
 	
-	return columns, data, None, chart
+	# Generate message about exam selection
+	message = get_report_message(filters)
+	
+	return columns, data, message, chart
+
+
+def get_report_message(filters):
+	"""
+	Generate informational message about the report parameters
+	"""
+	selected_exams = filters.get("exam")
+	if selected_exams and isinstance(selected_exams, str):
+		import json
+		try:
+			selected_exams = json.loads(selected_exams)
+		except:
+			selected_exams = [e.strip() for e in selected_exams.split(",") if e.strip()]
+	
+	if not selected_exams:
+		return _("Showing total scores from <b>all exams</b> for the selected filters.")
+	elif len(selected_exams) == 1:
+		return _("Showing individual scores for exam: <b>{0}</b>").format(selected_exams[0])
+	else:
+		exam_list = ", ".join(selected_exams)
+		return _("Showing summed scores for exams: <b>{0}</b>").format(exam_list)
 
 
 def get_data(filters):
