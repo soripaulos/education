@@ -34,9 +34,14 @@ class StudentTermSubjectResult(Document):
 
 	def calculate_percentage(self):
 		"""Calculate percentage based on score and max score"""
-		# Use user's field name 'max_score'
-		if self.score and self.max_score:
-			self.percentage = flt(self.score) / flt(self.max_score) * 100
+		# Always calculate percentage if max_score is set
+		if self.max_score and flt(self.max_score) > 0:
+			self.percentage = round(flt(self.score) / flt(self.max_score) * 100, 2)
+		elif flt(self.score) == 0 and flt(self.max_score) == 0:
+			self.percentage = 0
+		else:
+			# If max_score is 0 but score is set, set percentage to 0
+			self.percentage = 0
 
 	def validate_score(self):
 		"""Validate that score doesn't exceed max score"""
@@ -318,4 +323,90 @@ def create_year_report_draft(student, student_name, academic_year, student_group
 def calculate_and_set_year_ranks_for_group(academic_year, student_group):
 	"""Calculate and set ranks for all draft year reports in a group"""
 	from education.education.doctype.student_year_report.student_year_report import calculate_and_set_year_ranks
-	calculate_and_set_year_ranks(academic_year, student_group) 
+	calculate_and_set_year_ranks(academic_year, student_group)
+
+
+def update_all_percentages(commit=True):
+	"""
+	Update percentage field for all existing Student Term Subject Result records
+	Can be called from console or via script
+	
+	Usage:
+		bench --site [site-name] console
+		>>> from education.education.doctype.student_term_subject_result.student_term_subject_result import update_all_percentages
+		>>> update_all_percentages()
+	"""
+	import frappe
+	from frappe.utils import flt
+	
+	print("\n" + "="*60)
+	print("Updating Percentages for Student Term Subject Results")
+	print("="*60 + "\n")
+	
+	# Get all records (including cancelled ones for completeness)
+	results = frappe.get_all(
+		"Student Term Subject Result",
+		fields=["name", "score", "max_score", "percentage", "docstatus"],
+		order_by="creation desc"
+	)
+	
+	if not results:
+		print("No records found.")
+		return
+	
+	print(f"Found {len(results)} records to process...\n")
+	
+	updated_count = 0
+	skipped_count = 0
+	error_count = 0
+	
+	for result in results:
+		try:
+			score = flt(result.score)
+			max_score = flt(result.max_score)
+			old_percentage = flt(result.percentage)
+			
+			# Calculate new percentage
+			if max_score > 0:
+				new_percentage = round((score / max_score) * 100, 2)
+			else:
+				new_percentage = 0
+			
+			# Check if update is needed
+			if old_percentage != new_percentage:
+				# Use direct SQL update to bypass validation and avoid re-triggering
+				frappe.db.sql("""
+					UPDATE `tabStudent Term Subject Result`
+					SET percentage = %s
+					WHERE name = %s
+				""", (new_percentage, result.name))
+				
+				updated_count += 1
+				print(f"✓ Updated {result.name}: {old_percentage}% → {new_percentage}%")
+			else:
+				skipped_count += 1
+		
+		except Exception as e:
+			error_count += 1
+			print(f"✗ Error updating {result.name}: {str(e)}")
+	
+	if commit:
+		frappe.db.commit()
+		print(f"\n✓ Changes committed to database")
+	else:
+		print(f"\n⚠ Changes NOT committed (dry run)")
+	
+	print("\n" + "="*60)
+	print("Summary:")
+	print(f"  Total records: {len(results)}")
+	print(f"  Updated: {updated_count}")
+	print(f"  Already correct: {skipped_count}")
+	print(f"  Errors: {error_count}")
+	print("="*60 + "\n")
+	
+	return {
+		"total": len(results),
+		"updated": updated_count,
+		"skipped": skipped_count,
+		"errors": error_count
+	} 
