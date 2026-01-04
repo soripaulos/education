@@ -97,22 +97,23 @@ def get_data(filters):
 		
 		# Calculate totals for the row
 		grand_total = 0
-		subject_count = 0
+		subjects_with_results = 0  # Count only subjects with actual results
 		
 		# Add subject scores to the row
 		for subject in subjects:
 			subject_key = "subject_" + frappe.scrub(subject)
-			if subject in subject_totals:
+			if subject in subject_totals and subject_totals[subject]["total_score"] > 0:
 				total_score = subject_totals[subject]["total_score"]
 				row[subject_key] = total_score
 				grand_total += total_score
-				subject_count += 1
+				subjects_with_results += 1
 			else:
 				row[subject_key] = 0
 		
-		# Calculate total, average, and percentage
+		# Calculate total and average
 		row.total = grand_total
-		row.average = round(grand_total / subject_count, 2) if subject_count > 0 else 0
+		# Average based only on subjects with results, or total subjects if none
+		row.average = round(grand_total / subjects_with_results, 2) if subjects_with_results > 0 else 0
 		
 		data.append(row)
 	
@@ -124,26 +125,31 @@ def get_data(filters):
 
 def get_subjects_for_group(filters):
 	"""
-	Get all unique subjects (courses) for the selected student group
+	Get all subjects (courses) from the Program linked to the Student Group
 	"""
-	conditions = {
-		"student_group": filters.get("student_group"),
-		"academic_year": filters.get("academic_year"),
-		"docstatus": 1
-	}
+	student_group = filters.get("student_group")
 	
-	if filters.get("semester"):
-		conditions["semester"] = filters.get("semester")
+	# Get the Program (Grade) from Student Group
+	program = frappe.db.get_value("Student Group", student_group, "program")
 	
-	subjects = frappe.get_all(
-		"Student Term Subject Result",
-		filters=conditions,
-		fields=["subject"],
-		distinct=True,
-		order_by="subject"
+	if not program:
+		frappe.msgprint(_("No Program (Grade) linked to the selected Student Group"))
+		return []
+	
+	# Get all courses from Program Course child table
+	courses = frappe.get_all(
+		"Program Course",
+		filters={"parent": program},
+		fields=["course", "course_name"],
+		order_by="course_name"
 	)
 	
-	return [s.subject for s in subjects]
+	if not courses:
+		frappe.msgprint(_("No courses found in the Program '{0}'").format(program))
+		return []
+	
+	# Return list of course names
+	return [c.course for c in courses]
 
 
 def get_conditions(filters):

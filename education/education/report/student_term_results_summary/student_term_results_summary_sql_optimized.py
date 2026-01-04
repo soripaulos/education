@@ -41,26 +41,32 @@ def execute(filters=None):
 
 def get_subjects_sql(filters):
 	"""
-	Get all unique subjects using a single SQL query
+	Get all subjects (courses) from the Program linked to the Student Group
 	"""
-	conditions = ["docstatus = 1"]
-	conditions.append("student_group = %(student_group)s")
-	conditions.append("academic_year = %(academic_year)s")
+	student_group = filters.get("student_group")
 	
-	if filters.get("semester"):
-		conditions.append("semester = %(semester)s")
+	# Get the Program (Grade) from Student Group
+	program = frappe.db.get_value("Student Group", student_group, "program")
 	
-	where_clause = " AND ".join(conditions)
+	if not program:
+		frappe.msgprint(_("No Program (Grade) linked to the selected Student Group"))
+		return []
 	
-	query = f"""
-		SELECT DISTINCT subject
-		FROM `tabStudent Term Subject Result`
-		WHERE {where_clause}
-		ORDER BY subject
+	# Get all courses from Program Course child table using SQL
+	query = """
+		SELECT course, course_name
+		FROM `tabProgram Course`
+		WHERE parent = %(program)s
+		ORDER BY course_name
 	"""
 	
-	results = frappe.db.sql(query, filters, as_dict=True)
-	return [r.subject for r in results]
+	courses = frappe.db.sql(query, {"program": program}, as_dict=True)
+	
+	if not courses:
+		frappe.msgprint(_("No courses found in the Program '{0}'").format(program))
+		return []
+	
+	return [c.course for c in courses]
 
 
 def get_data_sql(filters, subjects):
@@ -87,7 +93,19 @@ def get_data_sql(filters, subjects):
 	
 	subject_sql = ",\n".join(subject_columns)
 	
-	# Main query with pivot logic
+	# First, get all students in the student group
+	students = frappe.get_all(
+		"Student Group Student",
+		filters={"parent": filters.get("student_group")},
+		fields=["student", "student_name"],
+		order_by="student_name"
+	)
+	
+	if not students:
+		frappe.msgprint(_("No students found in the selected student group"))
+		return []
+	
+	# Main query with pivot logic - get results for students who have them
 	query = f"""
 		SELECT 
 			stsr.student,
@@ -98,19 +116,39 @@ def get_data_sql(filters, subjects):
 		FROM `tabStudent Term Subject Result` stsr
 		WHERE {where_clause}
 		GROUP BY stsr.student, stsr.student_group
-		ORDER BY stsr.student_name
 	"""
 	
-	data = frappe.db.sql(query, filters, as_dict=True)
+	results_data = frappe.db.sql(query, filters, as_dict=True)
 	
-	# Calculate averages and prepare for ranking
-	for row in data:
+	# Create a dict for quick lookup
+	results_dict = {row.student: row for row in results_data}
+	
+	# Build final data including all students (even those without results)
+	data = []
+	for student in students:
+		if student.student in results_dict:
+			row = results_dict[student.student]
+		else:
+			# Student has no results yet, create empty row
+			row = frappe._dict({
+				"student": student.student,
+				"student_name": student.student_name,
+				"student_group": filters.get("student_group"),
+				"total": 0
+			})
+			# Initialize all subject columns to 0
+			for subject in subjects:
+				subject_key = "subject_" + frappe.scrub(subject)
+				row[subject_key] = 0
+		
 		# Count non-zero subjects
-		subject_count = sum(1 for subject in subjects 
+		subjects_with_results = sum(1 for subject in subjects 
 			if row.get("subject_" + frappe.scrub(subject), 0) > 0)
 		
-		# Calculate average
-		row.average = round(row.total / subject_count, 2) if subject_count > 0 else 0
+		# Calculate average (only for subjects with results)
+		row.average = round(row.total / subjects_with_results, 2) if subjects_with_results > 0 else 0
+		
+		data.append(row)
 	
 	# Calculate ranks
 	data = calculate_ranks_sql(data)
