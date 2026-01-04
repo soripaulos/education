@@ -66,12 +66,12 @@ def get_data(filters):
 		row.student_name = student.student_name
 		row.student_group = filters.get("student_group")
 		
-		# Get all results for this student
+		# Get all results for this student (including drafts)
 		result_conditions = {
 			"student": student.student,
 			"student_group": filters.get("student_group"),
 			"academic_year": filters.get("academic_year"),
-			"docstatus": 1  # Only submitted results
+			"docstatus": ["in", [0, 1]]  # Include both draft and submitted results
 		}
 		
 		if filters.get("semester"):
@@ -80,8 +80,11 @@ def get_data(filters):
 		results = frappe.get_all(
 			"Student Term Subject Result",
 			filters=result_conditions,
-			fields=["subject", "exam", "score", "max_score"]
+			fields=["subject", "exam", "score", "max_score", "docstatus"]
 		)
+		
+		# Count total exam entries for this student
+		total_exam_entries = len(results)
 		
 		# Group results by subject and sum up all exam scores
 		subject_totals = {}
@@ -112,8 +115,23 @@ def get_data(filters):
 		row.total = grand_total
 		# Average divided by total number of subjects in the program
 		row.average = round(grand_total / len(subjects), 2) if len(subjects) > 0 else 0
+		row.exam_entries = total_exam_entries  # Track number of exam entries
 		
 		data.append(row)
+	
+	# Calculate average exam entries to identify incomplete data
+	if data:
+		exam_entries_list = [row.exam_entries for row in data if row.exam_entries > 0]
+		avg_exam_entries = sum(exam_entries_list) / len(exam_entries_list) if exam_entries_list else 0
+		
+		# Mark students with below-average exam entries
+		for row in data:
+			if row.exam_entries < avg_exam_entries * 0.7:  # Less than 70% of average
+				row.completion_status = "⚠ Incomplete"
+			elif row.exam_entries == 0:
+				row.completion_status = "❌ No Data"
+			else:
+				row.completion_status = "✓ Complete"
 	
 	# Calculate ranks based on average
 	data = calculate_ranks(data)
@@ -231,6 +249,18 @@ def get_columns(filters):
 			"label": _("Rank"),
 			"fieldtype": "Int",
 			"width": 80
+		},
+		{
+			"fieldname": "exam_entries",
+			"label": _("Exam Count"),
+			"fieldtype": "Int",
+			"width": 90
+		},
+		{
+			"fieldname": "completion_status",
+			"label": _("Status"),
+			"fieldtype": "Data",
+			"width": 120
 		}
 	])
 	
@@ -260,30 +290,140 @@ def calculate_ranks(data):
 
 def get_chart(data):
 	"""
-	Generate chart for visualization
+	Generate multiple practical charts for visualization
+	Returns the first chart (performance distribution)
 	"""
 	if not data:
 		return None
 	
-	# Get student names and averages for chart
-	labels = [row.student_name for row in data[:10]]  # Limit to top 10 for readability
-	averages = [row.average for row in data[:10]]
+	# Chart 1: Performance Distribution (Grade Ranges)
+	performance_chart = get_performance_distribution_chart(data)
+	
+	return performance_chart
+
+
+def get_performance_distribution_chart(data):
+	"""
+	Chart showing distribution of students across performance ranges
+	"""
+	# Define grade ranges
+	ranges = {
+		"90-100": 0,
+		"80-89": 0,
+		"70-79": 0,
+		"60-69": 0,
+		"50-59": 0,
+		"Below 50": 0
+	}
+	
+	for row in data:
+		avg = row.average
+		if avg >= 90:
+			ranges["90-100"] += 1
+		elif avg >= 80:
+			ranges["80-89"] += 1
+		elif avg >= 70:
+			ranges["70-79"] += 1
+		elif avg >= 60:
+			ranges["60-69"] += 1
+		elif avg >= 50:
+			ranges["50-59"] += 1
+		else:
+			ranges["Below 50"] += 1
 	
 	chart = {
 		"data": {
-			"labels": labels,
+			"labels": list(ranges.keys()),
 			"datasets": [
 				{
-					"name": "Average Score",
-					"values": averages
+					"name": "Number of Students",
+					"values": list(ranges.values())
 				}
 			]
 		},
 		"type": "bar",
 		"colors": ["#29CD42"],
-		"barOptions": {
-			"stacked": False
-		}
+		"title": "Performance Distribution by Average Score"
+	}
+	
+	return chart
+
+
+def get_subject_comparison_chart(data, subjects):
+	"""
+	Chart showing average performance across subjects
+	"""
+	subject_averages = {}
+	subject_counts = {}
+	
+	for subject in subjects:
+		subject_key = "subject_" + frappe.scrub(subject)
+		total = 0
+		count = 0
+		
+		for row in data:
+			score = row.get(subject_key, 0)
+			if score > 0:
+				total += score
+				count += 1
+		
+		if count > 0:
+			subject_averages[subject] = round(total / count, 2)
+			subject_counts[subject] = count
+	
+	# Sort subjects by average (descending)
+	sorted_subjects = sorted(subject_averages.items(), key=lambda x: x[1], reverse=True)
+	
+	chart = {
+		"data": {
+			"labels": [s[0] for s in sorted_subjects],
+			"datasets": [
+				{
+					"name": "Average Score",
+					"values": [s[1] for s in sorted_subjects]
+				}
+			]
+		},
+		"type": "bar",
+		"colors": ["#7575FF"],
+		"title": "Subject Performance Comparison"
+	}
+	
+	return chart
+
+
+def get_completion_status_chart(data):
+	"""
+	Chart showing distribution of completion status
+	"""
+	status_counts = {
+		"Complete": 0,
+		"Incomplete": 0,
+		"No Data": 0
+	}
+	
+	for row in data:
+		status = row.get("completion_status", "")
+		if "Complete" in status:
+			status_counts["Complete"] += 1
+		elif "Incomplete" in status:
+			status_counts["Incomplete"] += 1
+		elif "No Data" in status:
+			status_counts["No Data"] += 1
+	
+	chart = {
+		"data": {
+			"labels": list(status_counts.keys()),
+			"datasets": [
+				{
+					"name": "Number of Students",
+					"values": list(status_counts.values())
+				}
+			]
+		},
+		"type": "donut",
+		"colors": ["#29CD42", "#FFA00A", "#F06060"],
+		"title": "Data Completion Status"
 	}
 	
 	return chart

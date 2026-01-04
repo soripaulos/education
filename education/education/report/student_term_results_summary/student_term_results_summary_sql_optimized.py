@@ -73,8 +73,8 @@ def get_data_sql(filters, subjects):
 	"""
 	Fetch all data using a single optimized SQL query with pivot
 	"""
-	# Build conditions
-	conditions = ["stsr.docstatus = 1"]
+	# Build conditions (include both draft and submitted)
+	conditions = ["stsr.docstatus IN (0, 1)"]
 	conditions.append("stsr.student_group = %(student_group)s")
 	conditions.append("stsr.academic_year = %(academic_year)s")
 	
@@ -112,7 +112,8 @@ def get_data_sql(filters, subjects):
 			MAX(stsr.student_name) as student_name,
 			stsr.student_group,
 			{subject_sql},
-			SUM(stsr.score) as total
+			SUM(stsr.score) as total,
+			COUNT(stsr.name) as exam_entries
 		FROM `tabStudent Term Subject Result` stsr
 		WHERE {where_clause}
 		GROUP BY stsr.student, stsr.student_group
@@ -134,7 +135,8 @@ def get_data_sql(filters, subjects):
 				"student": student.student,
 				"student_name": student.student_name,
 				"student_group": filters.get("student_group"),
-				"total": 0
+				"total": 0,
+				"exam_entries": 0
 			})
 			# Initialize all subject columns to 0
 			for subject in subjects:
@@ -145,6 +147,20 @@ def get_data_sql(filters, subjects):
 		row.average = round(row.total / len(subjects), 2) if len(subjects) > 0 else 0
 		
 		data.append(row)
+	
+	# Calculate average exam entries to identify incomplete data
+	if data:
+		exam_entries_list = [row.exam_entries for row in data if row.exam_entries > 0]
+		avg_exam_entries = sum(exam_entries_list) / len(exam_entries_list) if exam_entries_list else 0
+		
+		# Mark students with below-average exam entries
+		for row in data:
+			if row.exam_entries < avg_exam_entries * 0.7:  # Less than 70% of average
+				row.completion_status = "⚠ Incomplete"
+			elif row.exam_entries == 0:
+				row.completion_status = "❌ No Data"
+			else:
+				row.completion_status = "✓ Complete"
 	
 	# Calculate ranks
 	data = calculate_ranks_sql(data)
@@ -231,6 +247,18 @@ def get_columns_sql(subjects):
 			"label": _("Rank"),
 			"fieldtype": "Int",
 			"width": 80
+		},
+		{
+			"fieldname": "exam_entries",
+			"label": _("Exam Count"),
+			"fieldtype": "Int",
+			"width": 90
+		},
+		{
+			"fieldname": "completion_status",
+			"label": _("Status"),
+			"fieldtype": "Data",
+			"width": 120
 		}
 	])
 	
@@ -239,32 +267,49 @@ def get_columns_sql(subjects):
 
 def get_chart(data):
 	"""
-	Generate chart for visualization
+	Generate performance distribution chart
 	"""
 	if not data:
 		return None
 	
-	# Get top 10 students
-	top_students = sorted(data, key=lambda x: x.average, reverse=True)[:10]
+	# Performance Distribution Chart
+	ranges = {
+		"90-100": 0,
+		"80-89": 0,
+		"70-79": 0,
+		"60-69": 0,
+		"50-59": 0,
+		"Below 50": 0
+	}
 	
-	labels = [row.student_name for row in top_students]
-	averages = [row.average for row in top_students]
+	for row in data:
+		avg = row.average
+		if avg >= 90:
+			ranges["90-100"] += 1
+		elif avg >= 80:
+			ranges["80-89"] += 1
+		elif avg >= 70:
+			ranges["70-79"] += 1
+		elif avg >= 60:
+			ranges["60-69"] += 1
+		elif avg >= 50:
+			ranges["50-59"] += 1
+		else:
+			ranges["Below 50"] += 1
 	
 	chart = {
 		"data": {
-			"labels": labels,
+			"labels": list(ranges.keys()),
 			"datasets": [
 				{
-					"name": "Average Score",
-					"values": averages
+					"name": "Number of Students",
+					"values": list(ranges.values())
 				}
 			]
 		},
 		"type": "bar",
 		"colors": ["#29CD42"],
-		"barOptions": {
-			"stacked": False
-		}
+		"title": "Performance Distribution by Average Score"
 	}
 	
 	return chart
