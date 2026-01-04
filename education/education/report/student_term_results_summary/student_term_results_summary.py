@@ -57,6 +57,16 @@ def get_data(filters):
 		frappe.msgprint(_("No students found in the selected student group"))
 		return []
 	
+	# Get selected exams (if any)
+	selected_exams = filters.get("exam")
+	if selected_exams and isinstance(selected_exams, str):
+		# Parse MultiSelectList format
+		import json
+		try:
+			selected_exams = json.loads(selected_exams)
+		except:
+			selected_exams = [e.strip() for e in selected_exams.split(",") if e.strip()]
+	
 	# Prepare data structure
 	data = []
 	
@@ -66,7 +76,7 @@ def get_data(filters):
 		row.student_name = student.student_name
 		row.student_group = filters.get("student_group")
 		
-		# Get all results for this student (including drafts)
+		# Get all results for this student
 		result_conditions = {
 			"student": student.student,
 			"student_group": filters.get("student_group"),
@@ -76,6 +86,10 @@ def get_data(filters):
 		
 		if filters.get("semester"):
 			result_conditions["semester"] = filters.get("semester")
+		
+		# Add exam filter if specified
+		if selected_exams:
+			result_conditions["exam"] = ["in", selected_exams]
 		
 		results = frappe.get_all(
 			"Student Term Subject Result",
@@ -192,6 +206,18 @@ def get_columns(filters):
 	"""
 	Generate dynamic columns based on subjects
 	"""
+	# Get selected exams
+	selected_exams = filters.get("exam")
+	if selected_exams and isinstance(selected_exams, str):
+		import json
+		try:
+			selected_exams = json.loads(selected_exams)
+		except:
+			selected_exams = [e.strip() for e in selected_exams.split(",") if e.strip()]
+	
+	# Check if single exam is selected
+	is_single_exam = selected_exams and len(selected_exams) == 1
+	
 	columns = [
 		{
 			"fieldname": "student",
@@ -220,11 +246,16 @@ def get_columns(filters):
 	
 	# Add columns for each subject
 	for subject in subjects:
+		subject_label = subject
+		if is_single_exam:
+			# Add exam name to column label for single exam
+			subject_label = f"{subject} ({selected_exams[0]})"
+		
 		columns.append({
 			"fieldname": "subject_" + frappe.scrub(subject),
-			"label": subject,
+			"label": subject_label,
 			"fieldtype": "Float",
-			"width": 100,
+			"width": 120 if is_single_exam else 100,
 			"precision": 2
 		})
 	
