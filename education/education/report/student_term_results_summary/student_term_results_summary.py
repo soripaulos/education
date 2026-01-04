@@ -97,23 +97,21 @@ def get_data(filters):
 		
 		# Calculate totals for the row
 		grand_total = 0
-		subjects_with_results = 0  # Count only subjects with actual results
 		
 		# Add subject scores to the row
 		for subject in subjects:
 			subject_key = "subject_" + frappe.scrub(subject)
-			if subject in subject_totals and subject_totals[subject]["total_score"] > 0:
+			if subject in subject_totals:
 				total_score = subject_totals[subject]["total_score"]
 				row[subject_key] = total_score
 				grand_total += total_score
-				subjects_with_results += 1
 			else:
 				row[subject_key] = 0
 		
 		# Calculate total and average
 		row.total = grand_total
-		# Average based only on subjects with results, or total subjects if none
-		row.average = round(grand_total / subjects_with_results, 2) if subjects_with_results > 0 else 0
+		# Average divided by total number of subjects in the program
+		row.average = round(grand_total / len(subjects), 2) if len(subjects) > 0 else 0
 		
 		data.append(row)
 	

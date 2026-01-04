@@ -141,12 +141,8 @@ def get_data_sql(filters, subjects):
 				subject_key = "subject_" + frappe.scrub(subject)
 				row[subject_key] = 0
 		
-		# Count non-zero subjects
-		subjects_with_results = sum(1 for subject in subjects 
-			if row.get("subject_" + frappe.scrub(subject), 0) > 0)
-		
-		# Calculate average (only for subjects with results)
-		row.average = round(row.total / subjects_with_results, 2) if subjects_with_results > 0 else 0
+		# Calculate average (divided by total subjects in program)
+		row.average = round(row.total / len(subjects), 2) if len(subjects) > 0 else 0
 		
 		data.append(row)
 	
