@@ -25,6 +25,58 @@ def get_course(program):
 
 
 @frappe.whitelist()
+def get_courses_for_program(program=None):
+	"""Return course options for a given Program (grade).
+
+	This is intended for dynamic UIs (like /wubet) that need the latest Program
+	Course list without relying on cached page context.
+
+	Args:
+		program (str): Program name (docname)
+
+	Returns:
+		list[dict]: [{ "name": "<Course>", "course_name": "<Course Name>" }, ...]
+	"""
+	program = (program or "").strip()
+
+	# If no program is provided, return all courses as a safe fallback.
+	if not program:
+		return frappe.get_all(
+			"Course",
+			fields=["name", "course_name"],
+			order_by="course_name",
+			limit_page_length=0,
+		)
+
+	rows = frappe.db.sql(
+		"""
+		select
+			pc.course as name,
+			c.course_name as course_name
+		from `tabProgram Course` pc
+		left join `tabCourse` c on c.name = pc.course
+		where pc.parent = %s
+			and pc.parenttype = 'Program'
+			and pc.parentfield = 'courses'
+		order by c.course_name, pc.course
+		""",
+		(program,),
+		as_dict=True,
+	)
+
+	# If the Program has no configured courses, fall back to all courses.
+	if not rows:
+		return frappe.get_all(
+			"Course",
+			fields=["name", "course_name"],
+			order_by="course_name",
+			limit_page_length=0,
+		)
+
+	return rows
+
+
+@frappe.whitelist()
 def enroll_student(source_name):
 	"""Creates a Student Record and returns a Program Enrollment.
 

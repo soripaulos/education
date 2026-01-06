@@ -1,6 +1,8 @@
 import frappe
 from frappe import _
 
+no_cache = 1
+
 
 def get_context(context):
     context.title = _("Student Result Entry")
@@ -61,7 +63,11 @@ def get_context(context):
     for program in frappe.get_all("Program", fields=["name"], limit_page_length=0):
         courses = frappe.get_all(
             "Program Course",
-            filters={"parent": program.name},
+            filters={
+                "parent": program.name,
+                "parenttype": "Program",
+                "parentfield": "courses",
+            },
             fields=["course"],
             pluck="course",
             limit_page_length=0,
