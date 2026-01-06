@@ -415,7 +415,8 @@
 			studentScores: {},
 			resultDocs: {},
 			lastQueuedScores: {},
-			currentGrade: { value: "", label: "" }
+			currentGrade: { value: "", label: "" },
+			subjectFetchRequestId: 0
 		};
 
 		document.addEventListener("DOMContentLoaded", () => {
@@ -424,6 +425,7 @@
 			populateStaticSelects();
 			registerListeners();
 			setDefaultValues();
+			populateSubjectsForProgram("");
 			renderStudentsTable();
 		});
 
@@ -474,10 +476,8 @@
 				addOption(elements.exam, option.value, option.label);
 			});
 
-			(wubetBoot.subjects || []).forEach(subject => {
-				const label = subject.course_name || subject.name;
-				addOption(elements.subject, subject.name, label);
-			});
+			// Subjects are populated dynamically based on selected Program.
+			// We still hydrate an initial list via populateSubjectsForProgram("").
 
 			(wubetBoot.student_groups || []).forEach(group => {
 				const label = group.student_group_name || group.name;
@@ -771,37 +771,79 @@
 			};
 			elements.gradeDisplay.value = label || "";
 			
-			// Filter subjects based on program
+			// Fetch subjects dynamically based on program
 			populateSubjectsForProgram(subjectProgramId);
 			
 			loadStudentsForGroup(event.target.value);
 		}
 		
-		function populateSubjectsForProgram(programId) {
-			// Clear existing options except the first one
+		function populateSubjectsFallbackFromBoot(programId) {
+			// Clear existing options and add default option.
 			elements.subject.innerHTML = "";
 			const defaultOption = document.createElement("option");
 			defaultOption.value = "";
 			defaultOption.textContent = "{{ _('Select Subject') }}";
 			elements.subject.appendChild(defaultOption);
-			
-			// Get courses for this program
+
 			const programCourses = programCoursesMap[programId] || [];
-			
-			// Filter and add subjects
 			(wubetBoot.subjects || []).forEach(subject => {
-				// If program has specific courses, filter by them
 				if (programId && programCourses.length > 0) {
-					if (programCourses.includes(subject.name)) {
-						const label = subject.course_name || subject.name;
-						addOption(elements.subject, subject.name, label);
-					}
-				} else {
-					// If no program or no specific courses, show all
-					const label = subject.course_name || subject.name;
-					addOption(elements.subject, subject.name, label);
+					if (!programCourses.includes(subject.name)) return;
 				}
+				const label = subject.course_name || subject.name;
+				addOption(elements.subject, subject.name, label);
 			});
+		}
+
+		async function populateSubjectsForProgram(programId) {
+			const requestId = ++state.subjectFetchRequestId;
+
+			elements.subject.disabled = true;
+			elements.subject.innerHTML = "";
+
+			const defaultOption = document.createElement("option");
+			defaultOption.value = "";
+			defaultOption.textContent = "{{ _('Select Subject') }}";
+			elements.subject.appendChild(defaultOption);
+
+			const loadingOption = document.createElement("option");
+			loadingOption.value = "";
+			loadingOption.textContent = "{{ _('Loading...') }}";
+			loadingOption.disabled = true;
+			elements.subject.appendChild(loadingOption);
+
+			try {
+				const courses = await apiCall(
+					"/api/method/education.education.api.get_courses_for_program",
+					{ program: programId || "" },
+					{ method: "GET" }
+				);
+
+				// Ignore stale responses (fast switching between student groups).
+				if (requestId !== state.subjectFetchRequestId) return;
+
+				elements.subject.innerHTML = "";
+				elements.subject.appendChild(defaultOption);
+
+				(courses || []).forEach(course => {
+					const value = course.name || course.course || "";
+					const label = course.course_name || course.name || value;
+					if (!value) return;
+					addOption(elements.subject, value, label);
+				});
+			} catch (error) {
+				console.error("Failed to fetch courses for program", error);
+				logDebug("Subject fetch failed; using boot fallback", {
+					program: programId || "",
+					error: error.message || String(error)
+				});
+				if (requestId !== state.subjectFetchRequestId) return;
+				populateSubjectsFallbackFromBoot(programId);
+			} finally {
+				if (requestId === state.subjectFetchRequestId) {
+					elements.subject.disabled = false;
+				}
+			}
 		}
 
 		function handleContextChange() {
@@ -825,6 +867,7 @@
 			state.students = [];
 			clearScoreState();
 			setDefaultValues();
+			populateSubjectsForProgram("");
 			renderStudentsTable();
 			clearFeedback();
 		}
