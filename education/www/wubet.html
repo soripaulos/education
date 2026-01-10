@@ -1719,6 +1719,94 @@
 					<head>
 						<title>Student Results Report</title>
 						<meta charset="UTF-8">
+						<style>
+							/* Screen styles */
+							body {
+								margin: 0;
+								padding: 20px;
+								font-family: Arial, sans-serif;
+							}
+							
+							/* Print styles - ensure everything fits on one page */
+							@media print {
+								@page {
+									size: A4 landscape;
+									margin: 0.5cm;
+								}
+								
+								body {
+									margin: 0;
+									padding: 0;
+									font-family: Arial, sans-serif;
+								}
+								
+								/* Scale entire content to fit */
+								body > div {
+									padding: 10px !important;
+									transform: scale(0.85);
+									transform-origin: top left;
+									width: 117.65%; /* Compensate for scale: 100/0.85 */
+								}
+								
+								/* Reduce heading sizes */
+								h2 {
+									font-size: 16px !important;
+									margin: 5px 0 !important;
+									text-align: center !important;
+								}
+								
+								/* Compact info section */
+								div > div {
+									margin-bottom: 8px !important;
+								}
+								
+								p {
+									margin: 2px 0 !important;
+									font-size: 10px !important;
+								}
+								
+								/* Table styles for compact printing */
+								table {
+									width: 100% !important;
+									border-collapse: collapse !important;
+									font-size: 9px !important;
+								}
+								
+								th {
+									padding: 4px 3px !important;
+									font-size: 9px !important;
+									border: 1px solid #ddd !important;
+									background-color: #f2f2f2 !important;
+									font-weight: bold !important;
+								}
+								
+								td {
+									padding: 3px 3px !important;
+									font-size: 9px !important;
+									border: 1px solid #ddd !important;
+								}
+								
+								/* Hide the print button when printing */
+								button {
+									display: none !important;
+								}
+								
+								/* Prevent page breaks inside table rows */
+								tr {
+									page-break-inside: avoid;
+								}
+								
+								/* Keep table header on each page if content overflows */
+								thead {
+									display: table-header-group;
+								}
+								
+								/* Ensure no page breaks */
+								table, tbody {
+									page-break-inside: avoid;
+								}
+							}
+						</style>
 					</head>
 					<body>
 						${reportHtml}
