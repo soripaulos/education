@@ -264,14 +264,14 @@
 			<form id="result-entry-form">
 				<div class="form-grid">
 					<div>
-						<label for="student-group">{{ _("Student Group") }}</label>
+						<label for="student-group">{{ _("Section") }}</label>
 						<select id="student-group" required>
-							<option value="">{{ _("Select Student Group") }}</option>
+							<option value="">{{ _("Select Section") }}</option>
 						</select>
 						<div id="student-loading" class="small-text" style="display: none;">{{ _("Loading students...") }}</div>
 					</div>
 					<div>
-						<label for="grade-display">{{ _("Grade / Program") }}</label>
+						<label for="grade-display">{{ _("Grade") }}</label>
 						<input type="text" id="grade-display" placeholder="{{ _('Auto-filled from Student Group') }}" readonly>
 					</div>
 					<div>
@@ -288,7 +288,7 @@
 
 				<div class="form-grid" style="margin-top: 20px;">
 					<div>
-						<label for="semester">{{ _("Semester") }}</label>
+						<label for="semester">{{ _("Semester (Academic Term)") }}</label>
 						<select id="semester" required></select>
 					</div>
 					<div>
@@ -350,8 +350,8 @@
 					<thead>
 						<tr>
 							<th>{{ _("Academic Year") }}</th>
-							<th>{{ _("Semester") }}</th>
-							<th>{{ _("Student Group") }}</th>
+							<th>{{ _("Semester (Academic Term)") }}</th>
+							<th>{{ _("Section") }}</th>
 							<th>{{ _("Student") }}</th>
 							<th>{{ _("Student Name") }}</th>
 							<th>{{ _("Grade") }}</th>
@@ -405,6 +405,10 @@
 
 		let csrfToken = "{{ csrf_token | default('', true) }}";
 		const wubetBoot = {{ wubet_boot | safe }};
+		const REPORT_BRAND = {
+			schoolName: "Makko Billi School",
+			logoUrl: "{{ logo | default('/favicon.png', true) }}"
+		};
 		const elements = {};
 		const examScoreMap = {};
 		const programLabelMap = {};
@@ -1058,11 +1062,11 @@
 			};
 
 			const required = [
-				{ value: data.student_group, label: "Student Group" },
-				{ value: data.grade, label: "Grade / Program" },
+				{ value: data.student_group, label: "Section" },
+				{ value: data.grade, label: "Grade" },
 				{ value: data.subject, label: "Subject" },
 				{ value: data.academic_year, label: "Academic Year" },
-				{ value: data.semester, label: "Semester" },
+				{ value: data.semester, label: "Semester (Academic Term)" },
 				{ value: data.exam, label: "Exam" }
 			];
 
@@ -1683,27 +1687,178 @@
 				}
 
 				// Generate HTML report
+				const safePart = (value) => String(value || "")
+					.replace(/[\\/:*?"<>|]+/g, "-")
+					.replace(/\s+/g, " ")
+					.trim();
+
+				const dynamicTitleParts = [
+					safePart(common.student_group_label || common.student_group),
+					safePart(common.subject_label || common.subject),
+					safePart(common.semester_label || common.semester)
+				].filter(Boolean);
+				const reportDocumentTitle = (dynamicTitleParts.join(" - ") || "Marklist") + " - Marklist";
+
+				const brandLogo = REPORT_BRAND.logoUrl || "/favicon.png";
+				const brandSchool = REPORT_BRAND.schoolName || "School";
+
 				let reportHtml = `
-					<div style="font-family: Arial, sans-serif; padding: 20px;">
-						<h2 style="text-align: center;">Student Results Report</h2>
-						<div style="margin-bottom: 20px;">
-							<p><strong>Student Group:</strong> ${escapeHtml(common.student_group_label)}</p>
-							<p><strong>Grade/Program:</strong> ${escapeHtml(common.grade_label)}</p>
-							<p><strong>Subject:</strong> ${escapeHtml(common.subject_label)}</p>
-							<p><strong>Academic Year:</strong> ${escapeHtml(common.academic_year)}</p>
-							<p><strong>Semester:</strong> ${escapeHtml(common.semester_label)}</p>
+					<style>
+						@media print {
+							.no-print { display: none !important; }
+							body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+						}
+						.report-shell {
+							font-family: Inter, Arial, sans-serif;
+							padding: 18px 22px;
+							color: #111827;
+						}
+						.report-header {
+							display: flex;
+							align-items: center;
+							justify-content: space-between;
+							gap: 16px;
+							padding: 14px 16px;
+							border: 1px solid #e5e7eb;
+							border-radius: 12px;
+							background: #f8fafc;
+						}
+						.brand {
+							display: flex;
+							align-items: center;
+							gap: 12px;
+							min-width: 260px;
+						}
+						.brand img {
+							width: 56px;
+							height: 56px;
+							object-fit: contain;
+							border-radius: 10px;
+							background: #fff;
+							border: 1px solid #e5e7eb;
+						}
+						.brand-name {
+							font-weight: 800;
+							font-size: 18px;
+							line-height: 1.1;
+						}
+						.report-title {
+							text-align: center;
+							flex: 1;
+						}
+						.report-title .title {
+							font-weight: 900;
+							letter-spacing: 0.02em;
+							font-size: 22px;
+							margin: 0;
+						}
+						.report-title .subtitle {
+							margin: 4px 0 0 0;
+							color: #475569;
+							font-size: 12px;
+						}
+						.meta-grid {
+							margin-top: 14px;
+							display: grid;
+							grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+							gap: 10px 14px;
+							padding: 12px 14px;
+							border: 1px solid #e5e7eb;
+							border-radius: 12px;
+							background: #fff;
+						}
+						.meta-item {
+							display: flex;
+							gap: 8px;
+							align-items: baseline;
+						}
+						.meta-label {
+							color: #64748b;
+							font-size: 12px;
+							font-weight: 700;
+							text-transform: uppercase;
+							letter-spacing: 0.04em;
+							min-width: 86px;
+						}
+						.meta-value {
+							font-size: 13px;
+							font-weight: 600;
+							color: #0f172a;
+							word-break: break-word;
+						}
+						table {
+							margin-top: 14px;
+							width: 100%;
+							border-collapse: collapse;
+							border: 1px solid #e5e7eb;
+							border-radius: 12px;
+							overflow: hidden;
+						}
+						thead th {
+							background: #f1f5f9;
+							color: #334155;
+							font-size: 12px;
+							text-transform: uppercase;
+							letter-spacing: 0.04em;
+							padding: 10px 10px;
+							border-bottom: 1px solid #e5e7eb;
+							text-align: left;
+						}
+						tbody td {
+							padding: 9px 10px;
+							border-bottom: 1px solid #eef2f7;
+							font-size: 13px;
+						}
+						tbody tr:nth-child(even) td { background: #fcfcfd; }
+						.center { text-align: center; }
+						.bold { font-weight: 800; }
+						.actions {
+							margin-top: 16px;
+							display: flex;
+							justify-content: center;
+						}
+						.btn {
+							padding: 10px 18px;
+							background: #2563eb;
+							color: #fff;
+							border: none;
+							border-radius: 10px;
+							font-weight: 700;
+							cursor: pointer;
+						}
+					</style>
+					<div class="report-shell">
+						<div class="report-header">
+							<div class="brand">
+								<img src="${escapeHtml(brandLogo)}" alt="School Logo" />
+								<div class="brand-name">${escapeHtml(brandSchool)}</div>
+							</div>
+							<div class="report-title">
+								<p class="title">Marklist</p>
+								<p class="subtitle">${escapeHtml((common.student_group_label || "") + " • " + (common.subject_label || "") + " • " + (common.semester_label || ""))}</p>
+							</div>
+							<div style="min-width: 260px;"></div>
 						</div>
-						<table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+
+						<div class="meta-grid">
+							<div class="meta-item"><div class="meta-label">Section</div><div class="meta-value">${escapeHtml(common.student_group_label || common.student_group)}</div></div>
+							<div class="meta-item"><div class="meta-label">Grade</div><div class="meta-value">${escapeHtml(common.grade_label || common.grade)}</div></div>
+							<div class="meta-item"><div class="meta-label">Subject</div><div class="meta-value">${escapeHtml(common.subject_label || common.subject)}</div></div>
+							<div class="meta-item"><div class="meta-label">Academic Year</div><div class="meta-value">${escapeHtml(common.academic_year)}</div></div>
+							<div class="meta-item"><div class="meta-label">Semester (Academic Term)</div><div class="meta-value">${escapeHtml(common.semester_label || common.semester)}</div></div>
+						</div>
+
+						<table>
 							<thead>
 								<tr style="background-color: #f2f2f2;">
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Student ID</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Student Name</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Roll No</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">First Test</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Second Test</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Mid Exam</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Final Exam</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Total</th>
+									<th>Roll No</th>
+									<th>Student ID</th>
+									<th>Student Name</th>
+									<th class="center">First Test</th>
+									<th class="center">Second Test</th>
+									<th class="center">Mid Exam</th>
+									<th class="center">Final Exam</th>
+									<th class="center">Total</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -1733,14 +1888,14 @@
 
 					reportHtml += `
 						<tr>
-							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.student_id)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.student_name)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.roll_number)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.first_test)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.second_test)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.mid_exam)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.final_exam)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center; font-weight: bold;">${total.toFixed(2)}</td>
+							<td>${escapeHtml(result.roll_number)}</td>
+							<td>${escapeHtml(result.student_id)}</td>
+							<td>${escapeHtml(result.student_name)}</td>
+							<td class="center">${formatScore(result.first_test)}</td>
+							<td class="center">${formatScore(result.second_test)}</td>
+							<td class="center">${formatScore(result.mid_exam)}</td>
+							<td class="center">${formatScore(result.final_exam)}</td>
+							<td class="center bold">${total.toFixed(2)}</td>
 						</tr>
 					`;
 				});
@@ -1748,8 +1903,8 @@
 				reportHtml += `
 							</tbody>
 						</table>
-						<div style="margin-top: 20px; text-align: center;">
-							<button onclick="window.print()" style="padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print Report</button>
+						<div class="actions no-print">
+							<button class="btn" onclick="window.print()">Print Marklist</button>
 						</div>
 					</div>
 				`;
@@ -1760,7 +1915,7 @@
 					<!DOCTYPE html>
 					<html>
 					<head>
-						<title>Student Results Report</title>
+						<title></title>
 						<meta charset="UTF-8">
 					</head>
 					<body>
@@ -1769,6 +1924,7 @@
 					</html>
 				`);
 				reportWindow.document.close();
+				reportWindow.document.title = reportDocumentTitle;
 
 				showFeedback("Report generated successfully!", "success", true);
 			} catch (error) {
