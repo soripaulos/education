@@ -7,6 +7,10 @@ no_cache = 1
 def get_context(context):
     context.title = _("Student Result Entry")
 
+    # Branding (used by the Marklist / report window)
+    logo = frappe.db.get_single_value("Education Settings", "school_college_logo")
+    context.logo = logo or "/favicon.png"
+
     # Get CSRF token from Frappe's standard locations
     csrf_token = None
     if hasattr(frappe.local, 'form_dict') and frappe.local.form_dict.get('csrf_token'):
