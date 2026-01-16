@@ -1640,10 +1640,12 @@
 				}
 
 				// Generate HTML report
+				// NOTE: The report opens in a new window. We inject print CSS + auto-scaling so the
+				// entire report is guaranteed to fit on a single printed page.
 				let reportHtml = `
-					<div style="font-family: Arial, sans-serif; padding: 20px;">
+					<div id="print-root" style="font-family: Arial, sans-serif;">
 						<h2 style="text-align: center;">Student Results Report</h2>
-						<div style="margin-bottom: 20px;">
+						<div style="margin-bottom: 10px;">
 							<p><strong>Student Group:</strong> ${escapeHtml(common.student_group_label)}</p>
 							<p><strong>Grade/Program:</strong> ${escapeHtml(common.grade_label)}</p>
 							<p><strong>Subject:</strong> ${escapeHtml(common.subject_label)}</p>
@@ -1653,14 +1655,14 @@
 						<table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
 							<thead>
 								<tr style="background-color: #f2f2f2;">
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Student ID</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Student Name</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Roll No</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">First Test</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Second Test</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Mid Exam</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Final Exam</th>
-									<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Total</th>
+									<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Student ID</th>
+									<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Student Name</th>
+									<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Roll No</th>
+									<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">First Test</th>
+									<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">Second Test</th>
+									<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">Mid Exam</th>
+									<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">Final Exam</th>
+									<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">Total</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -1690,14 +1692,14 @@
 
 					reportHtml += `
 						<tr>
-							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.student_id)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.student_name)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(result.roll_number)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.first_test)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.second_test)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.mid_exam)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatScore(result.final_exam)}</td>
-							<td style="border: 1px solid #ddd; padding: 8px; text-align: center; font-weight: bold;">${total.toFixed(2)}</td>
+							<td style="border: 1px solid #ddd; padding: 6px;">${escapeHtml(result.student_id)}</td>
+							<td style="border: 1px solid #ddd; padding: 6px;">${escapeHtml(result.student_name)}</td>
+							<td style="border: 1px solid #ddd; padding: 6px;">${escapeHtml(result.roll_number)}</td>
+							<td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${formatScore(result.first_test)}</td>
+							<td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${formatScore(result.second_test)}</td>
+							<td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${formatScore(result.mid_exam)}</td>
+							<td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${formatScore(result.final_exam)}</td>
+							<td style="border: 1px solid #ddd; padding: 6px; text-align: center; font-weight: bold;">${total.toFixed(2)}</td>
 						</tr>
 					`;
 				});
@@ -1706,7 +1708,7 @@
 							</tbody>
 						</table>
 						<div style="margin-top: 20px; text-align: center;">
-							<button onclick="window.print()" style="padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print Report</button>
+							<button id="print-report-btn" onclick="window.wubetPrintReport && window.wubetPrintReport()" style="padding: 10px 20px; background-color: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print Report</button>
 						</div>
 					</div>
 				`;
@@ -1719,6 +1721,132 @@
 					<head>
 						<title>Student Results Report</title>
 						<meta charset="UTF-8">
+						<meta name="viewport" content="width=device-width, initial-scale=1.0">
+						<style>
+							/* Screen defaults */
+							html, body {
+								margin: 0;
+								padding: 16px;
+								font-family: Arial, sans-serif;
+								color: #111827;
+							}
+
+							/* Print: force everything into a single page by scaling the root */
+							@page {
+								/* Landscape helps the 8-column table fit with less scaling */
+								size: A4 landscape;
+								margin: 8mm;
+							}
+
+							:root { --print-scale: 1; }
+
+							/* Prefer zoom in Chromium; fallback to transform */
+							#print-root {
+								zoom: var(--print-scale);
+							}
+							@supports not (zoom: 1) {
+								#print-root {
+									transform: scale(var(--print-scale));
+									transform-origin: top left;
+									/* Keep visual width consistent when scaled */
+									width: calc(100% / var(--print-scale));
+								}
+							}
+
+							@media print {
+								html, body {
+									padding: 0;
+									margin: 0;
+									background: #fff;
+								}
+
+								/* Hide UI controls */
+								#print-report-btn { display: none !important; }
+
+								/* Compact typography to reduce height */
+								#print-root h2 {
+									margin: 0 0 6px 0;
+									font-size: 14px;
+									font-weight: 700;
+								}
+								#print-root p {
+									margin: 1px 0;
+									font-size: 10px;
+									line-height: 1.15;
+								}
+								#print-root table {
+									font-size: 10px;
+									table-layout: fixed;
+								}
+								#print-root th, #print-root td {
+									padding: 3px 4px !important;
+									vertical-align: top;
+									word-break: break-word;
+								}
+
+								/* Prevent the browser from splitting rows awkwardly */
+								tr, td, th { page-break-inside: avoid; }
+
+								/* Keep backgrounds if any */
+								* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+							}
+						</style>
+						<script>
+							(function () {
+								function pxPerMm() { return 96 / 25.4; } // CSS px at 96dpi
+
+								function getPrintableAreaPx() {
+									// A4 landscape: 297mm x 210mm, minus 8mm margins each side.
+									var widthMm = 297 - 16;
+									var heightMm = 210 - 16;
+									var p = pxPerMm();
+									return { w: widthMm * p, h: heightMm * p };
+								}
+
+								function clamp(n, min, max) {
+									return Math.max(min, Math.min(max, n));
+								}
+
+								function applyPrintScale() {
+									var root = document.getElementById('print-root');
+									if (!root) return;
+
+									// Reset to measure natural size
+									document.documentElement.style.setProperty('--print-scale', 1);
+
+									// Use scroll sizes (more stable than getBoundingClientRect across zoom)
+									var contentW = Math.max(root.scrollWidth, root.offsetWidth);
+									var contentH = Math.max(root.scrollHeight, root.offsetHeight);
+									var area = getPrintableAreaPx();
+
+									// Compute scale to fit in ONE page (both width + height)
+									var scaleW = area.w / contentW;
+									var scaleH = area.h / contentH;
+									var scale = Math.min(scaleW, scaleH, 1);
+
+									// Allow aggressive scaling to guarantee one page.
+									scale = clamp(scale * 0.99, 0.2, 1);
+									document.documentElement.style.setProperty('--print-scale', String(scale));
+								}
+
+								function resetPrintScale() {
+									document.documentElement.style.setProperty('--print-scale', 1);
+								}
+
+								// Expose a safe print entrypoint for the button.
+								window.wubetPrintReport = function () {
+									applyPrintScale();
+									window.print();
+								};
+
+								window.addEventListener('beforeprint', applyPrintScale);
+								window.addEventListener('afterprint', resetPrintScale);
+								window.addEventListener('load', function () {
+									// Precompute scale so the preview matches a single-page print.
+									applyPrintScale();
+								});
+							})();
+						</script>
 					</head>
 					<body>
 						${reportHtml}
