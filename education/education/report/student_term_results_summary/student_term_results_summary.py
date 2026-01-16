@@ -80,6 +80,17 @@ def get_data(filters):
 	if not students:
 		frappe.msgprint(_("No students found in the selected student group"))
 		return []
+
+	student_ids = [student.student for student in students if student.student]
+	gender_map = {}
+	if student_ids:
+		gender_rows = frappe.get_all(
+			"Student",
+			filters={"name": ["in", student_ids]},
+			fields=["name", "gender"],
+			limit_page_length=0,
+		)
+		gender_map = {row.name: row.gender for row in gender_rows}
 	
 	# Get selected exams (if any)
 	selected_exams = filters.get("exam")
@@ -98,6 +109,7 @@ def get_data(filters):
 		row = frappe._dict()
 		row.student = student.student
 		row.student_name = student.student_name
+		row.gender = gender_map.get(student.student) or ""
 		row.student_group = filters.get("student_group")
 		
 		# Get all results for this student
@@ -255,6 +267,12 @@ def get_columns(filters):
 			"label": _("Student Name"),
 			"fieldtype": "Data",
 			"width": 180
+		},
+		{
+			"fieldname": "gender",
+			"label": _("Gender"),
+			"fieldtype": "Data",
+			"width": 90
 		},
 		{
 			"fieldname": "student_group",
