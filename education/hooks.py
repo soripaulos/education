@@ -21,6 +21,13 @@ required_apps = ["erpnext"]
 # app_include_js = "/assets/education/js/education.js"
 app_include_js = "education.bundle.js"
 
+# Fixtures
+# --------
+# Ship non-core/customizable fields as fixtures
+fixtures = [
+	{"dt": "Custom Field", "filters": [["dt", "=", "Student"], ["fieldname", "=", "age"]]},
+]
+
 # include js, css files in header of web template
 # web_include_css = "/assets/education/css/education.css"
 # web_include_js = "/assets/education/js/education.js"
