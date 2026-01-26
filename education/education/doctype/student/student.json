@@ -148,9 +148,11 @@
   },
   {
    "fieldname": "age",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
    "label": "Age",
-   "read_only": 1
+   "precision": 1,
+   "read_only": 1,
+   "is_virtual": 1
   },
   {
    "fieldname": "blood_group",
