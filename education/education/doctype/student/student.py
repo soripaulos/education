@@ -71,6 +71,22 @@ class Student(Document):
 		):
 			frappe.throw(_("Joining Date can not be greater than Leaving Date"))
 
+	def get_age(self):
+		"""Virtual field: dynamically compute age (years) from date_of_birth."""
+		return self._calculate_age_from_dob()
+
+	def _calculate_age_from_dob(self):
+		if not self.date_of_birth:
+			return None
+
+		dob = getdate(self.date_of_birth)
+		as_on = getdate(today())
+
+		age_in_years = (as_on - dob).days / 365.25
+		if age_in_years < 0:
+			return 0.0
+		return round(age_in_years, 1)
+
 	def validate_user(self):
 		"""Create a website user for student creation if not already exists"""
 		if not frappe.db.get_single_value(
