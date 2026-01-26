@@ -328,6 +328,7 @@
 							<th>{{ _("#") }}</th>
 							<th>{{ _("Student ID") }}</th>
 							<th>{{ _("Student Name") }}</th>
+							<th>{{ _("Gender") }}</th>
 							<th>{{ _("Roll No") }}</th>
 							<th>{{ _("Score") }}</th>
 						</tr>
@@ -937,15 +938,18 @@
 				.map((student, index) => {
 					const studentIdRaw = student.student || "";
 					const studentNameRaw = student.student_name || "";
+					const genderRaw = student.gender || "";
 					const rollNumber = student.group_roll_number || student.roll_number || "";
 					const studentId = escapeHtml(studentIdRaw);
 					const studentName = escapeHtml(studentNameRaw);
+					const gender = escapeHtml(genderRaw);
 					const rollNo = escapeHtml(String(rollNumber));
 					return `
 						<tr>
 							<td>${index + 1}</td>
 							<td>${studentId}</td>
 							<td>${studentName}</td>
+							<td>${gender}</td>
 							<td>${rollNo}</td>
 							<td>
 								<input
