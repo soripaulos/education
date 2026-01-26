@@ -17,6 +17,7 @@ class Student(Document):
 	def validate(self):
 		self.set_title()
 		self.validate_dates()
+		self.set_age()
 		self.validate_user()
 
 		if self.student_applicant:
@@ -67,6 +68,21 @@ class Student(Document):
 			and getdate(self.joining_date) > getdate(self.date_of_leaving)
 		):
 			frappe.throw(_("Joining Date can not be greater than Leaving Date"))
+
+	def set_age(self):
+		"""Set age (in years) from date_of_birth."""
+		if not self.date_of_birth:
+			self.age = None
+			return
+
+		dob = getdate(self.date_of_birth)
+		as_on = getdate(today())
+
+		age = as_on.year - dob.year
+		if (as_on.month, as_on.day) < (dob.month, dob.day):
+			age -= 1
+
+		self.age = max(age, 0)
 
 	def validate_user(self):
 		"""Create a website user for student creation if not already exists"""
