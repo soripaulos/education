@@ -2,6 +2,7 @@
  "actions": [],
  "creation": "2024-07-31 10:00:00.000000",
  "doctype": "DocType",
+ "custom": 1,
  "engine": "InnoDB",
  "field_order": [
   "taxonomy_section",
