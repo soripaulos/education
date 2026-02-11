@@ -40,17 +40,17 @@
  {
   "fieldname": "academic_year",
   "fieldtype": "Link",
-  "label": "Academic Year (Optional)",
+  "label": "Academic Year",
   "options": "Academic Year",
-  "description": "Leave blank to calculate for all academic years"
+  "reqd": 1
  },
  {
   "depends_on": "eval:doc.calculation_type=='Term Results'",
   "fieldname": "semester",
   "fieldtype": "Link",
-  "label": "Semester (Optional)",
+  "label": "Semester",
   "options": "Academic Term",
-  "description": "Leave blank to calculate for all semesters"
+  "mandatory_depends_on": "eval:doc.calculation_type=='Term Results'"
  },
   {
    "fieldname": "student_group",
