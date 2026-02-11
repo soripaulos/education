@@ -1653,6 +1653,7 @@ def calculate_results(calculation_type, academic_year, semester=None, student_gr
 	"""
 	Calculate term or year results based on parameters
 	Updated to use user's field names: semester instead of academic_term
+	Flexible to work with any selected academic year and semester (no preset defaults)
 	"""
 	try:
 		submit_results = result_action == "Save and Submit"
