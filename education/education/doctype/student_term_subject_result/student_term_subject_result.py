@@ -63,17 +63,23 @@ class StudentTermSubjectResult(Document):
 		pass
 
 
-def calculate_term_results(semester, academic_year, student_group=None, submit_results=True):
+def calculate_term_results(semester=None, academic_year=None, student_group=None, submit_results=True):
 	"""
 	Calculate term results for all students in a semester
 	This function will be called by server script or manually
+	Now supports optional semester and academic_year for flexible calculations
 	"""
 	# Get all students in the semester using user's field names
 	filters = {
-		"semester": semester,  # user's field name for academic term
-		"academic_year": academic_year,
 		"docstatus": 1
 	}
+	
+	# Add optional filters only if provided
+	if semester:
+		filters["semester"] = semester  # user's field name for academic term
+	
+	if academic_year:
+		filters["academic_year"] = academic_year
 	
 	if student_group:
 		filters["student_group"] = student_group
@@ -81,25 +87,29 @@ def calculate_term_results(semester, academic_year, student_group=None, submit_r
 	# Get all submitted results for the semester
 	results = frappe.get_all("Student Term Subject Result", 
 		filters=filters,
-		fields=["student", "student_group", "subject", "score", "max_score"]
+		fields=["student", "student_group", "subject", "score", "max_score", "semester", "academic_year"]
 	)
 	
 	if not results:
-		frappe.msgprint("No submitted results found for the specified term")
+		frappe.msgprint("No submitted results found for the specified criteria")
 		return
 	
-	# Group results by student and student group
+	# Group results by student, student_group, semester, and academic_year
+	# This allows us to handle multiple semesters/years when they're not specified
 	student_data = {}
 	for result in results:
 		# Get student name separately since it's not in the result
 		student_name = frappe.db.get_value("Student", result.student, "student_name") or result.student
 		
-		key = (result.student, result.student_group)
+		# Key now includes semester and academic_year for proper grouping
+		key = (result.student, result.student_group, result.semester, result.academic_year)
 		if key not in student_data:
 			student_data[key] = {
 				"student": result.student,
 				"student_name": student_name,
 				"student_group": result.student_group,
+				"semester": result.semester,
+				"academic_year": result.academic_year,
 				"subjects": {}
 			}
 		
@@ -112,30 +122,33 @@ def calculate_term_results(semester, academic_year, student_group=None, submit_r
 		student_data[key]["subjects"][result.subject]["total_score"] += result.score
 		student_data[key]["subjects"][result.subject]["total_max_score"] += result.max_score
 	
-	# Group students by student_group for proper ranking calculation
+	# Group students by student_group, academic_year, and semester for proper ranking calculation
 	groups = {}
-	for (student, student_group), data in student_data.items():
-		if student_group not in groups:
-			groups[student_group] = []
-		groups[student_group].append(data)
+	for (student, student_group, sem, acad_year), data in student_data.items():
+		group_key = (student_group, acad_year, sem)
+		if group_key not in groups:
+			groups[group_key] = []
+		groups[group_key].append(data)
 	
-	# Process each student group together for proper ranking
-	for group_name, group_students in groups.items():
+	# Process each group together for proper ranking
+	total_processed = 0
+	for (group_name, acad_year, sem), group_students in groups.items():
 		# Create all term reports in draft mode first
 		draft_reports = []
 		for data in group_students:
 			draft_report = create_term_report_draft(
 				student=data["student"],
 				student_name=data["student_name"],
-				academic_year=academic_year,
-				academic_term=semester,  # pass semester as academic_term to maintain compatibility
+				academic_year=data["academic_year"],
+				academic_term=data["semester"],  # pass semester as academic_term to maintain compatibility
 				student_group=data["student_group"],
 				subjects_data=data["subjects"]
 			)
 			draft_reports.append(draft_report)
+			total_processed += 1
 		
 		# Calculate rankings for the entire group
-		calculate_and_set_term_ranks_for_group(academic_year, semester, group_name)
+		calculate_and_set_term_ranks_for_group(acad_year, sem, group_name)
 		
 		# Submit all reports with rankings already set (if requested)
 		if submit_results:
@@ -144,9 +157,9 @@ def calculate_term_results(semester, academic_year, student_group=None, submit_r
 				report.submit()
 	
 	if submit_results:
-		frappe.msgprint(f"Term results calculated and submitted for {len(student_data)} students")
+		frappe.msgprint(f"Term results calculated and submitted for {total_processed} student-term combinations")
 	else:
-		frappe.msgprint(f"Term results calculated and saved as drafts for {len(student_data)} students")
+		frappe.msgprint(f"Term results calculated and saved as drafts for {total_processed} student-term combinations")
 
 
 def create_term_report_draft(student, student_name, academic_year, academic_term, student_group, subjects_data):
@@ -209,68 +222,76 @@ def calculate_and_set_term_ranks_for_group(academic_year, academic_term, student
 	calculate_and_set_term_ranks(academic_year, academic_term, student_group)
 
 
-def calculate_year_results(academic_year, student_group=None, submit_results=True):
+def calculate_year_results(academic_year=None, student_group=None, submit_results=True):
 	"""
 	Calculate year results by averaging term results
 	This function will be called when academic year is completed
+	Now supports optional academic_year for flexible calculations
 	"""
 	# Get all term reports for the academic year
 	filters = {
-		"academic_year": academic_year,
 		"docstatus": 1
 	}
+	
+	# Add optional filters only if provided
+	if academic_year:
+		filters["academic_year"] = academic_year
 	
 	if student_group:
 		filters["student_group"] = student_group
 	
 	term_reports = frappe.get_all("Student Term Report",
 		filters=filters,
-		fields=["student", "student_name", "student_group", "term_average"]
+		fields=["student", "student_name", "student_group", "term_average", "academic_year"]
 	)
 	
 	if not term_reports:
-		frappe.msgprint("No term reports found for the specified academic year")
+		frappe.msgprint("No term reports found for the specified criteria")
 		return
 	
-	# Group by student and calculate year average
+	# Group by student, student_group, and academic_year to handle multiple years
 	student_data = {}
 	for report in term_reports:
-		key = (report.student, report.student_group)
+		key = (report.student, report.student_group, report.academic_year)
 		if key not in student_data:
 			student_data[key] = {
 				"student": report.student,
 				"student_name": report.student_name,
 				"student_group": report.student_group,
+				"academic_year": report.academic_year,
 				"term_averages": []
 			}
 		student_data[key]["term_averages"].append(report.term_average)
 	
-	# Group students by student_group for proper ranking calculation
+	# Group students by student_group and academic_year for proper ranking calculation
 	groups = {}
-	for (student, student_group), data in student_data.items():
-		if student_group not in groups:
-			groups[student_group] = []
+	for (student, student_group, acad_year), data in student_data.items():
+		group_key = (student_group, acad_year)
+		if group_key not in groups:
+			groups[group_key] = []
 		
 		year_average = sum(data["term_averages"]) / len(data["term_averages"])
 		data["year_average"] = year_average
-		groups[student_group].append(data)
+		groups[group_key].append(data)
 	
 	# Process each student group together for proper ranking
-	for group_name, group_students in groups.items():
+	total_processed = 0
+	for (group_name, acad_year), group_students in groups.items():
 		# Create all year reports in draft mode first
 		draft_reports = []
 		for data in group_students:
 			draft_report = create_year_report_draft(
 				student=data["student"],
 				student_name=data["student_name"],
-				academic_year=academic_year,
+				academic_year=data["academic_year"],
 				student_group=data["student_group"],
 				year_average=data["year_average"]
 			)
 			draft_reports.append(draft_report)
+			total_processed += 1
 		
 		# Calculate rankings for the entire group
-		calculate_and_set_year_ranks_for_group(academic_year, group_name)
+		calculate_and_set_year_ranks_for_group(acad_year, group_name)
 		
 		# Submit all reports with rankings already set (if requested)
 		if submit_results:
@@ -279,9 +300,9 @@ def calculate_year_results(academic_year, student_group=None, submit_results=Tru
 				report.submit()
 	
 	if submit_results:
-		frappe.msgprint(f"Year results calculated and submitted for {len(student_data)} students")
+		frappe.msgprint(f"Year results calculated and submitted for {total_processed} student-year combinations")
 	else:
-		frappe.msgprint(f"Year results calculated and saved as drafts for {len(student_data)} students")
+		frappe.msgprint(f"Year results calculated and saved as drafts for {total_processed} student-year combinations")
 
 
 def create_year_report_draft(student, student_name, academic_year, student_group, year_average):

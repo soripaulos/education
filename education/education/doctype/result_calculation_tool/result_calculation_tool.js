@@ -20,23 +20,26 @@ function calculate_results(frm) {
 		frappe.msgprint(__('Please select a Calculation Type'));
 		return;
 	}
-	
-	if (!frm.doc.academic_year) {
-		frappe.msgprint(__('Please select an Academic Year'));
-		return;
-	}
-	
-	if (frm.doc.calculation_type === 'Term Results' && !frm.doc.semester) {
-		frappe.msgprint(__('Please select a Semester for Term Results calculation'));
-		return;
-	}
 
 	// Show confirmation dialog
 	let action_text = frm.doc.result_action === 'Save as Draft' ? 'save as drafts' : 'calculate and submit';
-	let message = `Calculate ${frm.doc.calculation_type} for ${frm.doc.academic_year}`;
+	let message = `Calculate ${frm.doc.calculation_type}`;
+	
+	// Add academic year to message if specified
+	if (frm.doc.academic_year) {
+		message += ` for ${frm.doc.academic_year}`;
+	} else {
+		message += ` for all academic years`;
+	}
+	
+	// Add semester to message if specified
 	if (frm.doc.semester) {
 		message += ` - ${frm.doc.semester}`;
+	} else if (frm.doc.calculation_type === 'Term Results') {
+		message += ` - all semesters`;
 	}
+	
+	// Add student group to message
 	if (frm.doc.student_group) {
 		message += ` (${frm.doc.student_group})`;
 	} else {

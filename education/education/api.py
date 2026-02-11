@@ -1649,18 +1649,16 @@ def trigger_year_calculation(academic_year, student_group=None):
 
 
 @frappe.whitelist()
-def calculate_results(calculation_type, academic_year, semester=None, student_group=None, result_action="Save as Draft"):
+def calculate_results(calculation_type, academic_year=None, semester=None, student_group=None, result_action="Save as Draft"):
 	"""
 	Calculate term or year results based on parameters
 	Updated to use user's field names: semester instead of academic_term
+	Now supports optional academic_year and semester for flexible calculations
 	"""
 	try:
 		submit_results = result_action == "Save and Submit"
 		
 		if calculation_type == "Term Results":
-			if not semester:
-				frappe.throw("Semester is required for Term Results calculation")
-			
 			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
 			calculate_term_results(semester, academic_year, student_group, submit_results)
 			
