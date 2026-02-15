@@ -6,6 +6,7 @@
  "creation": "2015-09-07 12:55:52.072792",
  "doctype": "DocType",
  "document_type": "Document",
+ "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "academic_year",
