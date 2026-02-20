@@ -14,8 +14,8 @@ class PeriodTimeBlock(Document):
 			self.period_label = _("Period {0}").format(self.period_number)
 
 	def validate_time(self):
-		if self.from_time and self.to_time and self.from_time >= self.to_time:
-			frappe.throw(_("From Time cannot be greater than or equal to To Time."))
+		if self.from_time and self.to_time and self.from_time > self.to_time:
+			frappe.throw(_("From Time cannot be greater than To Time."))
 
 	def validate_duplicate(self):
 		existing = frappe.db.exists(
