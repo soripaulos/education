@@ -102,6 +102,7 @@ import {
   Star,
   Menu,
   X,
+  Clipboard,
 } from 'lucide-vue-next'
 
 const mobileMenuOpen = ref(false)
@@ -116,6 +117,11 @@ const links = [
     label: 'Grades',
     to: '/grades',
     icon: GraduationCap,
+  },
+  {
+    label: 'Assessment Logs',
+    to: '/assessment-logs',
+    icon: Clipboard,
   },
   {
     label: 'Fees',

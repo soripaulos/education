@@ -1,0 +1,48 @@
+<nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-responsive-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">
+                {% if logo %}
+                <img src="{{ logo }}" alt="{{ abbr or 'Education' }}" style="max-height: 40px; margin-top: -10px;">
+                {% else %}
+                <span>{{ abbr or "Education" }}</span>
+                {% endif %}
+            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-responsive-collapse">
+            <ul class="nav navbar-nav navbar-right">
+                {% if education_portal_links | default(false) %}
+                    {% for link in education_portal_links %}
+                        <li class="{% if link.active | default(false) %}active{% endif %}">
+                            <a href="{{ link.route }}">{{ _(link.title) }}</a>
+                        </li>
+                    {% endfor %}
+                {% else %}
+                    <li><a href="/me">{{ _("Home") }}</a></li>
+                    <li><a href="/admissions">{{ _("Admissions") }}</a></li>
+                    <li><a href="/assessment-log">{{ _("Assessment Logs") }}</a></li>
+                {% endif %}
+                <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#" role="button"
+                       aria-haspopup="true" aria-expanded="false">
+                        {{ _("Account") }} <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/me">{{ _("My Account") }}</a></li>
+                        <li><a href="/update-profile">{{ _("Update Profile") }}</a></li>
+                        <li class="divider"></li>
+                        <li><a href="/logout">{{ _("Logout") }}</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<!-- Add spacing after navbar -->
+<div style="margin-top: 70px;"></div> 

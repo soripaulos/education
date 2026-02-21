@@ -8,7 +8,7 @@ import frappe
 from frappe import _
 from frappe.email.doctype.email_group.email_group import add_subscribers
 from frappe.model.mapper import get_mapped_doc
-from frappe.utils import cstr, flt, getdate
+from frappe.utils import cstr, cint, flt, getdate
 from frappe.utils.dateutils import get_dates_from_timegrain
 
 
@@ -22,6 +22,58 @@ def get_course(program):
 		as_dict=1,
 	)
 	return courses
+
+
+@frappe.whitelist()
+def get_courses_for_program(program=None):
+	"""Return course options for a given Program (grade).
+
+	This is intended for dynamic UIs (like /wubet) that need the latest Program
+	Course list without relying on cached page context.
+
+	Args:
+		program (str): Program name (docname)
+
+	Returns:
+		list[dict]: [{ "name": "<Course>", "course_name": "<Course Name>" }, ...]
+	"""
+	program = (program or "").strip()
+
+	# If no program is provided, return all courses as a safe fallback.
+	if not program:
+		return frappe.get_all(
+			"Course",
+			fields=["name", "course_name"],
+			order_by="course_name",
+			limit_page_length=0,
+		)
+
+	rows = frappe.db.sql(
+		"""
+		select
+			pc.course as name,
+			c.course_name as course_name
+		from `tabProgram Course` pc
+		left join `tabCourse` c on c.name = pc.course
+		where pc.parent = %s
+			and pc.parenttype = 'Program'
+			and pc.parentfield = 'courses'
+		order by c.course_name, pc.course
+		""",
+		(program,),
+		as_dict=True,
+	)
+
+	# If the Program has no configured courses, fall back to all courses.
+	if not rows:
+		return frappe.get_all(
+			"Course",
+			fields=["name", "course_name"],
+			order_by="course_name",
+			limit_page_length=0,
+		)
+
+	return rows
 
 
 @frappe.whitelist()
@@ -41,6 +93,7 @@ def enroll_student(source_name):
 				"doctype": "Student",
 				"field_map": {
 					"name": "student_applicant",
+					"image": "image",
 				},
 			}
 		},
@@ -379,6 +432,111 @@ def get_grade(grading_scale, percentage):
 		else:
 			grade = ""
 	return grade
+
+
+@frappe.whitelist()
+def log_single_assessment_score(student, assessment_plan, assessment_criteria, score):
+	"""Logs or updates a single score for an assessment criterion and submits the result."""
+	score = flt(score) # Ensure score is a float
+
+	# Fetch Assessment Plan details (needed for new doc or recalculations)
+	plan_details = frappe.get_doc("Assessment Plan", assessment_plan)
+	grading_scale = plan_details.grading_scale
+	plan_criteria_details = {crit.assessment_criteria: crit.maximum_score for crit in plan_details.details}
+
+	if not grading_scale:
+		frappe.throw(_("Grading Scale not defined in Assessment Plan {0}").format(assessment_plan))
+
+	# Find existing Assessment Result (submitted or draft)
+	result_name = frappe.db.exists("Assessment Result", {"student": student, "assessment_plan": assessment_plan, "docstatus": ["!=", 2]})
+
+	doc = None
+	is_new = False
+
+	if result_name:
+		doc = frappe.get_doc("Assessment Result", result_name)
+	else:
+		is_new = True
+		doc = frappe.new_doc("Assessment Result")
+		doc.student = student
+		doc.assessment_plan = assessment_plan
+		doc.grading_scale = grading_scale
+		# Fetch other header fields from plan if necessary
+		doc.student_name = frappe.db.get_value("Student", student, "student_name")
+		doc.program = plan_details.program
+		doc.course = plan_details.course
+		doc.academic_year = plan_details.academic_year
+		doc.academic_term = plan_details.academic_term
+		doc.student_group = plan_details.student_group
+		doc.assessment_group = plan_details.assessment_group
+		doc.maximum_score = plan_details.maximum_assessment_score # Total max score
+
+		# Populate details table with all criteria from the plan
+		for criteria_name, max_score in plan_criteria_details.items():
+			doc.append("details", {
+				"assessment_criteria": criteria_name,
+				"maximum_score": max_score,
+				"score": 0, # Default score
+				"grade": ""
+			})
+
+	# Find the specific detail row and update score/grade
+	updated_detail_grade = ""
+	found_detail = False
+	for detail in doc.details:
+		if detail.assessment_criteria == assessment_criteria:
+			if score > detail.maximum_score:
+				frappe.throw(_("Score {0} cannot be greater than Maximum Score {1} for {2}").format(
+					score, detail.maximum_score, assessment_criteria))
+			detail.score = score
+			detail.grade = get_grade(grading_scale, (flt(detail.score) / detail.maximum_score) * 100 if detail.maximum_score else 0)
+			updated_detail_grade = detail.grade
+			found_detail = True
+			break
+
+	if not found_detail and not is_new:
+		# Criteria might have been added to the plan after the result was created
+		# Add the new criteria row
+		max_score = plan_criteria_details.get(assessment_criteria)
+		if max_score is not None:
+			grade = get_grade(grading_scale, (flt(score) / max_score) * 100 if max_score else 0)
+			doc.append("details", {
+				"assessment_criteria": assessment_criteria,
+				"maximum_score": max_score,
+				"score": score,
+				"grade": grade
+			})
+			updated_detail_grade = grade
+		else:
+			frappe.log_error(f"Assessment Criteria '{assessment_criteria}' not found in plan '{assessment_plan}' details.", "log_single_assessment_score")
+			# Decide how to handle - maybe throw error or just log
+
+	# Recalculate total score and overall grade for the parent document
+	total_score = sum(flt(d.score) for d in doc.details)
+	doc.total_score = total_score
+	doc.grade = get_grade(grading_scale, (total_score / doc.maximum_score) * 100 if doc.maximum_score else 0)
+
+	# Save and Submit
+	try:
+		if doc.docstatus == 1:
+			# Use ignore_permissions to save submitted doc
+			doc.save(ignore_permissions=True)
+		else:
+			# Save draft or new doc
+			doc.save()
+			# Submit if it was new or draft
+			doc.submit()
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Error in log_single_assessment_score")
+		frappe.throw(_("Error saving Assessment Result: {0}").format(str(e)))
+
+	return {
+		"name": doc.name,
+		"overall_score": doc.total_score,
+		"overall_grade": doc.grade,
+		"detail_grade": updated_detail_grade # Grade for the specific criteria updated
+	}
 
 
 @frappe.whitelist()
@@ -976,16 +1134,38 @@ def submit_teacher_evaluation(data=None):
             if value < 0 or value > 1:
                 frappe.throw(_(f"{field.replace('_', ' ').title()} rating must be between 0 and 1"))
         
-        # Check for existing review with better error handling
-        existing_review = frappe.db.exists("Teacher Evaluation", {
-            "reviewer": reviewer,
-            "instructors": instructor
-        })
+        # Check for existing review within the same calendar month
+        from datetime import datetime
         
+        review_date_str = evaluation_data.get("review_date") or frappe.utils.today()
+        review_date = frappe.utils.getdate(review_date_str)
+        
+        # Get first and last day of the review month
+        first_day_of_month = review_date.replace(day=1)
+        import calendar
+        _, num_days = calendar.monthrange(review_date.year, review_date.month)
+        last_day_of_month = review_date.replace(day=num_days)
+
+        existing_review = frappe.db.exists(
+            "Teacher Evaluation",
+            {
+                "reviewer": reviewer,
+                "instructors": instructor,
+                "review_date": ["between", (first_day_of_month, last_day_of_month)],
+            },
+        )
+
         if existing_review:
-            review_date = frappe.db.get_value("Teacher Evaluation", existing_review, "review_date")
-            frappe.throw(_("You have already submitted an evaluation for this instructor on {0}").format(
-                frappe.format(review_date, {'fieldtype': 'Date'})
+            # Calculate next allowed review date (first day of next month)
+            if review_date.month == 12:
+                next_month_date = review_date.replace(year=review_date.year + 1, month=1, day=1)
+            else:
+                next_month_date = review_date.replace(month=review_date.month + 1, day=1)
+            
+            last_review_date = frappe.db.get_value("Teacher Evaluation", existing_review, "review_date")
+            frappe.throw(_("You have already reviewed this instructor this month on {0}. You can submit another review after {1}.").format(
+                frappe.format(last_review_date, {'fieldtype': 'Date'}),
+                frappe.format(next_month_date, {'fieldtype': 'Date'})
             ))
 
         # Create a new Teacher Evaluation document
@@ -1032,7 +1212,7 @@ def submit_teacher_evaluation(data=None):
 
 @frappe.whitelist()
 def get_existing_teacher_reviews(student=None):
-    """Returns a list of teachers already reviewed by the student."""
+    """Returns a list of teachers already reviewed by the student with monthly restrictions."""
     try:
         if not student:
             student = frappe.session.user
@@ -1045,6 +1225,37 @@ def get_existing_teacher_reviews(student=None):
             order_by="review_date desc"
         )
         
+        # Calculate monthly restrictions
+        from datetime import datetime, timedelta
+        import calendar
+        
+        current_date = datetime.now().date()
+        current_month_start = current_date.replace(day=1)
+        
+        monthly_restrictions = {}
+        current_month_reviewed = []
+        
+        for review in reviews:
+            teacher_name = review.instructors
+            review_date = frappe.utils.getdate(review.review_date)
+            
+            # Check if review was made in current month
+            review_month_start = review_date.replace(day=1)
+            if review_month_start == current_month_start:
+                current_month_reviewed.append(teacher_name)
+                
+                # Calculate next allowed date (first day of next month)
+                if current_date.month == 12:
+                    next_month = current_date.replace(year=current_date.year + 1, month=1, day=1)
+                else:
+                    next_month = current_date.replace(month=current_date.month + 1, day=1)
+                
+                monthly_restrictions[teacher_name] = {
+                    "last_reviewed_date": frappe.format(review_date, {'fieldtype': 'Date'}),
+                    "next_allowed_date": frappe.format(next_month, {'fieldtype': 'Date'}),
+                    "can_review": False
+                }
+        
         # Format dates for frontend
         for review in reviews:
             review.review_date = frappe.format(review.review_date, {'fieldtype': 'Date'})
@@ -1052,11 +1263,1494 @@ def get_existing_teacher_reviews(student=None):
         return {
             "reviewed_teachers": [r.instructors for r in reviews],
             "review_details": reviews,
-            "total_reviews": len(reviews)
+            "total_reviews": len(reviews),
+            "monthly_restrictions": monthly_restrictions,
+            "current_month_reviewed": current_month_reviewed
         }
 
     except Exception as e:
         frappe.log_error(f"Error fetching teacher reviews: {str(e)}")
         frappe.throw(_("Failed to fetch existing reviews"))
+
+@frappe.whitelist()
+def get_students_for_group(student_group):
+	if not student_group:
+		frappe.throw(_("Please select a Student Group first"))
+	students = frappe.get_all(
+		"Student Group Student",
+		filters={"parent": student_group, "active": 1},
+		fields=["student", "student_name", "group_roll_number"],
+		order_by="group_roll_number asc, student_name asc",
+	)
+
+	if not students:
+		return students
+
+	student_ids = {row.student for row in students if row.get("student")}
+	if student_ids:
+		gender_rows = frappe.get_all(
+			"Student",
+			filters={"name": ["in", list(student_ids)]},
+			fields=["name", "gender"],
+			limit_page_length=0,
+		)
+		gender_map = {row.name: row.gender for row in gender_rows}
+		for row in students:
+			row["gender"] = gender_map.get(row.get("student")) or ""
+
+	return students
+
+@frappe.whitelist()
+def delete_student_term_subject_results(student_group, academic_year, semester, subject, exam):
+	"""Delete all draft Student Term Subject Results matching the given criteria"""
+	if not all([student_group, academic_year, semester, subject, exam]):
+		frappe.throw(_("All parameters are required"))
+	
+	filters = {
+		"student_group": student_group,
+		"academic_year": academic_year,
+		"semester": semester,
+		"subject": subject,
+		"exam": exam,
+		"docstatus": 0  # Only delete drafts
+	}
+	
+	# Get all matching records
+	records = frappe.get_all(
+		"Student Term Subject Result",
+		filters=filters,
+		fields=["name"]
+	)
+	
+	deleted_count = 0
+	failed_records = []
+	
+	for record in records:
+		try:
+			frappe.delete_doc("Student Term Subject Result", record.name, ignore_permissions=False)
+			deleted_count += 1
+		except Exception as e:
+			failed_records.append({"name": record.name, "error": str(e)})
+	
+	frappe.db.commit()
+	
+	return {
+		"deleted_count": deleted_count,
+		"failed_count": len(failed_records),
+		"failed_records": failed_records
+	}
+
+@frappe.whitelist()
+def get_csrf_token():
+	"""Return a fresh CSRF token for the current session"""
+	return {
+		"csrf_token": frappe.session.data.csrf_token if hasattr(frappe.session, 'data') else frappe.local.csrf_token,
+		"sid": frappe.session.sid if hasattr(frappe.session, 'sid') else None
+	}
+
+@frappe.whitelist()
+def create_and_submit_score(academic_year, academic_term, course, assessment_criteria, student, score, student_group):
+	try:
+		doc = frappe.new_doc("Student Assessment Score")
+		doc.academic_year = academic_year
+		doc.academic_term = academic_term
+		doc.student_group = student_group
+		doc.course = course
+		doc.assessment_criteria = assessment_criteria
+		doc.student = student
+		doc.score = float(score)
+		doc.insert(ignore_permissions=True)
+		doc.submit()
+		return doc
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Student Assessment Score API Error")
+		frappe.throw(str(e))
+
+@frappe.whitelist()
+def create_and_submit_term_subject_result(data):
+	data = frappe.parse_json(data)
+	try:
+		doc = frappe.new_doc("Student Term Subject Result")
+		# Use the user's actual field names
+		doc.student = data.get("student")
+		doc.academic_year = data.get("academic_year")
+		doc.semester = data.get("semester")  # user's field name for academic term
+		doc.subject = data.get("subject")
+		doc.section = data.get("section") or data.get("student_group")  # user's field name
+		doc.grade = data.get("grade")
+		doc.exam = data.get("exam") or data.get("assessment_criteria")  # user's field name
+		doc.roster_plan = data.get("roster_plan")
+		doc.score = float(data.get("score"))
+		doc.max_score = float(data.get("max_score") or data.get("maximum_score"))  # user's field name
+		doc.examiner = data.get("examiner") or data.get("instructor")  # user's field name
+		
+		doc.insert(ignore_permissions=True)
+		doc.submit()
+		return {"status": "success", "name": doc.name, "message": "Result submitted successfully"}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Student Term Subject Result API Error")
+		frappe.throw(str(e))
+
+
+@frappe.whitelist(allow_guest=True)
+def create_student_term_subject_result(result_data):
+	"""Create and submit a Student Term Subject Result document from frontend payload."""
+	try:
+		if isinstance(result_data, str):
+			result_data = frappe.parse_json(result_data)
+
+		required_fields = [
+			"student",
+			"academic_year",
+			"semester",
+			"subject",
+			"student_group",
+			"grade",
+			"exam",
+			"score",
+			"max_score",
+		]
+		missing = [
+			field.replace("_", " ").title()
+			for field in required_fields
+			if result_data.get(field) in (None, "", [])
+		]
+		if missing:
+			frappe.throw(_("Missing required values: {0}").format(", ".join(missing)))
+
+		doc_name = result_data.get("name")
+		if doc_name:
+			doc = frappe.get_doc("Student Term Subject Result", doc_name)
+			if doc.docstatus != 0:
+				frappe.throw(_("Only draft Student Term Subject Results can be updated."))
+		else:
+			doc = frappe.new_doc("Student Term Subject Result")
+			doc.naming_series = result_data.get("naming_series") or "STSR-.YYYY.-"
+
+		doc.student = result_data.get("student")
+		doc.student_name = result_data.get("student_name")
+		doc.academic_year = result_data.get("academic_year")
+		doc.semester = result_data.get("semester")
+		doc.subject = result_data.get("subject")
+		doc.student_group = result_data.get("student_group") or result_data.get("section")
+		doc.grade = result_data.get("grade")
+		doc.exam = result_data.get("exam")
+		doc.score = flt(result_data.get("score"))
+		doc.max_score = flt(result_data.get("max_score"))
+		if result_data.get("examiner"):
+			doc.examiner = result_data.get("examiner")
+
+		if doc_name:
+			doc.save(ignore_permissions=True)
+		else:
+			doc.insert(ignore_permissions=True)
+
+		if cint(result_data.get("submit")):
+			doc.submit()
+
+		return {
+			"status": "success",
+			"name": doc.name,
+			"docstatus": doc.docstatus,
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Create Student Term Subject Result API Error")
+		frappe.throw(str(e))
+
+
+@frappe.whitelist(allow_guest=True)
+def save_student_term_subject_results(entries):
+	try:
+		entries = frappe.parse_json(entries)
+		if not isinstance(entries, list):
+			entries = [entries]
+
+		success, failed = [], []
+
+		for entry in entries:
+			try:
+				doc = _save_single_student_result(entry)
+				success.append(
+					{
+						"name": doc.name,
+						"student": doc.student,
+						"subject": doc.subject,
+						"exam": doc.exam,
+						"score": doc.score,
+					}
+				)
+			except Exception as err:
+				failed.append({"entry": entry, "error": str(err)})
+
+		frappe.db.commit()
+		return {"success": success, "failed": failed}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Bulk Student Term Subject Result Save Error")
+		frappe.throw(str(e))
+
+
+@frappe.whitelist(allow_guest=True)
+def get_student_group_scores(student_group, academic_year, semester, subject, exam):
+	filters = {
+		"student_group": student_group,
+		"academic_year": academic_year,
+		"semester": semester,
+		"subject": subject,
+		"exam": exam,
+		"docstatus": 0,
+	}
+	return frappe.get_all(
+		"Student Term Subject Result",
+		filters=filters,
+		fields=["name", "student", "student_name", "score", "max_score"],
+		order_by="student asc",
+	)
+
+
+def _save_single_student_result(data):
+	required_fields = [
+		"student",
+		"academic_year",
+		"semester",
+		"subject",
+		"student_group",
+		"grade",
+		"exam",
+		"score",
+		"max_score",
+	]
+
+	missing = [field for field in required_fields if data.get(field) in (None, "")]
+	if missing:
+		raise frappe.ValidationError(_("Missing values: {0}").format(", ".join(missing)))
+
+	doc_name = data.get("name")
+	if doc_name:
+		doc = frappe.get_doc("Student Term Subject Result", doc_name)
+		if doc.docstatus != 0:
+			raise frappe.ValidationError(_("Cannot update submitted Student Term Subject Result: {0}").format(doc_name))
+	else:
+		doc = frappe.new_doc("Student Term Subject Result")
+		doc.naming_series = data.get("naming_series") or "STSR-.YYYY.-"
+
+	doc.student = data.get("student")
+	doc.student_name = data.get("student_name")
+	doc.academic_year = data.get("academic_year")
+	doc.semester = data.get("semester")
+	doc.subject = data.get("subject")
+	doc.student_group = data.get("student_group") or data.get("section")
+	doc.grade = data.get("grade")
+	doc.exam = data.get("exam")
+	doc.score = flt(data.get("score"))
+	doc.max_score = flt(data.get("max_score"))
+	doc.examiner = data.get("examiner")
+
+	if doc.is_new():
+		doc.insert(ignore_permissions=True)
+	else:
+		doc.save(ignore_permissions=True)
+
+	return doc
+
+
+@frappe.whitelist()
+def get_student_term_results(student, academic_year, semester=None):
+	"""Get all term subject results for a student"""
+	try:
+		filters = {
+			"student": student,
+			"academic_year": academic_year,
+			"docstatus": 1
+		}
+		
+		if semester:
+			filters["semester"] = semester  # user's field name
+		
+		results = frappe.get_all("Student Term Subject Result",
+			filters=filters,
+			fields=["name", "subject", "semester", "exam", 
+					"score", "max_score", "percentage", "modified"],
+			order_by="semester, subject"
+		)
+		
+		return {"status": "success", "results": results}
+	except Exception as e:
+		frappe.log_error(f"Error fetching student term results: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def get_student_term_report(student, academic_year, academic_term, student_group):
+	"""Get term report for a student"""
+	try:
+		report = frappe.db.get_value("Student Term Report", {
+			"student": student,
+			"academic_year": academic_year,
+			"academic_term": academic_term,
+			"student_group": student_group,
+			"docstatus": 1
+		}, ["name", "term_average", "rank_in_group"], as_dict=True)
+		
+		if report:
+			# Get course summary
+			course_summary = frappe.get_all("Course Term Summary",
+				filters={"parent": report.name},
+				fields=["course", "total_score_for_term", "total_maximum_score", "percentage"]
+			)
+			report["course_summary"] = course_summary
+			
+		return {"status": "success", "report": report}
+	except Exception as e:
+		frappe.log_error(f"Error fetching student term report: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def get_student_year_report(student, academic_year, student_group):
+	"""Get year report for a student"""
+	try:
+		report = frappe.db.get_value("Student Year Report", {
+			"student": student,
+			"academic_year": academic_year,
+			"student_group": student_group,
+			"docstatus": 1
+		}, ["name", "year_average", "rank_in_group"], as_dict=True)
+		
+		return {"status": "success", "report": report}
+	except Exception as e:
+		frappe.log_error(f"Error fetching student year report: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def trigger_term_calculation(academic_year, semester, student_group=None):
+	"""Trigger term result calculation using user's field names"""
+	try:
+		from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
+		calculate_term_results(semester, academic_year, student_group)
+		return {"status": "success", "message": "Term calculation completed successfully"}
+	except Exception as e:
+		frappe.log_error(f"Error in term calculation: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def trigger_year_calculation(academic_year, student_group=None):
+	"""Trigger year result calculation"""
+	try:
+		from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
+		calculate_year_results(academic_year, student_group)
+		return {"status": "success", "message": "Year calculation completed successfully"}
+	except Exception as e:
+		frappe.log_error(f"Error in year calculation: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+
+
+
+@frappe.whitelist()
+def calculate_results(calculation_type, academic_year, semester=None, student_group=None, result_action="Save as Draft"):
+	"""
+	Calculate term or year results based on parameters
+	Updated to use user's field names: semester instead of academic_term
+	Flexible to work with any selected academic year and semester (no preset defaults)
+	"""
+	try:
+		submit_results = result_action == "Save and Submit"
+		
+		if calculation_type == "Term Results":
+			if not semester:
+				frappe.throw("Semester is required for Term Results calculation")
+			
+			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
+			calculate_term_results(semester, academic_year, student_group, submit_results)
+			
+		elif calculation_type == "Year Results":
+			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
+			calculate_year_results(academic_year, student_group, submit_results)
+		
+		else:
+			frappe.throw("Invalid calculation type")
+			
+		frappe.db.commit()
+		
+		if submit_results:
+			return {"status": "success", "message": "Calculation completed and results submitted successfully"}
+		else:
+			return {"status": "success", "message": "Calculation completed and results saved as drafts"}
+		
+	except Exception as e:
+		frappe.db.rollback()
+		frappe.log_error(f"Result calculation failed: {str(e)}")
+		return {"status": "error", "message": str(e)}
+
+# Student Application API endpoints
+
+@frappe.whitelist(allow_guest=True)
+def get_programs_for_application():
+	"""Get all available programs for student application"""
+	programs = [
+		{"name": "Grade 1", "program_name": "Grade 1", "program_abbreviation": "GR1"},
+		{"name": "Grade 2", "program_name": "Grade 2", "program_abbreviation": "GR2"},
+		{"name": "Grade 3", "program_name": "Grade 3", "program_abbreviation": "GR3"},
+		{"name": "Grade 4", "program_name": "Grade 4", "program_abbreviation": "GR4"},
+		{"name": "Grade 5", "program_name": "Grade 5", "program_abbreviation": "GR5"},
+		{"name": "Grade 6", "program_name": "Grade 6", "program_abbreviation": "GR6"},
+		{"name": "Grade 7", "program_name": "Grade 7", "program_abbreviation": "GR7"},
+		{"name": "Grade 8", "program_name": "Grade 8", "program_abbreviation": "GR8"},
+		{"name": "Grade 1 AO", "program_name": "Grade 1 AO", "program_abbreviation": "GR1 AO"},
+		{"name": "Grade 2 AO", "program_name": "Grade 2 AO", "program_abbreviation": "GR2 AO"},
+		{"name": "Grade 3 AO", "program_name": "Grade 3 AO", "program_abbreviation": "GR3 AO"},
+		{"name": "Grade 4 AO", "program_name": "Grade 4 AO", "program_abbreviation": "GR4 AO"},
+		{"name": "Grade 5 AO", "program_name": "Grade 5 AO", "program_abbreviation": "GR5 AO"},
+		{"name": "Grade 6 AO", "program_name": "Grade 6 AO", "program_abbreviation": "GR6 AO"},
+		{"name": "Grade 7 AO", "program_name": "Grade 7 AO", "program_abbreviation": "GR7 AO"},
+		{"name": "Grade 8 AO", "program_name": "Grade 8 AO", "program_abbreviation": "GR8 AO"},
+		{"name": "Grade 9", "program_name": "Grade 9", "program_abbreviation": "GR9"},
+		{"name": "Grade 10", "program_name": "Grade 10", "program_abbreviation": "GR10"},
+		{"name": "Grade 11 NS", "program_name": "Grade 11 NS", "program_abbreviation": "GR11 NS"},
+		{"name": "Grade 11 SS", "program_name": "Grade 11 SS", "program_abbreviation": "GR11 SS"},
+		{"name": "Grade 12 NS", "program_name": "Grade 12 NS", "program_abbreviation": "GR12 NS"},
+		{"name": "Grade 12 SS", "program_name": "Grade 12 SS", "program_abbreviation": "GR12 SS"},
+		{"name": "LKG", "program_name": "LKG", "program_abbreviation": "LKG"},
+		{"name": "UKG", "program_name": "UKG", "program_abbreviation": "UKG"},
+		{"name": "LKG AO", "program_name": "LKG AO", "program_abbreviation": "LKG AO"},
+		{"name": "UKG AO", "program_name": "UKG AO", "program_abbreviation": "UKG AO"},
+		{"name": "Nursery", "program_name": "Nursery", "program_abbreviation": "NUR"},
+		{"name": "Nursery AO", "program_name": "Nursery AO", "program_abbreviation": "NUR AO"},
+	]
+	return programs
+
+@frappe.whitelist(allow_guest=True)
+def get_education_levels():
+	"""Get education level options"""
+	return [
+		"No Formal Education",
+		"Primary School (1-8)",
+		"Secondary School (9-10)",
+		"Preparatory School (11-12)",
+		"Certificate",
+		"Diploma",
+		"Bachelor's Degree",
+		"Master's Degree",
+		"PhD",
+		"Other"
+	]
+
+@frappe.whitelist(allow_guest=True)
+def get_occupation_options():
+	"""Get occupation options"""
+	return [
+		"Government Employee",
+		"Private Sector Employee",
+		"Self-Employed/Business Owner",
+		"Farmer",
+		"Teacher",
+		"Doctor",
+		"Nurse",
+		"Engineer",
+		"Lawyer",
+		"Accountant",
+		"Driver",
+		"Security Guard",
+		"Shopkeeper",
+		"Mechanic",
+		"Electrician",
+		"Carpenter",
+		"Tailor",
+		"Hairdresser",
+		"Chef/Cook",
+		"Cleaner",
+		"Student",
+		"Retired",
+		"Unemployed",
+		"Other"
+	]
+
+@frappe.whitelist(allow_guest=True)
+def get_academic_years():
+	"""Get all available academic years"""
+	try:
+		years = frappe.get_all(
+			"Academic Year",
+			fields=["name", "year_start_date", "year_end_date"],
+			filters={"disabled": 0},
+			order_by="year_start_date desc"
+		)
+		return years
+	except Exception as e:
+		frappe.log_error(message=str(e), title="Academic Years API Error")
+		# Return a fallback list with the current academic year
+		return [{"name": "2018 E.C.", "year_start_date": "2024-09-01", "year_end_date": "2025-08-31"}]
+
+@frappe.whitelist(allow_guest=True)
+def search_student_by_school_id(school_id):
+	"""Search for existing student by school ID"""
+	if not school_id:
+		return None
+	
+	try:
+		# First try to search in Student table
+		student = frappe.get_all(
+			"Student",
+			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin", "restricted", "reason_for_restriction"],
+			filters={"custom_school_id": school_id},
+			limit=1
+		)
+		
+		if student:
+			return student[0]
+		
+		# If not found in Student table, try Student Applicant table
+		applicant = frappe.get_all(
+			"Student Applicant",
+			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin"],
+			filters={"custom_school_id": school_id},
+			limit=1
+		)
+		
+		if applicant:
+			return applicant[0]
+			
+		return None
+		
+	except Exception as e:
+		# If there are permission issues, return None
+		frappe.log_error(f"Error searching student by school ID: {str(e)}")
+		return None
+
+@frappe.whitelist(allow_guest=True)
+def generate_school_id(branch="M1"):
+	"""Generate a new school ID with format M1/*****/18 or M2/*****/18 with random numbers above 10000"""
+	import random
+	import time
+	
+	# Ensure branch is valid
+	if branch not in ["M1", "M2"]:
+		branch = "M1"
+	
+	# Generate unique random number above 10000
+	max_attempts = 100
+	for attempt in range(max_attempts):
+		# Generate random number between 10001 and 99999
+		random_num = random.randint(10001, 99999)
+		
+		# Format: M1/12345/18 or M2/12345/18
+		school_id = f"{branch}/{random_num:05d}/18"
+		
+		# Check if this ID already exists in both Student and Student Applicant tables
+		exists_in_student = frappe.db.exists("Student", {"custom_school_id": school_id})
+		exists_in_applicant = frappe.db.exists("Student Applicant", {"custom_school_id": school_id})
+		
+		if not exists_in_student and not exists_in_applicant:
+			return school_id
+		
+		# If ID exists, try again with a different number
+		# Add small delay to change random seed
+		time.sleep(0.001)
+	
+	# If we couldn't generate a unique ID after max_attempts, use sequential fallback
+	# This is very unlikely to happen given the range (10001-99999)
+	frappe.log_error(f"Could not generate unique school ID for branch {branch} after {max_attempts} attempts, using sequential fallback")
+	
+	# Fallback to sequential method
+	last_id = frappe.db.sql("""
+		SELECT custom_school_id 
+		FROM `tabStudent Applicant` 
+		WHERE custom_school_id LIKE %s 
+		ORDER BY creation DESC 
+		LIMIT 1
+	""", (f"{branch}/%",), as_dict=True)
+	
+	if last_id:
+		# Extract the number from the last ID
+		parts = last_id[0]["custom_school_id"].split("/")
+		if len(parts) == 3:
+			try:
+				last_num = int(parts[1])
+				new_num = max(last_num + 1, 10001)  # Ensure it's at least 10001
+			except ValueError:
+				new_num = 10001
+		else:
+			new_num = 10001
+	else:
+		new_num = 10001
+	
+	return f"{branch}/{new_num:05d}/18"
+
+@frappe.whitelist(allow_guest=True)
+def create_guardian(guardian_data):
+	"""Create a new guardian record"""
+	try:
+		# Check required fields first
+		if not guardian_data.get("guardian_name"):
+			frappe.throw(_("Guardian name is required"))
+		if not guardian_data.get("mobile_number"):
+			frappe.throw(_("Mobile number is required"))
+		
+		# Format mobile number properly and use it as the primary key
+		mobile_number = guardian_data.get("mobile_number", "").strip()
+		if mobile_number and not mobile_number.startswith("+251"):
+			mobile_number = f"+251{mobile_number}"
+		
+		# Check if a guardian with this mobile number already exists
+		existing_guardian_name = frappe.db.get_value("Guardian", {"mobile_number": mobile_number}, "name")
+		
+		if existing_guardian_name:
+			# If guardian exists, update their information
+			guardian_doc = frappe.get_doc("Guardian", existing_guardian_name)
+			# Get only the fields that are allowed to be updated by guests
+			allowed_fields = [
+				"guardian_name", "email_address", "alternate_number",
+				"education", "occupation", "work_address", "image"
+			]
+			update_data = {k: v for k, v in guardian_data.items() if k in allowed_fields}
+
+			# Handle 'Other' for education and occupation specifically
+			if guardian_data.get("education") == "Other":
+				update_data["education"] = guardian_data.get("education_other")
+			if guardian_data.get("occupation") == "Other":
+				update_data["occupation"] = guardian_data.get("occupation_other")
+
+			guardian_doc.update(update_data)
+			guardian_doc.save(ignore_permissions=True)
+			return guardian_doc.name
+			
+		# If guardian does not exist, create a new one
+		guardian_doc = frappe.new_doc("Guardian")
+		guardian_doc.guardian_name = guardian_data.get("guardian_name")
+		guardian_doc.mobile_number = mobile_number
+		
+		# Optional fields
+		if guardian_data.get("email_address"):
+			guardian_doc.email_address = guardian_data.get("email_address")
+		
+		# Handle alternate number
+		alternate_number = guardian_data.get("alternate_number", "").strip()
+		if alternate_number and not alternate_number.startswith("+251"):
+			alternate_number = f"+251{alternate_number}"
+		if alternate_number:
+			guardian_doc.alternate_number = alternate_number
+		
+		# Handle education field
+		education = guardian_data.get("education")
+		if education == "Other":
+			education = guardian_data.get("education_other", education)
+		if education:
+			guardian_doc.education = education
+		
+		# Handle occupation field
+		occupation = guardian_data.get("occupation")
+		if occupation == "Other":
+			occupation = guardian_data.get("occupation_other", occupation)
+		if occupation:
+			guardian_doc.occupation = occupation
+		
+		if guardian_data.get("work_address"):
+			guardian_doc.work_address = guardian_data.get("work_address")
+		
+		# Handle image/photo field if present
+		image_url = guardian_data.get("photo") or guardian_data.get("image")
+		if image_url:
+			guardian_doc.image = image_url
+			
+		guardian_doc.insert(ignore_permissions=True) # Use ignore_permissions for guest context
+		return guardian_doc.name
+	except Exception as e:
+		error_msg = str(e)
+		frappe.log_error(message=f"Guardian creation failed: {error_msg}\nData: {guardian_data}", title="Guardian Creation Error")
+		frappe.throw(_("Error creating guardian: {0}").format(error_msg))
+
+@frappe.whitelist(allow_guest=True)
+def create_student_application(application_data):
+	"""Create a new student application"""
+	try:
+		app_doc = frappe.new_doc("Student Applicant")
+		
+		# Check required fields
+		if not application_data.get("first_name"):
+			frappe.throw(_("First name is required"))
+		if not application_data.get("last_name"):
+			frappe.throw(_("Last name is required"))
+		if not application_data.get("program"):
+			frappe.throw(_("Program is required"))
+		
+		# Basic information
+		app_doc.first_name = application_data.get("first_name")
+		app_doc.middle_name = application_data.get("middle_name")
+		app_doc.last_name = application_data.get("last_name")
+		app_doc.program = application_data.get("program")
+		app_doc.academic_year = application_data.get("academic_year", "2018 E.C.")
+		
+		# Handle School ID: Use existing ID if provided, otherwise generate new
+		school_id = application_data.get("custom_school_id")
+		if not school_id:
+			# This is a new student - generate a new school ID
+			# The branch information should be passed from frontend
+			branch = application_data.get("branch", "M1")
+			school_id = generate_school_id(branch)
+		
+		app_doc.custom_school_id = school_id
+		
+		# Handle student email based on applicant type
+		if application_data.get("applicant_type") == "Existing":
+			# For existing students, use their existing email if available
+			app_doc.student_email_id = application_data.get("student_email_id") or ""
+		else:
+			# Generate student email automatically from school ID for new students
+			# Format: schoolid@m.b.s (e.g., M1/12345/18@m.b.s)
+			# Clean the school ID to make it email-friendly
+			email_prefix = school_id.replace("/", "").replace("\\", "").lower()
+			app_doc.student_email_id = f"{email_prefix}@m.b.s"
+		
+		# Personal details
+		app_doc.date_of_birth = application_data.get("date_of_birth")
+		app_doc.gender = application_data.get("gender")
+		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
+		app_doc.national_id_fin = application_data.get("national_id_fin")
+		app_doc.applicant_type = application_data.get("applicant_type", "New")
+		app_doc.nationality = application_data.get("nationality", "Ethiopian")
+		
+		# Address - including new fields
+		app_doc.address_line_1 = application_data.get("address_line_1")
+		app_doc.address_line_2 = application_data.get("address_line_2")
+		app_doc.kebele = application_data.get("kebele")
+		app_doc.sub_city = application_data.get("sub_city")
+		app_doc.city = application_data.get("city", "Adama")
+		app_doc.state = application_data.get("state", "Oromia")
+		app_doc.pincode = application_data.get("pincode")
+		app_doc.country = application_data.get("country", "Ethiopia")
+		
+		# Application status
+		app_doc.application_status = "Applied"
+		
+		# Image field
+		if application_data.get("image"):
+			app_doc.image = application_data.get("image")
+		
+		# Birth certificate image (required for Nursery grades)
+		if application_data.get("birth_certificate_image"):
+			app_doc.birth_certificate_image = application_data.get("birth_certificate_image")
+		
+		# Guardians
+		guardians = application_data.get("guardians", [])
+		for guardian in guardians:
+			guardian_row = app_doc.append("guardians")
+			guardian_row.guardian = guardian.get("guardian")
+			guardian_row.guardian_name = guardian.get("guardian_name")
+			guardian_row.relation = guardian.get("relation")
+		
+		# Siblings
+		siblings = application_data.get("siblings", [])
+		for sibling in siblings:
+			sibling_row = app_doc.append("siblings")
+			sibling_row.student = sibling.get("student")
+			sibling_row.student_name = sibling.get("student_name")
+			sibling_row.program = sibling.get("program")
+			sibling_row.academic_year = sibling.get("academic_year")
+		
+		app_doc.insert()
+		return app_doc.name
+		
+	except Exception as e:
+		error_msg = str(e)
+		frappe.log_error(message=f"Student application creation failed: {error_msg}\nData: {application_data}", title="Student Application Creation Error")
+		
+		# Provide user-friendly error messages
+		if "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
+			user_error = "An application with this email or school ID already exists."
+		elif "validation" in error_msg.lower():
+			user_error = "Please check your form data and try again."
+		elif "permission" in error_msg.lower():
+			user_error = "Permission error. Please refresh the page and try again."
+		else:
+			user_error = "Failed to create application. Please try again."
+		
+		frappe.throw(_(user_error))
+
+@frappe.whitelist(allow_guest=True)
+def get_application_by_id(application_id):
+	"""Get student application details by ID"""
+	try:
+		app_doc = frappe.get_doc("Student Applicant", application_id)
+		return app_doc.as_dict()
+	except Exception as e:
+		frappe.throw(_("Error fetching application: {0}").format(str(e)))
+
+@frappe.whitelist(allow_guest=True)
+def update_student_application(application_id, application_data):
+	"""Update existing student application"""
+	try:
+		app_doc = frappe.get_doc("Student Applicant", application_id)
+		
+		# Update basic information
+		app_doc.first_name = application_data.get("first_name")
+		app_doc.middle_name = application_data.get("middle_name")
+		app_doc.last_name = application_data.get("last_name")
+		app_doc.custom_school_id = application_data.get("custom_school_id")
+		app_doc.program = application_data.get("program")
+		app_doc.academic_year = application_data.get("academic_year")
+		
+		# Update personal details
+		app_doc.date_of_birth = application_data.get("date_of_birth")
+		app_doc.gender = application_data.get("gender")
+		app_doc.student_email_id = application_data.get("student_email_id")
+		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
+		app_doc.national_id_fin = application_data.get("national_id_fin")
+		app_doc.applicant_type = application_data.get("applicant_type", "New")
+		app_doc.nationality = application_data.get("nationality", "Ethiopian")
+		
+		# Update address - including new fields
+		app_doc.address_line_1 = application_data.get("address_line_1")
+		app_doc.address_line_2 = application_data.get("address_line_2")
+		app_doc.kebele = application_data.get("kebele")
+		app_doc.sub_city = application_data.get("sub_city")
+		app_doc.city = application_data.get("city", "Adama")
+		app_doc.state = application_data.get("state", "Oromia")
+		app_doc.pincode = application_data.get("pincode")
+		app_doc.country = application_data.get("country", "Ethiopia")
+		
+		# Update image fields
+		if application_data.get("image"):
+			app_doc.image = application_data.get("image")
+		if application_data.get("birth_certificate_image"):
+			app_doc.birth_certificate_image = application_data.get("birth_certificate_image")
+		
+		# Update guardians
+		app_doc.guardians = []
+		guardians = application_data.get("guardians", [])
+		for guardian in guardians:
+			guardian_row = app_doc.append("guardians")
+			guardian_row.guardian = guardian.get("guardian")
+			guardian_row.guardian_name = guardian.get("guardian_name")
+			guardian_row.relation = guardian.get("relation")
+		
+		# Update siblings
+		app_doc.siblings = []
+		siblings = application_data.get("siblings", [])
+		for sibling in siblings:
+			sibling_row = app_doc.append("siblings")
+			sibling_row.student = sibling.get("student")
+			sibling_row.student_name = sibling.get("student_name")
+			sibling_row.program = sibling.get("program")
+			sibling_row.academic_year = sibling.get("academic_year")
+		
+		app_doc.save()
+		return app_doc.name
+		
+	except Exception as e:
+		frappe.log_error(message=str(e), title="Student Application Update Error")
+		frappe.throw(_("Error updating student application: {0}").format(str(e)))
+
+
+
+
+
+@frappe.whitelist(allow_guest=True)
+def validate_phone_number(phone_number):
+	"""Validate Ethiopian phone number format"""
+	# Handle both direct parameter and JSON body
+	if isinstance(phone_number, dict):
+		phone_number = phone_number.get("phone_number", "")
+	
+	if not phone_number:
+		return {"valid": False, "message": "Phone number is required"}
+	
+	# Remove any spaces or special characters
+	phone_clean = ''.join(filter(str.isdigit, phone_number))
+	
+	# Check if it's exactly 9 digits
+	if len(phone_clean) == 9:
+		# Check if it starts with valid Ethiopian prefixes
+		if phone_clean.startswith(('9', '7')):
+			return {"valid": True, "message": "Valid phone number", "formatted": f"+251{phone_clean}"}
+		else:
+			return {"valid": False, "message": "Phone number must start with 9 or 7"}
+	
+	# Check if it's 10 digits starting with 0 (common mistake)
+	elif len(phone_clean) == 10 and phone_clean.startswith('0'):
+		return {"valid": False, "message": "Phone number should start with 9, not 0. Remove the leading 0."}
+	
+	# Check if it's too long or too short
+	elif len(phone_clean) < 9:
+		return {"valid": False, "message": "Phone number must be 9 digits long"}
+	elif len(phone_clean) > 9:
+		return {"valid": False, "message": "Phone number must be exactly 9 digits long"}
+	
+	else:
+		return {"valid": False, "message": "Invalid phone number format"}
+
+@frappe.whitelist(allow_guest=True)
+def get_kebele_subcity_data():
+	"""Get kebele and sub-city hierarchical data"""
+	return {
+		"Bole": [
+			{"id": 1, "name": "Dhaka Adil"},
+			{"id": 2, "name": "Gooro (01)"},
+			{"id": 3, "name": "Dhadacha Araara (04)"}
+		],
+		"Gadaa": [
+			{"id": 4, "name": "Badhatu (07)"},
+			{"id": 5, "name": "Abba Gadaa (12)"},
+			{"id": 6, "name": "Odaa (08)"},
+			{"id": 7, "name": "Gurmuu (06)"}
+		],
+		"Bokkuu": [
+			{"id": 8, "name": "Barreecha (11)"},
+			{"id": 14, "name": "Migiiraa (02)"},
+			{"id": 17, "name": "Bokku shanan"}
+		],
+		"Luugoo": [
+			{"id": 9, "name": "Biqqa (10)"},
+			{"id": 11, "name": "Gaara Luugo (03)"}
+		],
+		"Dambalaa": [
+			{"id": 10, "name": "Dagaaga (05)"},
+			{"id": 12, "name": "Irrechaa (09)"},
+			{"id": 18, "name": "Malka"}
+		],
+		"Daabe": [
+			{"id": 13, "name": "Caffee (13)"},
+			{"id": 15, "name": "Daabe Solloqqe"},
+			{"id": 16, "name": "Hangaatu (14)"}
+		]
+	}
+
+@frappe.whitelist(allow_guest=True)
+def generate_application_pdf(application_id):
+    """Generate PDF for student application using the working implementation"""
+    try:
+        from frappe.utils.pdf import get_pdf
+        import json
+        
+        # Get the application document
+        app_doc = frappe.get_doc("Student Applicant", application_id)
+        
+        # Helper function to ensure absolute URLs for images
+        def make_absolute_url(img_url):
+            if not img_url:
+                return ''
+            if img_url.startswith('http'):
+                return img_url
+            site_url = frappe.utils.get_url()
+            return site_url.rstrip('/') + '/' + img_url.lstrip('/')
+        
+        # Get image URLs
+        student_img = make_absolute_url(app_doc.image or '')
+        
+        # Convert app_doc to a format similar to the session data structure
+        app_data = {
+            'submittedApplicationId': app_doc.name,
+            'guardianType': 'parent' if len(app_doc.guardians) >= 2 else 'guardian',
+            'studentData': {
+                'first_name': app_doc.first_name or '',
+                'middle_name': app_doc.middle_name or '',
+                'last_name': app_doc.last_name or '',
+                'date_of_birth': str(app_doc.date_of_birth) if app_doc.date_of_birth else '',
+                'gender': app_doc.gender or '',
+                'student_email_id': app_doc.student_email_id or '',
+                'program': app_doc.program or '',
+                'custom_school_id': app_doc.custom_school_id or '',
+                'address_line_1': app_doc.address_line_1 or '',
+                'sub_city': app_doc.sub_city or '',
+                'kebele': app_doc.kebele or '',
+                'city': app_doc.city or 'Adama',
+                'image': app_doc.image or ''
+            },
+            'fatherData': {},
+            'motherData': {},
+            'guardianData': {}
+        }
+        
+        # Extract guardian data
+        for guardian in app_doc.guardians:
+            guardian_doc = frappe.get_doc("Guardian", guardian.guardian)
+            guardian_data = {
+                'guardian_name': guardian.guardian_name or '',
+                'mobile_number': guardian_doc.mobile_number or '',
+                'email_address': guardian_doc.email_address or '',
+                'occupation': guardian_doc.occupation or '',
+                'image': guardian_doc.image or ''
+            }
+            
+            if guardian.relation == 'Father':
+                app_data['fatherData'] = guardian_data
+            elif guardian.relation == 'Mother':
+                app_data['motherData'] = guardian_data
+            else:
+                app_data['guardianData'] = guardian_data
+        
+        # Use the working HTML generation logic
+        student_img = make_absolute_url(app_data.get('studentData', {}).get('image', ''))
+        father_img = make_absolute_url(app_data.get('fatherData', {}).get('image', ''))
+        mother_img = make_absolute_url(app_data.get('motherData', {}).get('image', ''))
+        guardian_img = make_absolute_url(app_data.get('guardianData', {}).get('image', ''))
+
+        # Professional styled HTML for PDF with school branding
+        html = f"""
+        <html>
+            <head>
+                <meta charset='utf-8'>
+                <style>
+                    body {{ 
+                        font-family: Arial, sans-serif; 
+                        margin: 20px; 
+                        font-size: 11px; 
+                        line-height: 1.4; 
+                        color: #333;
+                    }}
+                    .header {{ 
+                        text-align: center; 
+                        margin-bottom: 20px; 
+                        padding-bottom: 15px; 
+                        border-bottom: 3px solid #2563eb;
+                    }}
+                    .logo {{ 
+                        width: 60px; 
+                        height: 60px; 
+                        margin-bottom: 8px;
+                    }}
+                    .school-name {{ 
+                        font-size: 18px; 
+                        font-weight: bold; 
+                        color: #2563eb;
+                        margin: 5px 0;
+                    }}
+                    .app-title {{ 
+                        font-size: 14px; 
+                        color: #4b5563;
+                        margin: 5px 0;
+                    }}
+                    .app-id {{ 
+                        font-size: 12px; 
+                        color: #6b7280;
+                        background: #f3f4f6;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        display: inline-block;
+                        margin-top: 5px;
+                    }}
+                    .main-container {{
+                        display: table;
+                        width: 100%;
+                        margin-top: 15px;
+                    }}
+                    .left-column {{
+                        display: table-cell;
+                        width: 70%;
+                        vertical-align: top;
+                        padding-right: 15px;
+                    }}
+                    .right-column {{
+                        display: table-cell;
+                        width: 30%;
+                        vertical-align: top;
+                        text-align: center;
+                    }}
+                    .student-photo {{ 
+                        width: 120px; 
+                        height: 150px; 
+                        border: 2px solid #d1d5db;
+                        border-radius: 8px;
+                        margin-bottom: 15px;
+                    }}
+                    .section {{ 
+                        margin: 15px 0; 
+                        background: #f9fafb;
+                        padding: 12px;
+                        border-radius: 6px;
+                        border-left: 4px solid #2563eb;
+                    }}
+                    .section-title {{ 
+                        font-size: 13px; 
+                        font-weight: bold; 
+                        color: #1f2937;
+                        margin-bottom: 8px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }}
+                    .info-grid {{
+                        display: table;
+                        width: 100%;
+                        margin: 5px 0;
+                    }}
+                    .info-row {{
+                        display: table-row;
+                    }}
+                    .info-item {{
+                        display: table-cell;
+                        padding: 3px 8px 3px 0;
+                        vertical-align: top;
+                        width: 50%;
+                    }}
+                    .label {{ 
+                        font-weight: bold; 
+                        color: #374151;
+                        margin-right: 5px;
+                    }}
+                    .value {{
+                        color: #1f2937;
+                    }}
+                    .guardian-section {{
+                        margin: 10px 0;
+                        background: #fef3f2;
+                        padding: 10px;
+                        border-radius: 6px;
+                        border-left: 4px solid #ef4444;
+                    }}
+                    .guardian-title {{
+                        font-size: 12px;
+                        font-weight: bold;
+                        color: #dc2626;
+                        margin-bottom: 6px;
+                    }}
+                    .guardian-photo {{
+                        width: 80px;
+                        height: 100px;
+                        border: 2px solid #d1d5db;
+                        border-radius: 4px;
+                        margin: 5px auto;
+                        display: block;
+                    }}
+                </style>
+            </head>
+            <body>
+                <!-- Header with school branding -->
+                <div class='header'>
+                    <img src='https://app.makkobillischool.com/files/school_logo.png' alt='School Logo' class='logo'>
+                    <div class='school-name'>Makko Billi School</div>
+                    <div class='app-title'>Student Application Form</div>
+                    <div class='app-id'>Application ID: {app_data.get('submittedApplicationId', '')}</div>
+                </div>
+
+                <div class='main-container'>
+                    <div class='left-column'>
+                        <!-- Student Information -->
+                        <div class='section'>
+                            <div class='section-title'>Student Information</div>
+                            <div class='info-grid'>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Full Name:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('first_name', '')} {app_data.get('studentData', {}).get('middle_name', '')} {app_data.get('studentData', {}).get('last_name', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>Date of Birth:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('date_of_birth', '')}</span>
+                                    </div>
+                                </div>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Gender:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('gender', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>Program/Grade:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('program', '')}</span>
+                                    </div>
+                                </div>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Email:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('student_email_id', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>School ID:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('custom_school_id', '')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Address Information -->
+                        <div class='section'>
+                            <div class='section-title'>Address Information</div>
+                            <div class='info-grid'>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Home Address:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('address_line_1', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>Sub-city:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('sub_city', '')}</span>
+                                    </div>
+                                </div>
+                                <div class='info-row'>
+                                    <div class='info-item'>
+                                        <span class='label'>Kebele:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('kebele', '')}</span>
+                                    </div>
+                                    <div class='info-item'>
+                                        <span class='label'>City:</span>
+                                        <span class='value'>{app_data.get('studentData', {}).get('city', 'Adama')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Guardian Information -->
+                        <div class='section'>
+                            <div class='section-title'>Guardian Information</div>
+        """
+
+        # Guardian Information with improved styling
+        if app_data.get("guardianType") == "parent":
+            html += f"""
+                            <div class='guardian-section'>
+                                <div class='guardian-title'>Father's Details</div>
+                                <div class='info-grid'>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Name:</span>
+                                            <span class='value'>{app_data.get('fatherData', {}).get('guardian_name', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Mobile:</span>
+                                            <span class='value'>{app_data.get('fatherData', {}).get('mobile_number', '')}</span>
+                                        </div>
+                                    </div>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Email:</span>
+                                            <span class='value'>{app_data.get('fatherData', {}).get('email_address', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Occupation:</span>
+                                            <span class='value'>{app_data.get('fatherData', {}).get('occupation', '')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class='guardian-section'>
+                                <div class='guardian-title'>Mother's Details</div>
+                                <div class='info-grid'>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Name:</span>
+                                            <span class='value'>{app_data.get('motherData', {}).get('guardian_name', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Mobile:</span>
+                                            <span class='value'>{app_data.get('motherData', {}).get('mobile_number', '')}</span>
+                                        </div>
+                                    </div>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Email:</span>
+                                            <span class='value'>{app_data.get('motherData', {}).get('email_address', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Occupation:</span>
+                                            <span class='value'>{app_data.get('motherData', {}).get('occupation', '')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+            """
+        else:
+            html += f"""
+                            <div class='guardian-section'>
+                                <div class='guardian-title'>Guardian Details</div>
+                                <div class='info-grid'>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Name:</span>
+                                            <span class='value'>{app_data.get('guardianData', {}).get('guardian_name', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Mobile:</span>
+                                            <span class='value'>{app_data.get('guardianData', {}).get('mobile_number', '')}</span>
+                                        </div>
+                                    </div>
+                                    <div class='info-row'>
+                                        <div class='info-item'>
+                                            <span class='label'>Email:</span>
+                                            <span class='value'>{app_data.get('guardianData', {}).get('email_address', '')}</span>
+                                        </div>
+                                        <div class='info-item'>
+                                            <span class='label'>Occupation:</span>
+                                            <span class='value'>{app_data.get('guardianData', {}).get('occupation', '')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+            """
+
+        html += f"""
+                        </div>
+                    </div>
+                    
+                    <div class='right-column'>
+                        <!-- Student Photo -->
+                        {f"<img src='{student_img}' class='student-photo' alt='Student Photo'>" if student_img else "<div class='student-photo' style='display: flex; align-items: center; justify-content: center; background: #f3f4f6; color: #9ca3af;'>No Photo</div>"}
+                        
+                        <!-- Guardian Photos -->
+                        <div style='text-align: center; margin-top: 10px;'>
+        """
+        
+        # Add guardian photos in the right column
+        if app_data.get("guardianType") == "parent":
+            if father_img:
+                html += f"<img src='{father_img}' class='guardian-photo' alt='Father Photo'>"
+                html += "<div style='font-size: 10px; color: #6b7280; margin-bottom: 8px;'>Father</div>"
+            if mother_img:
+                html += f"<img src='{mother_img}' class='guardian-photo' alt='Mother Photo'>"
+                html += "<div style='font-size: 10px; color: #6b7280; margin-bottom: 8px;'>Mother</div>"
+        else:
+            if guardian_img:
+                html += f"<img src='{guardian_img}' class='guardian-photo' alt='Guardian Photo'>"
+                html += "<div style='font-size: 10px; color: #6b7280; margin-bottom: 8px;'>Guardian</div>"
+        
+        html += """
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div style='margin-top: 20px; padding-top: 15px; border-top: 1px solid #d1d5db; text-align: center; font-size: 10px; color: #6b7280;'>
+                    <p>This application was submitted electronically and is valid without signature.</p>
+                    <p>For inquiries, please contact: Makko Billi School Administration</p>
+                </div>
+            </body>
+        </html>"""
+        
+        # Minimal robust PDF options
+        pdf_options = {
+            'encoding': "UTF-8",
+            'load-error-handling': 'ignore',
+            'load-media-error-handling': 'ignore',
+            'disable-javascript': None,
+            'quiet': None
+        }
+
+        pdf_content = get_pdf(html, options=pdf_options)
+        
+        if not pdf_content:
+            frappe.throw(_("Failed to generate PDF content"))
+        
+        # Set proper response headers for PDF download
+        frappe.local.response.filename = f"student_application_{application_id}.pdf"
+        frappe.local.response.filecontent = pdf_content
+        frappe.local.response.type = "download"
+        
+        frappe.local.response.headers = {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': f'attachment; filename="student_application_{application_id}.pdf"',
+            'Content-Length': str(len(pdf_content))
+        }
+        
+        return pdf_content
+        
+    except Exception as e:
+        frappe.log_error(message=f"Application PDF Error: {str(e)}", title="Application PDF Error")
+        frappe.throw(_("Error generating application PDF. Please try again."))
+
+@frappe.whitelist(allow_guest=True)
+def check_duplicate_application():
+	"""Check if an application already exists with the given mobile number"""
+	try:
+		mobile = frappe.form_dict.get('mobile')
+		
+		if not mobile:
+			return {"exists": False}
+		
+		# Check if any student applicant exists with the given mobile number
+		# Check both student mobile number and guardian mobile number
+		existing = frappe.get_all('Student Applicant', 
+			filters=[
+				['Student Applicant', 'student_mobile_number', '=', mobile]
+			],
+			limit=1
+		)
+		
+		# Also check guardian mobile numbers from the guardian table
+		if not existing:
+			guardian_with_mobile = frappe.get_all('Guardian', 
+				filters=[
+					['Guardian', 'mobile_number', '=', mobile]
+				],
+				limit=1
+			)
+			
+			if guardian_with_mobile:
+				# Check if this guardian is linked to any student applicant
+				existing_apps = frappe.get_all('Student Applicant', 
+					filters=[
+						['Student Applicant Guardian', 'guardian', '=', guardian_with_mobile[0].name]
+					],
+					limit=1
+				)
+				existing = existing_apps
+		
+		return {"exists": len(existing) > 0}
+		
+	except Exception as e:
+		frappe.log_error(f"Error checking duplicate application: {str(e)}")
+		return {"exists": False, "error": str(e)}
+
+@frappe.whitelist(allow_guest=True)
+def upload_file_guest():
+	"""Simple file upload for guest users (student application images)"""
+	try:
+		import frappe
+		from frappe.utils.file_manager import save_file
+		import uuid
+		
+		# No need to set user to Administrator since guest file upload is enabled in desk settings
+		
+		if 'file' not in frappe.request.files:
+			frappe.throw(_("No file was uploaded"))
+		
+		file = frappe.request.files['file']
+		if file.filename == '':
+			frappe.throw(_("No file selected"))
+		
+		# Create a unique filename to avoid conflicts
+		unique_name = str(uuid.uuid4())[:8]
+		new_filename = f"student_app_{unique_name}_{file.filename}"
+		
+		# Simple file save using Frappe's built-in save_file
+		file_doc = save_file(
+			fname=new_filename,
+			content=file.read(),
+			dt=None,
+			dn=None,
+			folder="Home",
+			is_private=0
+		)
+		
+		if not file_doc:
+			frappe.throw(_("Failed to save file"))
+		
+		# Get the file URL
+		file_url = file_doc.file_url
+		if not file_url.startswith('http'):
+			site_url = frappe.utils.get_url()
+			file_url = site_url.rstrip('/') + file_url
+		
+		return {
+			"success": True,
+			"file_url": file_url,
+			"file_name": new_filename,
+			"message": "File uploaded successfully"
+		}
+		
+	except Exception as e:
+		error_msg = str(e)
+		frappe.log_error(message=error_msg, title="File Upload Error")
+		
+		# Provide user-friendly error messages
+		if "permission" in error_msg.lower():
+			user_error = "Permission error during file upload. Please try again."
+		elif "size" in error_msg.lower():
+			user_error = "File too large. Please use a smaller image."
+		elif "network" in error_msg.lower() or "connection" in error_msg.lower():
+			user_error = "Network error. Please check your connection and try again."
+		else:
+			user_error = "File upload failed. Please try again."
+		
+		frappe.throw(_(user_error))
 
 

@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>{{ _("Student Result Entry") }}</title>
+	<meta name="description" content="{{ _("Quickly log exam scores and submit Student Term Subject Results.") }}">
+	<meta name="csrf-token" content="{{ csrf_token }}">
+	<style>
+		body {
+			margin: 0;
+			font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+			background-color: #f5f6fb;
+			color: #1f2933;
+		}
+
+		.page-shell {
+			min-height: 100vh;
+			padding: 30px 16px 60px;
+		}
+
+		@media (min-width: 992px) {
+			.page-shell {
+				padding-left: 40px;
+				padding-right: 40px;
+			}
+		}
+
+		.card {
+			background: #fff;
+			border-radius: 12px;
+			box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+			padding: 24px;
+			margin-bottom: 24px;
+		}
+
+		.card h2,
+		.card h3,
+		.card h4 {
+			margin-top: 0;
+			margin-bottom: 16px;
+		}
+
+		.help-list {
+			padding-left: 18px;
+			margin: 0;
+			color: #4b5563;
+		}
+
+		label {
+			font-weight: 600;
+			display: block;
+			margin-bottom: 6px;
+		}
+
+		input,
+		select {
+			width: 100%;
+			padding: 10px 12px;
+			border: 1px solid #cfd8e3;
+			border-radius: 8px;
+			font-size: 14px;
+			transition: border-color 0.2s ease, box-shadow 0.2s ease;
+		}
+
+		input:focus,
+		select:focus {
+			outline: none;
+			border-color: #2563eb;
+			box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+		}
+
+		.form-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+			gap: 16px;
+		}
+
+		.actions-row {
+			margin-top: 20px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+		}
+
+		.actions-row-right {
+			margin-top: 20px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+			justify-content: flex-end;
+		}
+
+		button {
+			border: none;
+			border-radius: 8px;
+			padding: 10px 18px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
+
+		.btn-secondary {
+			background: #e5e7eb;
+			color: #111827;
+		}
+
+		.btn-secondary:hover {
+			background: #d1d5db;
+		}
+
+		.btn-primary {
+			background: #2563eb;
+			color: #fff;
+		}
+
+		.btn-primary:hover {
+			background: #1d4ed8;
+		}
+
+		.btn-success {
+			background: #16a34a;
+			color: #fff;
+			margin-left: auto;
+		}
+
+		.btn-success:hover {
+			background: #15803d;
+		}
+
+		.btn-danger {
+			background: #dc2626;
+			color: #fff;
+		}
+
+		.btn-danger:hover {
+			background: #b91c1c;
+		}
+
+		.btn-info {
+			background: #0891b2;
+			color: #fff;
+		}
+
+		.btn-info:hover {
+			background: #0e7490;
+		}
+
+		.table-wrapper {
+			overflow-x: auto;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 14px;
+		}
+
+		th,
+		td {
+			padding: 10px 12px;
+			border-bottom: 1px solid #e5e7eb;
+			text-align: left;
+		}
+
+		th {
+			background: #f8fafc;
+			font-weight: 600;
+			text-transform: uppercase;
+			font-size: 12px;
+			letter-spacing: 0.04em;
+			color: #475569;
+		}
+
+		tbody tr:last-child td {
+			border-bottom: none;
+		}
+
+		.table-actions button {
+			background: #ef4444;
+			color: #fff;
+			padding: 5px 10px;
+			font-size: 12px;
+		}
+
+		.alert {
+			padding: 12px 16px;
+			border-radius: 8px;
+			margin-bottom: 16px;
+			font-weight: 500;
+		}
+
+		.alert-info {
+			background: #e0f2fe;
+			color: #0369a1;
+		}
+
+		.alert-success {
+			background: #ecfdf5;
+			color: #047857;
+		}
+
+		.alert-warning {
+			background: #fffbeb;
+			color: #92400e;
+		}
+
+		.alert-danger {
+			background: #fef2f2;
+			color: #b91c1c;
+		}
+
+		.small-text {
+			font-size: 12px;
+			color: #6b7280;
+		}
+
+		input[readonly] {
+			background-color: #f8fafc;
+			color: #475569;
+		}
+
+		.score-input {
+			width: 120px;
+			padding: 8px 10px;
+			border: 1px solid #cfd8e3;
+			border-radius: 6px;
+			font-size: 14px;
+		}
+
+		.score-input:focus {
+			outline: none;
+			border-color: #2563eb;
+			box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+		}
+
+		.debug-panel {
+			background: #0f172a;
+			color: #facc15;
+			border-radius: 8px;
+			padding: 12px;
+			font-size: 12px;
+			max-height: 240px;
+			overflow-y: auto;
+		}
+	</style>
+</head>
+<body>
+	<div class="page-shell">
+		<header class="card">
+			<h2>{{ _("Student Term Subject Results") }}</h2>
+			<p>{{ _("Use this workspace to log scores for each student and automatically create records in the Student Term Subject Result doctype.") }}</p>
+			<ul class="help-list">
+				<li>{{ _("Select a Student Group to load available students and auto-fill the grade.") }}</li>
+				<li>{{ _("Queue multiple scores before submitting them together.") }}</li>
+				<li>{{ _("Exam options predefine their maximum score: 15 for First/Second Test, 20 for Mid Exam, and 50 for Final Exam.") }}</li>
+			</ul>
+		</header>
+
+		<section class="card">
+			<h3>{{ _("Score Entry") }}</h3>
+			<div id="form-feedback" class="alert" style="display: none;"></div>
+
+			<form id="result-entry-form">
+				<div class="form-grid">
+					<div>
+						<label for="student-group">{{ _("Section") }}</label>
+						<select id="student-group" required>
+							<option value="">{{ _("Select Section") }}</option>
+						</select>
+						<div id="student-loading" class="small-text" style="display: none;">{{ _("Loading students...") }}</div>
+					</div>
+					<div>
+						<label for="grade-display">{{ _("Grade") }}</label>
+						<input type="text" id="grade-display" placeholder="{{ _('Auto-filled from Student Group') }}" readonly>
+					</div>
+					<div>
+						<label for="subject">{{ _("Subject") }}</label>
+						<select id="subject" required>
+							<option value="">{{ _("Select Subject") }}</option>
+						</select>
+					</div>
+					<div>
+						<label for="academic-year">{{ _("Academic Year") }}</label>
+						<input type="text" id="academic-year">
+					</div>
+				</div>
+
+				<div class="form-grid" style="margin-top: 20px;">
+					<div>
+						<label for="semester">{{ _("Semester (Academic Term)") }}</label>
+						<select id="semester" required></select>
+					</div>
+					<div>
+						<label for="exam">{{ _("Exam") }}</label>
+						<select id="exam" required>
+							<option value="">{{ _("Select Exam") }}</option>
+						</select>
+					</div>
+					<div>
+						<label for="max-score">{{ _("Maximum Score") }}</label>
+						<input type="number" id="max-score" readonly>
+					</div>
+				</div>
+
+				<p class="small-text" style="margin-top: 16px;">
+					{{ _("After selecting a student group, enter scores for each student in the list below. You can log multiple students at once.") }}
+				</p>
+
+				<div class="actions-row">
+					<button type="button" class="btn-secondary" id="clear-form-btn">{{ _("Reset Form") }}</button>
+					<button type="button" class="btn-primary" id="log-score-btn">{{ _("Log Scores") }}</button>
+					<button type="button" class="btn-success" id="submit-scores-btn" disabled>{{ _("Submit Logged Scores") }}</button>
+					<button type="button" class="btn-danger" id="remove-all-btn">{{ _("Remove All") }}</button>
+					<button type="button" class="btn-info" id="refresh-token-btn" title="{{ _('Refresh Session Token') }}">🔄 {{ _("Refresh Token") }}</button>
+				</div>
+				<div id="token-status" class="small-text" style="margin-top: 8px; color: #10b981;"></div>
+			</form>
+		</section>
+
+		<section class="card">
+			<h3>{{ _("Students in Selected Group") }}</h3>
+			<p class="small-text" id="students-helper-text">{{ _("Select a Student Group to load students.") }}</p>
+			<div class="table-wrapper" id="students-table-wrapper" style="display: none;">
+				<table>
+					<thead>
+						<tr>
+							<th>{{ _("#") }}</th>
+							<th>{{ _("Student ID") }}</th>
+							<th>{{ _("Student Name") }}</th>
+							<th>{{ _("Gender") }}</th>
+							<th>{{ _("Roll No") }}</th>
+							<th>{{ _("Score") }}</th>
+						</tr>
+					</thead>
+					<tbody id="students-table-body"></tbody>
+				</table>
+				<div class="actions-row-right" style="margin-top: 20px;">
+					<button type="button" class="btn-primary" id="log-score-btn-bottom">{{ _("Log Scores") }}</button>
+					<button type="button" class="btn-success" id="submit-scores-btn-bottom" disabled>{{ _("Submit Logged Scores") }}</button>
+					<button type="button" class="btn-info" id="generate-report-btn">{{ _("Generate Report") }}</button>
+				</div>
+				<div id="bottom-feedback" class="alert" style="display: none; margin-top: 16px;"></div>
+			</div>
+		</section>
+
+		<section class="card">
+			<h3>{{ _("Queued Scores") }}</h3>
+			<div class="table-wrapper">
+				<table>
+					<thead>
+						<tr>
+							<th>{{ _("Academic Year") }}</th>
+							<th>{{ _("Semester (Academic Term)") }}</th>
+							<th>{{ _("Section") }}</th>
+							<th>{{ _("Student") }}</th>
+							<th>{{ _("Student Name") }}</th>
+							<th>{{ _("Grade") }}</th>
+							<th>{{ _("Subject") }}</th>
+							<th>{{ _("Exam") }}</th>
+							<th>{{ _("Score") }}</th>
+							<th>{{ _("Max Score") }}</th>
+							<th>{{ _("Actions") }}</th>
+						</tr>
+					</thead>
+					<tbody id="logged-entries-body">
+						<tr id="no-entries-row">
+							<td colspan="11" style="text-align: center; color: #94a3b8;">
+								{{ _("No scores queued yet. Log scores to get started.") }}
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<div id="submission-summary" style="margin-top: 16px; display: none;"></div>
+			<div id="debug-panel" class="debug-panel" style="display:none;">
+				<h4>{{ _("Debug Info") }}</h4>
+				<pre id="debug-log" style="white-space:pre-wrap;"></pre>
+			</div>
+		</section>
+	</div>
+
+	<script>
+		const TEXT = {
+			selectSemester: "Select Semester",
+			noStudents: "No students found for the selected group.",
+			loadStudentsError: "Unable to load students. Please try again.",
+			scoreFetchError: "Unable to load existing scores.",
+			fieldRequired: "is required.",
+			maxScoreRequired: "Maximum Score is required. Select an exam to set it automatically.",
+			scoreRequired: "Score is required for logged students.",
+			scoreLimit: "Score cannot exceed Maximum Score.",
+			entryQueued: "Scores added to the queue. Remember to submit logged scores.",
+			noNewScores: "No new or updated scores to log.",
+			entryRemoved: "Entry removed.",
+			noEntriesSubmit: "No scores to submit.",
+			noStudentScores: "Enter a score for at least one student before logging.",
+			scoreSaveError: "Failed to save score entry.",
+			submitting: "Submitting scores...",
+			submittedTemplate: "Submitted {0} score(s) successfully.",
+			someFailed: "Some submissions failed:",
+			allSuccess: "All scores were submitted successfully.",
+			someFailedSummary: "Some scores failed to submit. Please review the messages below.",
+			allFailed: "Unable to submit any of the queued scores."
+		};
+
+		let csrfToken = "{{ csrf_token | default('', true) }}";
+		const wubetBoot = {{ wubet_boot | safe }};
+		const REPORT_BRAND = {
+			schoolName: "Makko Billi School",
+			logoUrl: "{{ logo | default('/favicon.png', true) }}"
+		};
+		const elements = {};
+		const examScoreMap = {};
+		const programLabelMap = {};
+		const programCoursesMap = wubetBoot.program_courses || {};
+		const state = {
+			loggedEntries: [],
+			students: [],
+			studentScores: {},
+			resultDocs: {},
+			lastQueuedScores: {},
+			submittedStudents: {},
+			currentGrade: { value: "", label: "" },
+			subjectFetchRequestId: 0
+		};
+
+		document.addEventListener("DOMContentLoaded", () => {
+			cacheElements();
+			buildProgramLabelMap();
+			populateStaticSelects();
+			registerListeners();
+			setDefaultValues();
+			populateSubjectsForProgram("");
+			renderStudentsTable();
+		});
+
+		function cacheElements() {
+			elements.form = document.getElementById("result-entry-form");
+			elements.feedback = document.getElementById("form-feedback");
+			elements.bottomFeedback = document.getElementById("bottom-feedback");
+			elements.tokenStatus = document.getElementById("token-status");
+			elements.studentGroup = document.getElementById("student-group");
+			elements.gradeDisplay = document.getElementById("grade-display");
+			elements.subject = document.getElementById("subject");
+			elements.academicYear = document.getElementById("academic-year");
+			elements.semester = document.getElementById("semester");
+			elements.exam = document.getElementById("exam");
+			elements.maxScore = document.getElementById("max-score");
+			elements.logButton = document.getElementById("log-score-btn");
+			elements.submitButton = document.getElementById("submit-scores-btn");
+			elements.clearButton = document.getElementById("clear-form-btn");
+			elements.removeAllButton = document.getElementById("remove-all-btn");
+			elements.refreshTokenButton = document.getElementById("refresh-token-btn");
+			elements.logButtonBottom = document.getElementById("log-score-btn-bottom");
+			elements.submitButtonBottom = document.getElementById("submit-scores-btn-bottom");
+			elements.generateReportButton = document.getElementById("generate-report-btn");
+			elements.entriesBody = document.getElementById("logged-entries-body");
+			elements.noEntriesRow = document.getElementById("no-entries-row");
+			elements.studentLoading = document.getElementById("student-loading");
+			elements.summary = document.getElementById("submission-summary");
+			elements.studentsHelperText = document.getElementById("students-helper-text");
+			elements.studentsTableWrapper = document.getElementById("students-table-wrapper");
+			elements.studentsTableBody = document.getElementById("students-table-body");
+		}
+
+		function buildProgramLabelMap() {
+			(wubetBoot.grades || []).forEach(grade => {
+				const label = grade.program_name || grade.name;
+				programLabelMap[grade.name] = label;
+			});
+		}
+
+		function populateStaticSelects() {
+			addOption(elements.semester, "", TEXT.selectSemester);
+			(wubetBoot.semesters || []).forEach(option => {
+				addOption(elements.semester, option.value, option.label);
+			});
+
+			(wubetBoot.exam_options || []).forEach(option => {
+				examScoreMap[option.value] = option.max_score;
+				addOption(elements.exam, option.value, option.label);
+			});
+
+			// Subjects are populated dynamically based on selected Program.
+			// We still hydrate an initial list via populateSubjectsForProgram("").
+
+			(wubetBoot.student_groups || []).forEach(group => {
+				const label = group.student_group_name || group.name;
+				const option = addOption(elements.studentGroup, group.name, label);
+				option.dataset.program = group.program || "";
+				option.dataset.subjectProgram = group.subject_program || "";
+			});
+		}
+
+		function registerListeners() {
+			elements.form.addEventListener("submit", evt => evt.preventDefault());
+			elements.studentGroup.addEventListener("change", handleStudentGroupChange);
+			elements.subject.addEventListener("change", handleContextChange);
+			elements.semester.addEventListener("change", handleContextChange);
+			elements.academicYear.addEventListener("change", handleContextChange);
+			elements.exam.addEventListener("change", handleExamChange);
+			elements.logButton.addEventListener("click", logScores);
+			elements.submitButton.addEventListener("click", submitLoggedScores);
+			elements.clearButton.addEventListener("click", resetForm);
+			elements.removeAllButton.addEventListener("click", removeAllScores);
+			elements.refreshTokenButton.addEventListener("click", manualRefreshToken);
+			elements.logButtonBottom.addEventListener("click", logScores);
+			elements.submitButtonBottom.addEventListener("click", submitLoggedScores);
+			elements.generateReportButton.addEventListener("click", generateReport);
+		}
+
+		function getCookie(name) {
+			const value = `; ${document.cookie}`;
+			const parts = value.split(`; ${name}=`);
+			if (parts.length === 2) return parts.pop().split(";").shift();
+			return "";
+		}
+
+		async function fetchFreshCsrfToken() {
+			/**
+			 * Fetch a fresh CSRF token from the server using our dedicated endpoint
+			 * This is the most reliable way to get a valid token
+			 */
+			try {
+				logDebug("Fetching fresh CSRF token from server");
+				
+				// Method 1: Use our custom endpoint to get fresh token (most reliable)
+				const response = await fetch('/api/method/education.education.api.get_csrf_token', {
+					method: 'POST',
+					credentials: 'include',
+					headers: {
+						'Accept': 'application/json',
+						'Content-Type': 'application/json',
+						'X-Requested-With': 'XMLHttpRequest'
+					}
+				});
+
+				if (response.ok) {
+					const data = await response.json();
+					const tokenData = data.message || data;
+					
+					if (tokenData && tokenData.csrf_token) {
+						csrfToken = tokenData.csrf_token;
+						logDebug("Fresh CSRF token obtained from API", { token: csrfToken.substring(0, 10) + "...", sid: tokenData.sid });
+						return csrfToken;
+					}
+				}
+				
+				// Method 2: Check cookies after the request
+				const cookieNames = ['csrf_token', 'frappe-csrf-token', 'frappe_csrf_token'];
+				for (const name of cookieNames) {
+					const cookieToken = getCookie(name);
+					if (cookieToken) {
+						csrfToken = cookieToken;
+						logDebug("Got CSRF token from cookies", { token: csrfToken.substring(0, 10) + "..." });
+						return csrfToken;
+					}
+				}
+				
+				// Method 3: Try frappe session check
+				const sessionResponse = await fetch('/api/method/frappe.auth.get_logged_user', {
+					method: 'GET',
+					credentials: 'include',
+					headers: {
+						'Accept': 'application/json',
+						'X-Requested-With': 'XMLHttpRequest'
+					}
+				});
+
+				if (sessionResponse.ok) {
+					// Check cookies again after session check
+					for (const name of cookieNames) {
+						const cookieToken = getCookie(name);
+						if (cookieToken) {
+							csrfToken = cookieToken;
+							logDebug("Got CSRF token after session check", { token: csrfToken.substring(0, 10) + "..." });
+							return csrfToken;
+						}
+					}
+				}
+				
+			} catch (error) {
+				console.error("Failed to fetch fresh CSRF token:", error);
+				logDebug("Token fetch error", { error: error.message });
+			}
+			
+			// Last resort: return existing token
+			logDebug("Using existing token as fallback", { token: csrfToken ? csrfToken.substring(0, 10) + "..." : "none" });
+			return csrfToken;
+		}
+
+		function refreshCsrfToken() {
+			// Try multiple cookie names
+			const cookieNames = ['csrf_token', 'frappe-csrf-token', 'frappe_csrf_token'];
+			for (const name of cookieNames) {
+				const cookieToken = getCookie(name);
+				if (cookieToken) {
+					csrfToken = cookieToken;
+					return csrfToken;
+				}
+			}
+			
+			// Try meta tag
+			const metaTag = document.querySelector('meta[name="csrf-token"]');
+			if (metaTag && metaTag.content) {
+				csrfToken = metaTag.content;
+			}
+			
+			return csrfToken;
+		}
+
+		async function manualRefreshToken() {
+			try {
+				elements.refreshTokenButton.disabled = true;
+				elements.refreshTokenButton.textContent = "🔄 Refreshing...";
+				showFeedback("Refreshing session token...", "info", true);
+				
+				const oldToken = csrfToken ? csrfToken.substring(0, 10) + "..." : "none";
+				await fetchFreshCsrfToken();
+				const newToken = csrfToken ? csrfToken.substring(0, 10) + "..." : "none";
+				
+				logDebug("Manual token refresh", { oldToken, newToken });
+				showFeedback("Session token refreshed successfully!", "success", true);
+			} catch (error) {
+				console.error("Manual token refresh failed:", error);
+				showFeedback("Failed to refresh token. Please reload the page.", "danger", true);
+			} finally {
+				elements.refreshTokenButton.disabled = false;
+				elements.refreshTokenButton.textContent = "🔄 Refresh Token";
+			}
+		}
+
+		function logDebug(message, payload) {
+			const panel = document.getElementById("debug-panel");
+			const pre = document.getElementById("debug-log");
+			if (!panel || !pre) return;
+			panel.style.display = "block";
+			const timestamp = new Date().toISOString();
+			const serialized = payload ? JSON.stringify(payload, null, 2) : "";
+			pre.textContent = `${timestamp} | ${message}\n${serialized}\n\n${pre.textContent}`.trim();
+		}
+
+		function getScoreContextParams() {
+			return {
+				student_group: elements.studentGroup.value,
+				academic_year: elements.academicYear.value.trim(),
+				semester: elements.semester.value,
+				subject: elements.subject.value,
+				exam: elements.exam.value
+			};
+		}
+
+		function hasScoreContext() {
+			const ctx = getScoreContextParams();
+			return ctx.student_group && ctx.academic_year && ctx.semester && ctx.subject && ctx.exam;
+		}
+
+		function clearScoreState() {
+			state.studentScores = {};
+			state.resultDocs = {};
+			state.lastQueuedScores = {};
+			state.submittedStudents = {};
+			state.loggedEntries = [];
+			renderEntries();
+			if (elements.summary) {
+				elements.summary.style.display = "none";
+				elements.summary.innerHTML = "";
+			}
+			if (elements.studentsTableBody) {
+				elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+					input.value = "";
+				});
+			}
+		}
+
+		function applyScoresToInputs() {
+			if (!elements.studentsTableBody) return;
+			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+				const studentId = input.dataset.student;
+				const stored = state.studentScores[studentId];
+				if (stored && typeof stored.score === "number" && !Number.isNaN(stored.score)) {
+					input.value = stored.score;
+				} else {
+					input.value = "";
+				}
+
+				// Grey-out inputs whose result has already been submitted
+				if (state.submittedStudents[studentId]) {
+					input.readOnly = true;
+					input.style.backgroundColor = "#f3f4f6";
+					input.style.color = "#9ca3af";
+					input.style.cursor = "not-allowed";
+					input.title = "Score already submitted — cannot be changed";
+				} else {
+					input.readOnly = false;
+					input.style.backgroundColor = "";
+					input.style.color = "";
+					input.style.cursor = "";
+					input.title = "";
+				}
+			});
+		}
+
+		async function fetchExistingScores() {
+			if (!hasScoreContext()) return;
+			const params = getScoreContextParams();
+			// Fetch both draft (0) and submitted (1) records — exclude only cancelled (2)
+			const filters = [
+				["Student Term Subject Result", "student_group", "=", params.student_group],
+				["Student Term Subject Result", "academic_year", "=", params.academic_year],
+				["Student Term Subject Result", "semester", "=", params.semester],
+				["Student Term Subject Result", "subject", "=", params.subject],
+				["Student Term Subject Result", "exam", "=", params.exam],
+				["Student Term Subject Result", "docstatus", "!=", 2]
+			];
+			try {
+				const records = await apiCall(
+					"/api/resource/Student Term Subject Result",
+					{
+						filters: JSON.stringify(filters),
+						fields: JSON.stringify(["name", "student", "student_name", "score", "max_score", "docstatus"]),
+						limit_page_length: 999999
+					},
+					{ method: "GET" }
+				);
+				logDebug("Fetched existing records (draft + submitted)", { params, count: (records || []).length, records });
+				
+				// Clear state
+				state.studentScores = {};
+				state.resultDocs = {};
+				state.lastQueuedScores = {};
+				state.submittedStudents = {};
+				
+				// Process each record
+				(records || []).forEach(record => {
+					const rawScore = record.score;
+					const scoreValue = rawScore === null || rawScore === undefined ? null : parseFloat(rawScore);
+					const studentId = record.student;
+					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
+					const isSubmitted = parseInt(record.docstatus || 0) === 1;
+					
+					state.studentScores[studentId] = {
+						student: studentId,
+						student_name: record.student_name || "",
+						score: Number.isNaN(scoreValue) ? null : scoreValue,
+						docname: record.name,
+						submitted: isSubmitted
+					};
+					state.resultDocs[key] = record.name;
+
+					if (isSubmitted) {
+						// Track submitted students so we can grey-out their inputs
+						state.submittedStudents[studentId] = record.name;
+					} else if (!Number.isNaN(scoreValue) && scoreValue !== null) {
+						state.lastQueuedScores[key] = scoreValue;
+					}
+				});
+				
+				// Apply scores to inputs with a small delay to ensure DOM is ready
+				setTimeout(() => {
+					applyScoresToInputs();
+				}, 100);
+			} catch (error) {
+				console.error("Failed to fetch existing scores", error);
+				logDebug("Fetch error details", { error: error.message || error, params });
+				showFeedback(TEXT.scoreFetchError, "danger");
+			}
+		}
+
+		function setDefaultValues() {
+			if (wubetBoot.default_academic_year) {
+				elements.academicYear.value = wubetBoot.default_academic_year;
+			}
+			if (wubetBoot.semesters && wubetBoot.semesters.length) {
+				elements.semester.value = wubetBoot.semesters[0].value;
+			}
+			if (wubetBoot.exam_options && wubetBoot.exam_options.length) {
+				const firstExam = wubetBoot.exam_options[0].value;
+				elements.exam.value = firstExam;
+				elements.maxScore.value = examScoreMap[firstExam] || "";
+			}
+		}
+
+		function addOption(select, value, label) {
+			const option = document.createElement("option");
+			option.value = value;
+			option.textContent = label;
+			select.appendChild(option);
+			return option;
+		}
+
+		function handleStudentGroupChange(event) {
+			clearScoreState();
+			const selectedOption = event.target.selectedOptions[0];
+			const gradeProgramId = selectedOption ? selectedOption.dataset.program : "";
+			const subjectProgramId = selectedOption ? (selectedOption.dataset.subjectProgram || selectedOption.dataset.program) : "";
+			const label = programLabelMap[gradeProgramId] || gradeProgramId || "";
+			state.currentGrade = {
+				value: gradeProgramId || "",
+				label: label || ""
+			};
+			elements.gradeDisplay.value = label || "";
+			
+			// Fetch subjects dynamically based on program
+			populateSubjectsForProgram(subjectProgramId);
+			
+			loadStudentsForGroup(event.target.value);
+		}
+		
+		function populateSubjectsFallbackFromBoot(programId) {
+			// Clear existing options and add default option.
+			elements.subject.innerHTML = "";
+			const defaultOption = document.createElement("option");
+			defaultOption.value = "";
+			defaultOption.textContent = "{{ _('Select Subject') }}";
+			elements.subject.appendChild(defaultOption);
+
+			const programCourses = programCoursesMap[programId] || [];
+			(wubetBoot.subjects || []).forEach(subject => {
+				if (programId && programCourses.length > 0) {
+					if (!programCourses.includes(subject.name)) return;
+				}
+				const label = subject.course_name || subject.name;
+				addOption(elements.subject, subject.name, label);
+			});
+		}
+
+		async function populateSubjectsForProgram(programId) {
+			const requestId = ++state.subjectFetchRequestId;
+
+			elements.subject.disabled = true;
+			elements.subject.innerHTML = "";
+
+			const defaultOption = document.createElement("option");
+			defaultOption.value = "";
+			defaultOption.textContent = "{{ _('Select Subject') }}";
+			elements.subject.appendChild(defaultOption);
+
+			const loadingOption = document.createElement("option");
+			loadingOption.value = "";
+			loadingOption.textContent = "{{ _('Loading...') }}";
+			loadingOption.disabled = true;
+			elements.subject.appendChild(loadingOption);
+
+			try {
+				const courses = await apiCall(
+					"/api/method/education.education.api.get_courses_for_program",
+					{ program: programId || "" },
+					{ method: "GET" }
+				);
+
+				// Ignore stale responses (fast switching between student groups).
+				if (requestId !== state.subjectFetchRequestId) return;
+
+				elements.subject.innerHTML = "";
+				elements.subject.appendChild(defaultOption);
+
+				(courses || []).forEach(course => {
+					const value = course.name || course.course || "";
+					const label = course.course_name || course.name || value;
+					if (!value) return;
+					addOption(elements.subject, value, label);
+				});
+			} catch (error) {
+				console.error("Failed to fetch courses for program", error);
+				logDebug("Subject fetch failed; using boot fallback", {
+					program: programId || "",
+					error: error.message || String(error)
+				});
+				if (requestId !== state.subjectFetchRequestId) return;
+				populateSubjectsFallbackFromBoot(programId);
+			} finally {
+				if (requestId === state.subjectFetchRequestId) {
+					elements.subject.disabled = false;
+				}
+			}
+		}
+
+		function handleContextChange() {
+			clearScoreState();
+			if (state.students.length && hasScoreContext()) {
+				fetchExistingScores();
+			}
+		}
+
+		function handleExamChange(event) {
+			const exam = event.target.value;
+			elements.maxScore.value = exam ? (examScoreMap[exam] || "") : "";
+			updateAllScoreInputsMax();
+			handleContextChange();
+		}
+
+		function resetForm() {
+			elements.form.reset();
+			elements.gradeDisplay.value = "";
+			state.currentGrade = { value: "", label: "" };
+			state.students = [];
+			clearScoreState();
+			setDefaultValues();
+			populateSubjectsForProgram("");
+			renderStudentsTable();
+			clearFeedback();
+		}
+
+		async function loadStudentsForGroup(studentGroup) {
+			state.students = [];
+			clearScoreState();
+			renderStudentsTable();
+
+			if (!studentGroup) {
+				return;
+			}
+
+			elements.studentLoading.style.display = "block";
+
+			try {
+				const students = await apiCall(
+					"/api/method/education.education.api.get_students_for_group",
+					{ student_group: studentGroup },
+					{ method: "GET" }
+				);
+				logDebug("Loaded students", { student_group: studentGroup, count: (students || []).length });
+				
+				// Sort students by roll number
+				const sortedStudents = (students || []).sort((a, b) => {
+					const rollA = parseInt(a.group_roll_number || a.roll_number || 9999);
+					const rollB = parseInt(b.group_roll_number || b.roll_number || 9999);
+					return rollA - rollB;
+				});
+				
+				state.students = sortedStudents;
+				renderStudentsTable();
+				if (!state.students.length) {
+					showFeedback(TEXT.noStudents, "warning");
+				} else {
+					clearFeedback();
+					if (hasScoreContext()) {
+						await fetchExistingScores();
+					} else {
+						applyScoresToInputs();
+					}
+				}
+			} catch (error) {
+				console.error(error);
+				showFeedback(TEXT.loadStudentsError, "danger");
+			} finally {
+				elements.studentLoading.style.display = "none";
+			}
+		}
+
+		function renderStudentsTable() {
+			if (!state.students.length) {
+				elements.studentsTableWrapper.style.display = "none";
+				elements.studentsHelperText.style.display = "block";
+				elements.studentsTableBody.innerHTML = "";
+				return;
+			}
+
+			elements.studentsHelperText.style.display = "none";
+			elements.studentsTableWrapper.style.display = "block";
+
+			const rows = state.students
+				.map((student, index) => {
+					const studentIdRaw = student.student || "";
+					const studentNameRaw = student.student_name || "";
+					const genderRaw = student.gender || "";
+					const rollNumber = student.group_roll_number || student.roll_number || "";
+					const studentId = escapeHtml(studentIdRaw);
+					const studentName = escapeHtml(studentNameRaw);
+					const gender = escapeHtml(genderRaw);
+					const rollNo = escapeHtml(String(rollNumber));
+					return `
+						<tr>
+							<td>${index + 1}</td>
+							<td>${studentId}</td>
+							<td>${studentName}</td>
+							<td>${gender}</td>
+							<td>${rollNo}</td>
+							<td>
+								<input
+									type="number"
+									class="score-input"
+									data-student="${studentIdRaw}"
+									data-student-name="${studentNameRaw}"
+									data-index="${index}"
+									min="0"
+									step="0.01"
+								/>
+							</td>
+						</tr>
+					`;
+				})
+				.join("");
+
+			elements.studentsTableBody.innerHTML = rows;
+			updateAllScoreInputsMax();
+			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+				input.addEventListener("input", handleStudentScoreInput);
+				input.addEventListener("keydown", handleScoreInputKeydown);
+			});
+			applyScoresToInputs();
+		}
+
+		function handleScoreInputKeydown(event) {
+			if (event.key === "Enter" || event.keyCode === 13) {
+				event.preventDefault();
+				event.stopPropagation();
+				
+				const currentInput = event.target;
+				const allInputs = Array.from(elements.studentsTableBody.querySelectorAll(".score-input"));
+				const currentIndex = allInputs.indexOf(currentInput);
+				
+				// Move to next row if not the last one
+				if (currentIndex >= 0 && currentIndex < allInputs.length - 1) {
+					allInputs[currentIndex + 1].focus();
+					allInputs[currentIndex + 1].select();
+				}
+				// Don't cycle back to first row when on last row
+				return false;
+			}
+		}
+
+		function handleStudentScoreInput(event) {
+			const input = event.target;
+			const studentId = input.dataset.student;
+			const studentName = input.dataset.studentName || "";
+			const value = input.value;
+
+			if (value === "") {
+				delete state.studentScores[studentId];
+				return;
+			}
+
+			let numeric = parseFloat(value);
+			if (Number.isNaN(numeric) || numeric < 0) {
+				input.value = "";
+				delete state.studentScores[studentId];
+				return;
+			}
+
+			const max = parseFloat(elements.maxScore.value || "0");
+			if (max && numeric > max) {
+				numeric = max;
+				input.value = max;
+			}
+
+			const ctx = getScoreContextParams();
+			const key = buildScoreKey(studentId, ctx.subject, ctx.exam, ctx.academic_year, ctx.semester);
+			const existingDoc = state.resultDocs[key];
+
+			state.studentScores[studentId] = {
+				student: studentId,
+				student_name: studentName,
+				score: numeric,
+				docname: existingDoc
+			};
+		}
+
+		function updateAllScoreInputsMax() {
+			const max = parseFloat(elements.maxScore.value || "0");
+			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
+				if (max) {
+					input.setAttribute("max", max);
+					if (parseFloat(input.value || "0") > max) {
+						input.value = max;
+						const studentId = input.dataset.student;
+						if (state.studentScores[studentId]) {
+							state.studentScores[studentId].score = max;
+						}
+					}
+				} else {
+					input.removeAttribute("max");
+				}
+			});
+		}
+
+		function getCommonEntryData() {
+			const data = {
+				student_group: elements.studentGroup.value,
+				student_group_label: elements.studentGroup.selectedOptions[0]?.textContent || "",
+				grade: state.currentGrade.value,
+				grade_label: state.currentGrade.label || "",
+				subject: elements.subject.value,
+				subject_label: elements.subject.selectedOptions[0]?.textContent || "",
+				academic_year: elements.academicYear.value.trim(),
+				semester: elements.semester.value,
+				semester_label: elements.semester.selectedOptions[elements.semester.selectedIndex]?.textContent || "",
+				exam: elements.exam.value,
+				exam_label: elements.exam.selectedOptions[0]?.textContent || "",
+				max_score: parseFloat(elements.maxScore.value || "0")
+			};
+
+			const required = [
+				{ value: data.student_group, label: "Section" },
+				{ value: data.grade, label: "Grade" },
+				{ value: data.subject, label: "Subject" },
+				{ value: data.academic_year, label: "Academic Year" },
+				{ value: data.semester, label: "Semester (Academic Term)" },
+				{ value: data.exam, label: "Exam" }
+			];
+
+			const errors = [];
+			required.forEach(field => {
+				if (!field.value) {
+					errors.push(`${field.label} ${TEXT.fieldRequired}`);
+				}
+			});
+
+			if (!data.max_score) {
+				errors.push(TEXT.maxScoreRequired);
+			}
+
+			if (errors.length) {
+				showFeedback(errors.join(" "), "danger");
+				return null;
+			}
+
+			data.section = data.student_group;
+			return data;
+		}
+
+		function getActiveScoreEntries() {
+			return Object.values(state.studentScores || {}).filter(item => typeof item.score === "number");
+		}
+
+		function buildScoreKey(student, subject, exam, academicYear, semester) {
+			return [student || "", subject || "", exam || "", academicYear || "", semester || ""].join("::");
+		}
+
+		function logScores() {
+			const common = getCommonEntryData();
+			if (!common) return;
+
+			const activeScores = getActiveScoreEntries();
+			if (!activeScores.length) {
+				showFeedback(TEXT.noStudentScores, "warning");
+				return;
+			}
+
+			const newEntries = [];
+
+			activeScores.forEach(item => {
+				const key = buildScoreKey(item.student, common.subject, common.exam, common.academic_year, common.semester);
+				const lastScore = state.lastQueuedScores[key];
+				if (lastScore !== undefined && lastScore === item.score) {
+					return;
+				}
+
+				const entry = {
+					...common,
+					student: item.student,
+					student_name: item.student_name,
+					score: item.score
+				};
+				const existingDoc = item.docname || state.resultDocs[key];
+				if (existingDoc) {
+					entry.name = existingDoc;
+				}
+				upsertLoggedEntry(entry, key);
+				state.lastQueuedScores[key] = item.score;
+				newEntries.push(entry);
+			});
+
+			if (!newEntries.length) {
+				showFeedback(TEXT.noNewScores, "info", true);
+				return;
+			}
+
+			renderEntries();
+			showFeedback(TEXT.entryQueued, "success", true);
+			enableSubmit();
+		}
+
+		function renderEntries() {
+			elements.entriesBody.innerHTML = "";
+			if (!state.loggedEntries.length) {
+				elements.entriesBody.appendChild(elements.noEntriesRow);
+				elements.noEntriesRow.style.display = "table-row";
+				disableSubmit();
+				elements.summary.style.display = "none";
+				elements.summary.innerHTML = "";
+				return;
+			}
+
+			elements.noEntriesRow.style.display = "none";
+			state.loggedEntries.forEach((entry, index) => {
+				const row = document.createElement("tr");
+				row.innerHTML = `
+					<td>${escapeHtml(entry.academic_year)}</td>
+					<td>${escapeHtml(entry.semester_label || entry.semester)}</td>
+					<td>${escapeHtml(entry.student_group_label || entry.student_group)}</td>
+					<td>${escapeHtml(entry.student)}</td>
+					<td>${escapeHtml(entry.student_name || "")}</td>
+					<td>${escapeHtml(entry.grade_label || entry.grade)}</td>
+					<td>${escapeHtml(entry.subject_label || entry.subject)}</td>
+					<td>${escapeHtml(entry.exam_label || entry.exam)}</td>
+					<td>${formatNumber(entry.score)}</td>
+					<td>${formatNumber(entry.max_score)}</td>
+					<td class="table-actions">
+						<button type="button" data-index="${index}">{{ _('Remove') }}</button>
+					</td>
+				`;
+				row.querySelector("button").addEventListener("click", () => removeEntry(index));
+				elements.entriesBody.appendChild(row);
+			});
+		}
+
+		function removeEntry(index) {
+			const entry = state.loggedEntries[index];
+			state.loggedEntries.splice(index, 1);
+			cleanupQueuedScore(entry);
+			renderEntries();
+			if (state.loggedEntries.length) {
+				showFeedback(TEXT.entryRemoved, "info");
+			} else {
+				clearFeedback();
+			}
+		}
+
+		function upsertLoggedEntry(entry, key) {
+			const index = state.loggedEntries.findIndex(existing => {
+				return (
+					existing.student === entry.student &&
+					buildScoreKey(existing.student, existing.subject, existing.exam, existing.academic_year, existing.semester) === key
+				);
+			});
+
+			if (index > -1) {
+				state.loggedEntries[index] = entry;
+			} else {
+				state.loggedEntries.push(entry);
+			}
+		}
+
+		function cleanupQueuedScore(entry) {
+			if (!entry) return;
+			const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+			const stillQueued = state.loggedEntries.some(e => buildScoreKey(e.student, e.subject, e.exam, e.academic_year, e.semester) === key && e.student === entry.student);
+			if (!stillQueued) {
+				delete state.lastQueuedScores[key];
+			}
+		}
+
+		function enableSubmit() {
+			elements.submitButton.disabled = state.loggedEntries.length === 0;
+			elements.submitButtonBottom.disabled = state.loggedEntries.length === 0;
+		}
+
+		function disableSubmit() {
+			elements.submitButton.disabled = true;
+			elements.submitButtonBottom.disabled = true;
+		}
+
+		function formatNumber(number) {
+			return (Number(number || 0)).toFixed(2);
+		}
+
+		async function submitLoggedScores() {
+			if (!state.loggedEntries.length) {
+				showFeedback(TEXT.noEntriesSubmit, "warning", true);
+				return;
+			}
+
+			disableButtons(true);
+			showFeedback(TEXT.submitting, "info", true);
+
+			// Proactively refresh CSRF token before submission
+			logDebug("Proactively refreshing CSRF token before submission");
+			await fetchFreshCsrfToken();
+
+			const payloadEntries = state.loggedEntries.map(entry => {
+				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+				return {
+					...entry,
+					name: entry.name || state.resultDocs[key] || null
+				};
+			});
+
+			logDebug("Submitting queued scores", payloadEntries);
+
+			let summary = { success: [], failed: [] };
+			try {
+				const response = await callCreateResult(payloadEntries);
+				summary = response || summary;
+			} catch (error) {
+				logDebug("Failed to save batch", { error: error.message || error });
+				
+				// Check if it's a CSRF error and suggest manual refresh
+				if (error.message && (error.message.includes('CSRF') || error.message.includes('Invalid Request'))) {
+					showFeedback("Session expired. Please click 'Refresh Token' button and try again.", "danger", true);
+				}
+				
+				summary.failed = payloadEntries.map(entry => ({ entry, error: error.message || error }));
+			}
+
+			disableButtons(false);
+			handleSubmissionSummary(summary);
+		}
+
+		function disableButtons(isDisabled) {
+			elements.logButton.disabled = isDisabled;
+			elements.submitButton.disabled = isDisabled;
+			elements.clearButton.disabled = isDisabled;
+			elements.removeAllButton.disabled = isDisabled;
+			elements.refreshTokenButton.disabled = isDisabled;
+			elements.logButtonBottom.disabled = isDisabled;
+			elements.submitButtonBottom.disabled = isDisabled;
+			elements.generateReportButton.disabled = isDisabled;
+		}
+
+		async function callCreateResult(entries) {
+			const response = await apiCall(
+				"/api/method/education.education.api.save_student_term_subject_results",
+				{ entries: JSON.stringify(entries) },
+				{ method: "POST" }
+			);
+
+			logDebug("Method response", response);
+
+			(response.success || []).forEach(record => {
+				const entry = entries.find(e => e.student === record.student && e.exam === record.exam && e.subject === record.subject);
+				if (!entry) return;
+				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+				state.resultDocs[key] = record.name;
+				entry.name = record.name;
+				state.studentScores[entry.student] = {
+					student: entry.student,
+					student_name: entry.student_name,
+					score: entry.score,
+					docname: record.name
+				};
+			});
+
+			return response;
+		}
+
+		function handleSubmissionSummary(summary) {
+			let summaryHtml = "";
+			if (summary.success.length) {
+				const message = TEXT.submittedTemplate.replace("{0}", summary.success.length);
+				summaryHtml += `<div class="alert alert-success">${escapeHtml(message)}</div>`;
+			}
+			if (summary.failed.length) {
+				const details = summary.failed.map(item => {
+					const student = item.entry.student_name || item.entry.student;
+					return `<li><strong>${escapeHtml(student)}</strong>: ${escapeHtml(item.error)}</li>`;
+				}).join("");
+				summaryHtml += `
+					<div class="alert alert-warning">
+						<p>${escapeHtml(TEXT.someFailed)}</p>
+						<ul>${details}</ul>
+					</div>`;
+				showFeedback(TEXT.scoreSaveError, "danger");
+			}
+
+			elements.summary.innerHTML = summaryHtml;
+			elements.summary.style.display = summaryHtml ? "block" : "none";
+
+			if (summary.failed.length === 0) {
+				state.loggedEntries = [];
+				syncLastQueuedScoresFromStudents();
+				renderEntries();
+				showFeedback(TEXT.allSuccess, "success", true);
+			} else if (summary.success.length) {
+				state.loggedEntries = summary.failed.map(item => item.entry);
+				rebuildQueuedScoreMap();
+				renderEntries();
+				showFeedback(TEXT.someFailedSummary, "warning", true);
+			} else {
+				showFeedback(TEXT.allFailed, "danger", true);
+			}
+		}
+
+		async function apiCall(endpoint, payload, options) {
+			const maxRetries = 2;
+			let attempt = 0;
+			const method = (options && options.method) || "POST";
+			
+			// For critical POST operations, always fetch fresh token before first attempt
+			const isCriticalOperation = method === "POST" && (
+				endpoint.includes('save_student_term_subject_results') ||
+				endpoint.includes('delete_student_term_subject_results')
+			);
+			
+			if (isCriticalOperation && attempt === 0) {
+				logDebug("Critical operation detected, fetching fresh token preemptively", { endpoint, method });
+				await fetchFreshCsrfToken();
+			}
+			
+			while (attempt <= maxRetries) {
+				try {
+					const result = await apiCallInternal(endpoint, payload, options, attempt);
+					
+					// Update token status on success
+					if (isCriticalOperation) {
+						updateTokenStatus("✓ Request successful", "success");
+					}
+					
+					return result;
+				} catch (error) {
+					const isCsrfError = error.message && (
+						error.message.includes('CSRF') || 
+						error.message.includes('Invalid Request') ||
+						error.message.includes('403') ||
+						error.message.includes('401')
+					);
+					
+					if (isCsrfError && attempt < maxRetries) {
+						attempt++;
+						logDebug(`CSRF error detected, attempting retry ${attempt}/${maxRetries}`, { error: error.message });
+						console.warn(`CSRF token error. Refreshing token and retrying (${attempt}/${maxRetries})...`);
+						updateTokenStatus(`🔄 Refreshing token (attempt ${attempt}/${maxRetries})`, "warning");
+						
+						// Fetch fresh token from server
+						await fetchFreshCsrfToken();
+						
+						// Wait a bit before retrying
+						await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+						continue;
+					}
+					
+					// If not a CSRF error or max retries exceeded, throw the error
+					if (isCsrfError) {
+						updateTokenStatus("❌ Token refresh failed - click Refresh Token button", "error");
+					}
+					throw error;
+				}
+			}
+		}
+
+		function updateTokenStatus(message, type = "success") {
+			/**
+			 * Update the token status display
+			 */
+			if (!elements.tokenStatus) return;
+			
+			const colors = {
+				success: "#10b981",
+				warning: "#f59e0b",
+				error: "#ef4444",
+				info: "#3b82f6"
+			};
+			
+			elements.tokenStatus.textContent = message;
+			elements.tokenStatus.style.color = colors[type] || colors.info;
+			elements.tokenStatus.style.display = "block";
+			
+			// Auto-hide after 5 seconds for success messages
+			if (type === "success") {
+				setTimeout(() => {
+					elements.tokenStatus.style.display = "none";
+				}, 5000);
+			}
+		}
+
+		async function apiCallInternal(endpoint, payload, options, attemptNumber) {
+			const method = (options && options.method) || "POST";
+			let url = endpoint;
+			let body;
+
+			if (method === "GET") {
+				const params = new URLSearchParams(payload || {}).toString();
+				if (params) {
+					url += (url.includes("?") ? "&" : "?") + params;
+				}
+			} else {
+				body = JSON.stringify(payload || {});
+			}
+
+			const headers = {
+				"Accept": "application/json",
+				"X-Requested-With": "XMLHttpRequest"
+			};
+
+			if (method !== "GET") {
+				headers["Content-Type"] = "application/json";
+				
+				// Try multiple sources for CSRF token
+				let token = refreshCsrfToken();
+				
+				// Additional fallback: try to get from window/template
+				if (!token && typeof csrfToken !== 'undefined' && csrfToken) {
+					token = csrfToken;
+				}
+				
+				if (token) {
+					headers["X-Frappe-CSRF-Token"] = token;
+					logDebug("CSRF token added to request", { 
+						token: token.substring(0, 10) + "...", 
+						method, 
+						url,
+						attempt: attemptNumber 
+					});
+				} else {
+					logDebug("WARNING: Missing CSRF token", { method, url, attempt: attemptNumber });
+					console.error("CSRF token not found. Request may fail.");
+				}
+			}
+
+			const response = await fetch(url, {
+				method,
+				headers,
+				credentials: "include",
+				body
+			});
+
+			const data = await response.json().catch(() => ({}));
+
+			if (!response.ok || data.exc) {
+				const errorMessage = extractErrorMessage(data) || `${response.status} ${response.statusText}`;
+				logDebug("API error", { url, method, payload, status: response.status, response: data, attempt: attemptNumber });
+				
+				// Check if it's a CSRF error
+				if (data.exc_type === 'CSRFTokenError' || errorMessage.includes('CSRF') || errorMessage.includes('Invalid Request')) {
+					throw new Error(`CSRF Token Error: ${errorMessage}`);
+				}
+				
+				throw new Error(errorMessage);
+			}
+
+			if (Object.prototype.hasOwnProperty.call(data, "message")) {
+				return data.message;
+			}
+
+			if (Object.prototype.hasOwnProperty.call(data, "data")) {
+				return data.data;
+			}
+
+			return data;
+		}
+
+		function extractErrorMessage(errorData) {
+			if (!errorData) return "";
+			if (errorData.message) return errorData.message;
+			if (errorData.exception) return errorData.exception;
+			if (errorData.exc) return Array.isArray(errorData.exc) ? errorData.exc.join(" ") : errorData.exc;
+			return "";
+		}
+
+		function showFeedback(message, level, showBottom = false) {
+			elements.feedback.className = `alert alert-${level}`;
+			elements.feedback.textContent = message;
+			elements.feedback.style.display = "block";
+			
+			if (showBottom && elements.bottomFeedback) {
+				elements.bottomFeedback.className = `alert alert-${level}`;
+				elements.bottomFeedback.textContent = message;
+				elements.bottomFeedback.style.display = "block";
+				
+				// Auto-hide bottom feedback after 5 seconds
+				setTimeout(() => {
+					clearBottomFeedback();
+				}, 5000);
+			}
+		}
+
+		function clearFeedback() {
+			elements.feedback.style.display = "none";
+			elements.feedback.textContent = "";
+		}
+
+		function clearBottomFeedback() {
+			if (elements.bottomFeedback) {
+				elements.bottomFeedback.style.display = "none";
+				elements.bottomFeedback.textContent = "";
+			}
+		}
+
+		function rebuildQueuedScoreMap() {
+			state.lastQueuedScores = {};
+			state.loggedEntries.forEach(entry => {
+				const key = buildScoreKey(entry.student, entry.subject, entry.exam, entry.academic_year, entry.semester);
+				state.lastQueuedScores[key] = entry.score;
+			});
+		}
+
+		function syncLastQueuedScoresFromStudents() {
+			const ctx = getScoreContextParams();
+			state.lastQueuedScores = {};
+			Object.values(state.studentScores || {}).forEach(item => {
+				if (typeof item.score === "number" && !Number.isNaN(item.score)) {
+					const key = buildScoreKey(item.student, ctx.subject, ctx.exam, ctx.academic_year, ctx.semester);
+					state.lastQueuedScores[key] = item.score;
+				}
+			});
+		}
+
+		function escapeHtml(value) {
+			const div = document.createElement("div");
+			div.textContent = value || "";
+			return div.innerHTML;
+		}
+
+		async function removeAllScores() {
+			const common = getCommonEntryData();
+			if (!common) {
+				showFeedback("Please select Grade, Subject, and Exam to remove scores.", "warning", true);
+				return;
+			}
+
+			const confirmed = confirm(
+				`Are you sure you want to remove all scores for:\n\nStudent Group: ${common.student_group_label}\nGrade: ${common.grade_label}\nSubject: ${common.subject_label}\nExam: ${common.exam_label}\nAcademic Year: ${common.academic_year}\nSemester: ${common.semester_label}\n\nThis will delete all draft entries matching these criteria.`
+			);
+
+			if (!confirmed) return;
+
+			try {
+				disableButtons(true);
+				showFeedback("Removing all scores...", "info", true);
+
+				// Proactively refresh CSRF token before deletion
+				logDebug("Proactively refreshing CSRF token before deletion");
+				await fetchFreshCsrfToken();
+
+				// Use backend API method to delete all matching records
+				const result = await apiCall(
+					"/api/method/education.education.api.delete_student_term_subject_results",
+					{
+						student_group: common.student_group,
+						academic_year: common.academic_year,
+						semester: common.semester,
+						subject: common.subject,
+						exam: common.exam
+					},
+					{ method: "POST" }
+				);
+
+				logDebug("Delete result", result);
+
+				if (result.deleted_count > 0) {
+					const message = `Successfully removed ${result.deleted_count} score(s).${result.failed_count > 0 ? ` Failed: ${result.failed_count}` : ''}`;
+					showFeedback(message, result.failed_count === 0 ? "success" : "warning");
+				} else {
+					showFeedback("No draft scores found to remove for the selected criteria.", "info");
+				}
+				
+				// Clear local state
+				clearScoreState();
+				
+				// Reload scores to refresh the display
+				if (hasScoreContext()) {
+					await fetchExistingScores();
+				}
+			} catch (error) {
+				console.error("Remove all failed:", error);
+				logDebug("Remove all error", { error: error.message || error });
+				showFeedback(`Failed to remove scores: ${error.message}`, "danger");
+			} finally {
+				disableButtons(false);
+			}
+		}
+
+		async function generateReport() {
+			const common = getCommonEntryData();
+			if (!common) {
+				showFeedback("Please select all required fields to generate a report.", "warning", true);
+				return;
+			}
+
+			if (!state.students.length) {
+				showFeedback("No students loaded. Please select a student group.", "warning", true);
+				return;
+			}
+
+			try {
+				disableButtons(true);
+				showFeedback("Generating report...", "info", true);
+
+				// Fetch all exam results for the selected criteria
+				const examTypes = ["First Test", "Second Test", "Mid Exam", "Final Exam"];
+				const studentResults = {};
+
+				// Initialize structure for each student
+				state.students.forEach(student => {
+					studentResults[student.student] = {
+						student_id: student.student,
+						student_name: student.student_name,
+						gender: student.gender || "",
+						roll_number: student.group_roll_number || student.roll_number || "",
+						first_test: null,
+						second_test: null,
+						mid_exam: null,
+						final_exam: null
+					};
+				});
+
+				// Fetch scores for each exam type — include both draft (0) and submitted (1)
+				for (const examType of examTypes) {
+					const filters = [
+						["Student Term Subject Result", "student_group", "=", common.student_group],
+						["Student Term Subject Result", "academic_year", "=", common.academic_year],
+						["Student Term Subject Result", "semester", "=", common.semester],
+						["Student Term Subject Result", "subject", "=", common.subject],
+						["Student Term Subject Result", "exam", "=", examType],
+						["Student Term Subject Result", "docstatus", "!=", 2]
+					];
+
+					const records = await apiCall(
+						"/api/resource/Student Term Subject Result",
+						{
+							filters: JSON.stringify(filters),
+							fields: JSON.stringify(["student", "score"]),
+							limit_page_length: 999999
+						},
+						{ method: "GET" }
+					);
+
+					logDebug(`Fetched ${examType} results`, { count: (records || []).length, records });
+
+					// Map results
+					(records || []).forEach(record => {
+						if (studentResults[record.student]) {
+							const fieldName = examType.toLowerCase().replace(/ /g, "_");
+							studentResults[record.student][fieldName] = record.score;
+						}
+					});
+				}
+
+				// Generate HTML report
+				const safePart = (value) => String(value || "")
+					.replace(/[\\/:*?"<>|]+/g, "-")
+					.replace(/\s+/g, " ")
+					.trim();
+
+				const dynamicTitleParts = [
+					safePart(common.student_group_label || common.student_group),
+					safePart(common.subject_label || common.subject),
+					safePart(common.semester_label || common.semester)
+				].filter(Boolean);
+				const reportDocumentTitle = (dynamicTitleParts.join(" - ") || "Marklist") + " - Marklist";
+
+				const brandLogo = REPORT_BRAND.logoUrl || "/favicon.png";
+				const brandSchool = REPORT_BRAND.schoolName || "School";
+
+				let reportHtml = `
+					<style>
+						@media print {
+							.no-print { display: none !important; }
+							body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+						}
+						.report-shell {
+							font-family: Inter, Arial, sans-serif;
+							padding: 18px 22px;
+							color: #111827;
+						}
+						.report-header {
+							display: flex;
+							align-items: center;
+							justify-content: space-between;
+							gap: 16px;
+							padding: 14px 16px;
+							border: 1px solid #e5e7eb;
+							border-radius: 12px;
+							background: #f8fafc;
+						}
+						.brand {
+							display: flex;
+							align-items: center;
+							gap: 12px;
+							min-width: 260px;
+						}
+						.brand img {
+							width: 56px;
+							height: 56px;
+							object-fit: contain;
+							border-radius: 10px;
+							background: #fff;
+							border: 1px solid #e5e7eb;
+						}
+						.brand-name {
+							font-weight: 800;
+							font-size: 18px;
+							line-height: 1.1;
+						}
+						.report-title {
+							text-align: center;
+							flex: 1;
+						}
+						.report-title .title {
+							font-weight: 900;
+							letter-spacing: 0.02em;
+							font-size: 22px;
+							margin: 0;
+						}
+						.report-title .subtitle {
+							margin: 4px 0 0 0;
+							color: #475569;
+							font-size: 12px;
+						}
+						.meta-grid {
+							margin-top: 14px;
+							display: grid;
+							grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+							gap: 10px 14px;
+							padding: 12px 14px;
+							border: 1px solid #e5e7eb;
+							border-radius: 12px;
+							background: #fff;
+						}
+						.meta-item {
+							display: flex;
+							gap: 8px;
+							align-items: baseline;
+						}
+						.meta-label {
+							color: #64748b;
+							font-size: 12px;
+							font-weight: 700;
+							text-transform: uppercase;
+							letter-spacing: 0.04em;
+							min-width: 86px;
+						}
+						.meta-value {
+							font-size: 13px;
+							font-weight: 600;
+							color: #0f172a;
+							word-break: break-word;
+						}
+						table {
+							margin-top: 14px;
+							width: 100%;
+							border-collapse: collapse;
+							border: 1px solid #e5e7eb;
+							border-radius: 12px;
+							overflow: hidden;
+						}
+						thead th {
+							background: #f1f5f9;
+							color: #334155;
+							font-size: 12px;
+							text-transform: uppercase;
+							letter-spacing: 0.04em;
+							padding: 10px 10px;
+							border-bottom: 1px solid #e5e7eb;
+							text-align: left;
+						}
+						tbody td {
+							padding: 9px 10px;
+							border-bottom: 1px solid #eef2f7;
+							font-size: 13px;
+						}
+						tbody tr:nth-child(even) td { background: #fcfcfd; }
+						.center { text-align: center; }
+						.bold { font-weight: 800; }
+						.actions {
+							margin-top: 16px;
+							display: flex;
+							justify-content: center;
+						}
+						.btn {
+							padding: 10px 18px;
+							background: #2563eb;
+							color: #fff;
+							border: none;
+							border-radius: 10px;
+							font-weight: 700;
+							cursor: pointer;
+						}
+					</style>
+					<div class="report-shell">
+						<div class="report-header">
+							<div class="brand">
+								<img src="${escapeHtml(brandLogo)}" alt="School Logo" />
+								<div class="brand-name">${escapeHtml(brandSchool)}</div>
+							</div>
+							<div class="report-title">
+								<p class="title">Marklist</p>
+								<p class="subtitle">${escapeHtml((common.student_group_label || "") + " • " + (common.subject_label || "") + " • " + (common.semester_label || ""))}</p>
+							</div>
+							<div style="min-width: 260px;"></div>
+						</div>
+
+						<div class="meta-grid">
+							<div class="meta-item"><div class="meta-label">Section</div><div class="meta-value">${escapeHtml(common.student_group_label || common.student_group)}</div></div>
+							<div class="meta-item"><div class="meta-label">Grade</div><div class="meta-value">${escapeHtml(common.grade_label || common.grade)}</div></div>
+							<div class="meta-item"><div class="meta-label">Subject</div><div class="meta-value">${escapeHtml(common.subject_label || common.subject)}</div></div>
+							<div class="meta-item"><div class="meta-label">Academic Year</div><div class="meta-value">${escapeHtml(common.academic_year)}</div></div>
+							<div class="meta-item"><div class="meta-label">Semester (Academic Term)</div><div class="meta-value">${escapeHtml(common.semester_label || common.semester)}</div></div>
+						</div>
+
+						<table>
+							<thead>
+								<tr style="background-color: #f2f2f2;">
+									<th>Roll No</th>
+									<th>Student ID</th>
+									<th>Student Name</th>
+									<th>Gender</th>
+									<th class="center">First Test</th>
+									<th class="center">Second Test</th>
+									<th class="center">Mid Exam</th>
+									<th class="center">Final Exam</th>
+									<th class="center">Total</th>
+								</tr>
+							</thead>
+							<tbody>
+				`;
+
+				// Sort by roll number
+				const sortedResults = Object.values(studentResults).sort((a, b) => {
+					const rollA = parseInt(a.roll_number || 9999);
+					const rollB = parseInt(b.roll_number || 9999);
+					return rollA - rollB;
+				});
+
+				sortedResults.forEach(result => {
+					const firstTest = result.first_test !== null ? parseFloat(result.first_test) : 0;
+					const secondTest = result.second_test !== null ? parseFloat(result.second_test) : 0;
+					const midExam = result.mid_exam !== null ? parseFloat(result.mid_exam) : 0;
+					const finalExam = result.final_exam !== null ? parseFloat(result.final_exam) : 0;
+					
+					// Calculate total from available scores
+					let total = 0;
+					if (result.first_test !== null) total += firstTest;
+					if (result.second_test !== null) total += secondTest;
+					if (result.mid_exam !== null) total += midExam;
+					if (result.final_exam !== null) total += finalExam;
+
+					const formatScore = (score) => score !== null ? score.toFixed(2) : "-";
+
+					reportHtml += `
+						<tr>
+							<td>${escapeHtml(result.roll_number)}</td>
+							<td>${escapeHtml(result.student_id)}</td>
+							<td>${escapeHtml(result.student_name)}</td>
+							<td>${escapeHtml(result.gender)}</td>
+							<td class="center">${formatScore(result.first_test)}</td>
+							<td class="center">${formatScore(result.second_test)}</td>
+							<td class="center">${formatScore(result.mid_exam)}</td>
+							<td class="center">${formatScore(result.final_exam)}</td>
+							<td class="center bold">${total.toFixed(2)}</td>
+						</tr>
+					`;
+				});
+
+				reportHtml += `
+							</tbody>
+						</table>
+						<div class="actions no-print">
+							<button class="btn" onclick="window.print()">Print Marklist</button>
+						</div>
+					</div>
+				`;
+
+				// Open report in new window
+				const reportWindow = window.open("", "_blank", "width=1000,height=800");
+				reportWindow.document.write(`
+					<!DOCTYPE html>
+					<html>
+					<head>
+						<title></title>
+						<meta charset="UTF-8">
+					</head>
+					<body>
+						${reportHtml}
+					</body>
+					</html>
+				`);
+				reportWindow.document.close();
+				reportWindow.document.title = reportDocumentTitle;
+
+				showFeedback("Report generated successfully!", "success", true);
+			} catch (error) {
+				console.error("Report generation failed:", error);
+				logDebug("Report generation error", { error: error.message || error });
+				showFeedback(`Failed to generate report: ${error.message}`, "danger", true);
+			} finally {
+				disableButtons(false);
+			}
+		}
+	</script>
+</body>
+</html>

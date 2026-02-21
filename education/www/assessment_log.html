@@ -1,0 +1,193 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Assessment Logs") }}{% endblock %}
+
+{% block header %}
+<!-- Simple header without fancy navbar to avoid template errors -->
+<div class="container">
+  <div class="page-header">
+    <h2>{{ _("Assessment Logs") }}</h2>
+    <div class="btn-group" role="group">
+      <a href="/me" class="btn btn-default">{{ _("Home") }}</a>
+      <a href="/admissions" class="btn btn-default">{{ _("Admissions") }}</a>
+      <a href="/assessment-log" class="btn btn-primary">{{ _("Assessment Logs") }}</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_content %}
+<div class="assessment-log-container">
+    <h3>{{ _("My Assessment Logs") }}</h3>
+    
+    <!-- Loading indicator -->
+    <div id="assessment-log-loading" class="text-muted">
+        {{ _("Loading assessment logs...") }}
+    </div>
+    
+    <!-- Error message area -->
+    <div id="assessment-log-error" class="alert alert-danger" style="display: none;"></div>
+    
+    <!-- Assessment data will be rendered here -->
+    <div id="assessment-log-data" style="display: none;">
+        <div id="no-logs-message" class="text-muted" style="display: none;">
+            {{ _("No assessment logs found.") }}
+        </div>
+        
+        <!-- Assessment logs by term -->
+        <div id="assessment-logs-by-term">
+            <!-- Data will be populated via JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block style %}
+<style>
+    .assessment-log-container {
+        margin-top: 20px;
+    }
+    
+    .term-header {
+        margin-top: 25px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 8px;
+    }
+    
+    .assessment-plan {
+        margin-bottom: 20px;
+        background-color: #f9f9f9;
+        border-radius: 5px;
+        padding: 15px;
+    }
+    
+    .plan-header {
+        margin-bottom: 10px;
+        font-weight: bold;
+    }
+    
+    .assessment-logs-table {
+        width: 100%;
+        margin-bottom: 0;
+    }
+    
+    .assessment-logs-table th {
+        background-color: #f1f1f1;
+    }
+    
+    .grade-badge {
+        display: inline-block;
+        padding: 3px 7px;
+        border-radius: 3px;
+        background-color: #5e64ff;
+        color: white;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block script %}
+<script>
+    frappe.ready(function() {
+        loadAssessmentLogs();
+    });
+    
+    function loadAssessmentLogs() {
+        // Show loading indicator
+        $("#assessment-log-loading").show();
+        $("#assessment-log-data").hide();
+        $("#assessment-log-error").hide();
+        
+        // Call API to get assessment log entries
+        frappe.call({
+            method: "education.education.api.get_student_assessment_log_entries",
+            callback: function(response) {
+                $("#assessment-log-loading").hide();
+                
+                if (response.exc) {
+                    // Show error
+                    $("#assessment-log-error").text("Failed to load assessment logs: " + response.exc)
+                                              .show();
+                    return;
+                }
+                
+                // Process and display the data
+                displayAssessmentLogs(response.message || {});
+            }
+        });
+    }
+    
+    function displayAssessmentLogs(data) {
+        var $logsContainer = $("#assessment-logs-by-term");
+        $logsContainer.empty();
+        
+        // Check if we have any data
+        if (Object.keys(data).length === 0) {
+            $("#no-logs-message").show();
+        } else {
+            $("#no-logs-message").hide();
+            $("#assessment-log-data").show();
+            
+            // Sort terms by reverse chronological order (assuming the latest term appears first)
+            var terms = Object.keys(data).sort();
+            
+            // Process each term
+            terms.forEach(function(term) {
+                var termData = data[term];
+                var plans = Object.keys(termData);
+                
+                // Add term header
+                var $termSection = $('<div class="term-section"></div>');
+                $termSection.append('<h4 class="term-header">' + term + '</h4>');
+                
+                // Process each assessment plan in this term
+                plans.forEach(function(plan) {
+                    var planData = termData[plan];
+                    var entries = planData.entries || [];
+                    
+                    if (entries.length > 0) {
+                        // Create plan section
+                        var $planSection = $('<div class="assessment-plan"></div>');
+                        $planSection.append('<div class="plan-header">' + plan + ' - ' + (planData.course || '') + '</div>');
+                        
+                        // Create table for assessment entries
+                        var $table = $('<table class="table table-bordered assessment-logs-table"></table>');
+                        var $thead = $('<thead><tr>' + 
+                                       '<th>Assessment Criteria</th>' +
+                                       '<th class="text-right">Maximum Score</th>' + 
+                                       '<th class="text-right">Score</th>' + 
+                                       '<th class="text-center">Grade</th>' + 
+                                       '<th>Comments</th>' + 
+                                       '<th>Date</th>' + 
+                                       '</tr></thead>');
+                        var $tbody = $('<tbody></tbody>');
+                        
+                        // Add rows for each entry
+                        entries.forEach(function(entry) {
+                            var date = frappe.datetime.str_to_user(entry.entry_datetime);
+                            var grade = entry.grade ? '<span class="grade-badge">' + entry.grade + '</span>' : '';
+                            
+                            var $row = $('<tr></tr>');
+                            $row.append('<td>' + entry.assessment_criteria + '</td>');
+                            $row.append('<td class="text-right">' + (entry.maximum_score || '') + '</td>');
+                            $row.append('<td class="text-right">' + (entry.score || '0') + '</td>');
+                            $row.append('<td class="text-center">' + grade + '</td>');
+                            $row.append('<td>' + (entry.comments || '') + '</td>');
+                            $row.append('<td>' + date + '</td>');
+                            
+                            $tbody.append($row);
+                        });
+                        
+                        $table.append($thead).append($tbody);
+                        $planSection.append($table);
+                        $termSection.append($planSection);
+                    }
+                });
+                
+                $logsContainer.append($termSection);
+            });
+        }
+    }
+</script>
+{% endblock %} 

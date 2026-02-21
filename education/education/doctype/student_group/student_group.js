@@ -83,6 +83,21 @@ frappe.ui.form.on('Student Group', {
       )
 
       frm.add_custom_button(
+        __('Weekly Course Schedule Tool'),
+        function () {
+          frappe.route_options = {
+            student_group: frm.doc.name,
+          }
+          frappe.set_route(
+            'Form',
+            'Weekly Course Schedule Tool',
+            'Weekly Course Schedule Tool'
+          )
+        },
+        __('Tools')
+      )
+
+      frm.add_custom_button(
         __('Newsletter'),
         function () {
           frappe.route_options = {

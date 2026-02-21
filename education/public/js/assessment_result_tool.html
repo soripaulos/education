@@ -47,7 +47,7 @@
 				{% if(s.assessment_details && s.docstatus && s.docstatus == 1) { %} disabled {% } %}
 				{% if(s.assessment_details) { %}
 					value="{{s.assessment_details.comment}}"
-				{% } %}
+				{% } %}>
 			</td>
 			<td>
 				<span data-student="{{s.student}}" class="total-score-grade badge" style="width:30%; float:left;">

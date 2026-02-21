@@ -29,6 +29,8 @@ app_include_js = "education.bundle.js"
 # website_theme_scss = "education/public/scss/website"
 
 # website
+# Temporarily disabled to troubleshoot internal server error
+# update_website_context = ["education.education.api.update_website_context"]
 update_website_context = []
 
 website_generators = ["Student Admission"]
@@ -36,6 +38,7 @@ website_generators = ["Student Admission"]
 website_route_rules = [
 	{"from_route": "/admissions", "to_route": "Student Admission"},
 	{"from_route": "/student-portal/<path:app_path>", "to_route": "student-portal"},
+	{"from_route": "/assessment-log", "to_route": "assessment_log"},
 ]
 
 treeviews = ["Assessment Group"]
@@ -46,11 +49,23 @@ calendars = [
 
 standard_portal_menu_items = [
 	{
-		"title": "Admission",
+		"title": _("Admission"),
 		"route": "/admissions",
 		"reference_doctype": "Student Admission",
 		"role": "Student",
 	},
+	{
+		"title": _("Assessment Log"),
+		"route": "/assessment-log",
+		"reference_doctype": "Assessment Log Entry",
+		"role": "Student",
+	},
+]
+
+# Portal Items for website sidebar
+portal_menu_items = [
+	{"role": "Student", "title": _("Assessment Log"), "route": "/assessment-log", "reference_doctype": "Assessment Log Entry"},
+	{"role": "Student", "title": _("Admissions"), "route": "/admissions", "reference_doctype": "Student Admission"},
 ]
 
 default_roles = [
@@ -100,6 +115,7 @@ global_search_doctypes = {
 		{"doctype": "Fee Category", "index": 37},
 		{"doctype": "Assessment Code", "index": 38},
 		{"doctype": "Discussion", "index": 39},
+		{"doctype": "Assessment Log Entry", "index": 40},
 	]
 }
 
@@ -174,6 +190,12 @@ after_install = "education.install.after_install"
 #
 # has_permission = {
 # 	"Event": "frappe.desk.doctype.event.event.has_permission",
+# }
+
+# Guest permissions for file uploads in student applications
+# Removed custom file permission handler as guest file upload is now enabled in desk settings
+# has_permission = {
+# 	"File": "education.education.api.has_file_permission",
 # }
 
 # DocType Class

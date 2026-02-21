@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_import": 1,
- "autoname": "naming_series:",
+ "autoname": "format:SA-{#####}",
  "creation": "2015-09-11 11:50:09.740807",
  "doctype": "DocType",
  "document_type": "Document",
@@ -11,15 +11,17 @@
   "middle_name",
   "last_name",
   "column_break_8",
-  "naming_series",
+
   "application_date",
   "application_status",
   "program",
   "section_break_xuzu",
   "student_email_id",
+  "custom_school_id",
   "student_admission",
   "student_category",
   "image",
+  "birth_certificate_image",
   "column_break_lvby",
   "academic_year",
   "academic_term",
@@ -34,6 +36,8 @@
   "blood_group",
   "column_break_12",
   "student_mobile_number",
+  "national_id_fin",
+  "applicant_type",
   "nationality",
   "relations_tab",
   "section_break_20",
@@ -44,6 +48,8 @@
   "home_address",
   "address_line_1",
   "address_line_2",
+  "kebele",
+  "sub_city",
   "city",
   "column_break_23",
   "state",
@@ -90,14 +96,7 @@
    "fieldname": "column_break_8",
    "fieldtype": "Column Break"
   },
-  {
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "label": "Naming Series",
-   "no_copy": 1,
-   "options": "EDU-APP-.YYYY.-",
-   "set_only_once": 1
-  },
+
   {
    "allow_on_submit": 1,
    "fieldname": "application_status",
@@ -136,8 +135,13 @@
   {
    "fieldname": "image",
    "fieldtype": "Attach Image",
-   "hidden": 1,
    "label": "Image"
+  },
+  {
+   "fieldname": "birth_certificate_image",
+   "fieldtype": "Attach Image",
+   "label": "Birth Certificate Image",
+   "description": "Required for Nursery and Nursery AO students"
   },
   {
    "fieldname": "section_break_4",
@@ -172,9 +176,30 @@
    "unique": 1
   },
   {
+   "fieldname": "custom_school_id",
+   "fieldtype": "Data",
+   "label": "School ID",
+   "unique": 1
+  },
+  {
    "fieldname": "student_mobile_number",
    "fieldtype": "Data",
    "label": "Student Mobile Number"
+  },
+  {
+   "fieldname": "national_id_fin",
+   "fieldtype": "Data",
+   "label": "National ID FIN",
+   "length": 12,
+   "description": "12-digit numeric identifier for official records (optional but preferred)"
+  },
+  {
+   "fieldname": "applicant_type",
+   "fieldtype": "Select",
+   "label": "Applicant Type",
+   "options": "New\nExisting",
+   "default": "New",
+   "description": "Whether this is a new applicant or an existing student"
   },
   {
    "fieldname": "nationality",
@@ -194,6 +219,16 @@
    "fieldname": "address_line_2",
    "fieldtype": "Data",
    "label": "Address Line 2"
+  },
+  {
+   "fieldname": "kebele",
+   "fieldtype": "Data",
+   "label": "Kebele"
+  },
+  {
+   "fieldname": "sub_city",
+   "fieldtype": "Data",
+   "label": "Sub City"
   },
   {
    "fieldname": "pincode",
@@ -312,6 +347,19 @@
    "report": 1,
    "role": "Academics User",
    "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "import": 0,
+   "print": 0,
+   "read": 1,
+   "report": 0,
+   "role": "Guest",
+   "share": 0,
    "write": 1
   }
  ],
