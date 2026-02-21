@@ -420,6 +420,7 @@
 			studentScores: {},
 			resultDocs: {},
 			lastQueuedScores: {},
+			submittedStudents: {},
 			currentGrade: { value: "", label: "" },
 			subjectFetchRequestId: 0
 		};
@@ -659,6 +660,7 @@
 			state.studentScores = {};
 			state.resultDocs = {};
 			state.lastQueuedScores = {};
+			state.submittedStudents = {};
 			state.loggedEntries = [];
 			renderEntries();
 			if (elements.summary) {
@@ -675,11 +677,27 @@
 		function applyScoresToInputs() {
 			if (!elements.studentsTableBody) return;
 			elements.studentsTableBody.querySelectorAll(".score-input").forEach(input => {
-				const stored = state.studentScores[input.dataset.student];
+				const studentId = input.dataset.student;
+				const stored = state.studentScores[studentId];
 				if (stored && typeof stored.score === "number" && !Number.isNaN(stored.score)) {
 					input.value = stored.score;
 				} else {
 					input.value = "";
+				}
+
+				// Grey-out inputs whose result has already been submitted
+				if (state.submittedStudents[studentId]) {
+					input.readOnly = true;
+					input.style.backgroundColor = "#f3f4f6";
+					input.style.color = "#9ca3af";
+					input.style.cursor = "not-allowed";
+					input.title = "Score already submitted — cannot be changed";
+				} else {
+					input.readOnly = false;
+					input.style.backgroundColor = "";
+					input.style.color = "";
+					input.style.cursor = "";
+					input.title = "";
 				}
 			});
 		}
@@ -687,30 +705,32 @@
 		async function fetchExistingScores() {
 			if (!hasScoreContext()) return;
 			const params = getScoreContextParams();
+			// Fetch both draft (0) and submitted (1) records — exclude only cancelled (2)
 			const filters = [
 				["Student Term Subject Result", "student_group", "=", params.student_group],
 				["Student Term Subject Result", "academic_year", "=", params.academic_year],
 				["Student Term Subject Result", "semester", "=", params.semester],
 				["Student Term Subject Result", "subject", "=", params.subject],
 				["Student Term Subject Result", "exam", "=", params.exam],
-				["Student Term Subject Result", "docstatus", "=", 0]
+				["Student Term Subject Result", "docstatus", "!=", 2]
 			];
 			try {
 				const records = await apiCall(
 					"/api/resource/Student Term Subject Result",
 					{
 						filters: JSON.stringify(filters),
-						fields: JSON.stringify(["name", "student", "student_name", "score", "max_score"]),
+						fields: JSON.stringify(["name", "student", "student_name", "score", "max_score", "docstatus"]),
 						limit_page_length: 999999
 					},
 					{ method: "GET" }
 				);
-				logDebug("Fetched existing drafts", { params, count: (records || []).length, records });
+				logDebug("Fetched existing records (draft + submitted)", { params, count: (records || []).length, records });
 				
 				// Clear state
 				state.studentScores = {};
 				state.resultDocs = {};
 				state.lastQueuedScores = {};
+				state.submittedStudents = {};
 				
 				// Process each record
 				(records || []).forEach(record => {
@@ -718,15 +738,21 @@
 					const scoreValue = rawScore === null || rawScore === undefined ? null : parseFloat(rawScore);
 					const studentId = record.student;
 					const key = buildScoreKey(studentId, params.subject, params.exam, params.academic_year, params.semester);
+					const isSubmitted = parseInt(record.docstatus || 0) === 1;
 					
 					state.studentScores[studentId] = {
 						student: studentId,
 						student_name: record.student_name || "",
 						score: Number.isNaN(scoreValue) ? null : scoreValue,
-						docname: record.name
+						docname: record.name,
+						submitted: isSubmitted
 					};
 					state.resultDocs[key] = record.name;
-					if (!Number.isNaN(scoreValue) && scoreValue !== null) {
+
+					if (isSubmitted) {
+						// Track submitted students so we can grey-out their inputs
+						state.submittedStudents[studentId] = record.name;
+					} else if (!Number.isNaN(scoreValue) && scoreValue !== null) {
 						state.lastQueuedScores[key] = scoreValue;
 					}
 				});
@@ -1659,7 +1685,7 @@
 					};
 				});
 
-				// Fetch scores for each exam type
+				// Fetch scores for each exam type — include both draft (0) and submitted (1)
 				for (const examType of examTypes) {
 					const filters = [
 						["Student Term Subject Result", "student_group", "=", common.student_group],
@@ -1667,7 +1693,7 @@
 						["Student Term Subject Result", "semester", "=", common.semester],
 						["Student Term Subject Result", "subject", "=", common.subject],
 						["Student Term Subject Result", "exam", "=", examType],
-						["Student Term Subject Result", "docstatus", "=", 0]
+						["Student Term Subject Result", "docstatus", "!=", 2]
 					];
 
 					const records = await apiCall(

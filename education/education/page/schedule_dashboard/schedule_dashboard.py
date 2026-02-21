@@ -96,14 +96,26 @@ def get_instructor_daily_schedule(instructor, date=None):
 
 
 @frappe.whitelist()
-def get_student_group_timetable(student_group, date=None):
-	"""Return period-by-period timetable for a student group on a given date."""
-	if not date:
-		date = nowdate()
+def get_student_group_timetable(student_group, start_date=None, end_date=None, date=None):
+	"""Return period-by-period timetable for a student group over a date range.
+
+	Accepts either a single ``date`` (backward-compat) or a ``start_date``/
+	``end_date`` range.  Dates that have no Course Schedule records are omitted
+	from the results so the UI never renders an empty table.
+	"""
+	from datetime import timedelta
+
+	# Backward-compat: single date via old parameter name
+	if date and not start_date:
+		start_date = date
+	if not start_date:
+		start_date = nowdate()
+	if not end_date:
+		end_date = start_date
 
 	program = frappe.db.get_value("Student Group", student_group, "program")
 	if not program:
-		return {"periods": [], "program": None, "date": date}
+		return {"results": [], "program": None}
 
 	periods = frappe.get_all(
 		"Period Time Block",
@@ -112,54 +124,83 @@ def get_student_group_timetable(student_group, date=None):
 		order_by="period_number asc",
 	)
 
-	schedules = frappe.db.sql(
-		"""
-		SELECT
-			cs.name, cs.course, cs.instructor, cs.instructor_name,
-			cs.from_time, cs.to_time, cs.room, cs.class_schedule_color
-		FROM `tabCourse Schedule` cs
-		WHERE cs.student_group = %s
-			AND cs.schedule_date = %s
-		ORDER BY cs.from_time
-		""",
-		(student_group, date),
-		as_dict=True,
-	)
+	if not periods:
+		return {"results": [], "program": program}
 
-	is_today = getdate(date) == getdate(nowdate())
-
-	period_data = []
+	# Pre-format period times once so inner-loop comparisons are cheap
 	for p in periods:
-		p_from = _fmt_time(p["from_time"])
-		p_to = _fmt_time(p["to_time"])
+		p["from_time_fmt"] = _fmt_time(p["from_time"])
+		p["to_time_fmt"] = _fmt_time(p["to_time"])
 
-		matched = None
-		for s in schedules:
-			if _fmt_time(s["from_time"]) == p_from and _fmt_time(s["to_time"]) == p_to:
-				matched = s
-				break
+	start_dt = getdate(start_date)
+	end_dt = getdate(end_date)
+	today = getdate(nowdate())
 
-		period_data.append(
-			{
-				"period_number": p["period_number"],
-				"period_label": p["period_label"],
-				"from_time": p_from,
-				"to_time": p_to,
-				"course": matched["course"] if matched else None,
-				"instructor": matched["instructor"] if matched else None,
-				"instructor_name": matched["instructor_name"] if matched else None,
-				"room": matched["room"] if matched else None,
-				"schedule_name": matched["name"] if matched else None,
-				"color": matched["class_schedule_color"] if matched else None,
-				"is_ongoing": is_today and _is_ongoing(p["from_time"], p["to_time"]),
-			}
+	_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+	results = []
+	current = start_dt
+
+	while current <= end_dt:
+		current_str = str(current)
+
+		schedules = frappe.db.sql(
+			"""
+			SELECT
+				cs.name, cs.course, cs.instructor, cs.instructor_name,
+				cs.from_time, cs.to_time, cs.room, cs.class_schedule_color
+			FROM `tabCourse Schedule` cs
+			WHERE cs.student_group = %s
+			  AND cs.schedule_date = %s
+			ORDER BY cs.from_time
+			""",
+			(student_group, current_str),
+			as_dict=True,
 		)
 
-	return {
-		"periods": period_data,
-		"program": program,
-		"date": date,
-	}
+		# Skip dates that have no scheduled classes
+		if schedules:
+			is_today = current == today
+
+			# Build a lookup keyed by the schedule's from_time (HH:MM:SS).
+			# Matching by from_time alone is more robust than requiring an exact
+			# from_time AND to_time match, in case time values differ slightly.
+			sched_by_from = {}
+			for s in schedules:
+				ft = _fmt_time(s["from_time"])
+				if ft not in sched_by_from:
+					sched_by_from[ft] = s
+
+			period_data = []
+			for p in periods:
+				matched = sched_by_from.get(p["from_time_fmt"])
+				period_data.append(
+					{
+						"period_number": p["period_number"],
+						"period_label": p["period_label"],
+						"from_time": p["from_time_fmt"],
+						"to_time": p["to_time_fmt"],
+						"course": matched["course"] if matched else None,
+						"instructor": matched["instructor"] if matched else None,
+						"instructor_name": matched["instructor_name"] if matched else None,
+						"room": matched["room"] if matched else None,
+						"schedule_name": matched["name"] if matched else None,
+						"color": matched["class_schedule_color"] if matched else None,
+						"is_ongoing": is_today and _is_ongoing(p["from_time"], p["to_time"]),
+					}
+				)
+
+			results.append(
+				{
+					"date": current_str,
+					"day_of_week": _DAY_NAMES[current.weekday()],
+					"periods": period_data,
+				}
+			)
+
+		current = current + timedelta(days=1)
+
+	return {"results": results, "program": program}
 
 
 @frappe.whitelist()
