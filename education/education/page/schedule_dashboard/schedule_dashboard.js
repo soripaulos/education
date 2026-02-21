@@ -56,9 +56,6 @@ class ScheduleDashboard {
   // ── setup ──────────────────────────────────────────────────────────────
 
   _setup_fields() {
-    // All fields are added without hidden:1 so they exist in the DOM.
-    // Visibility is controlled manually via _toggle_fields().
-
     this.f_view = this.page.add_field({
       label: __('View'),
       fieldtype: 'Select',
@@ -100,13 +97,13 @@ class ScheduleDashboard {
       change: () => this.load(),
     })
 
+    // Single date — used only for Instructor Daily Schedule
     this.f_date = this.page.add_field({
       label: __('Date'),
       fieldtype: 'Date',
       fieldname: 'date',
       default: frappe.datetime.get_today(),
       change: () => {
-        // Clear instructor so user re-picks from the updated filtered list
         if (this._view() === 'instructor_daily') {
           this.f_instructor.set_value('')
           this._show_prompt()
@@ -115,11 +112,27 @@ class ScheduleDashboard {
         }
       },
     })
+
+    // Date range — used only for Student Group Timetable
+    this.f_from_date = this.page.add_field({
+      label: __('From Date'),
+      fieldtype: 'Date',
+      fieldname: 'from_date',
+      default: frappe.datetime.get_today(),
+      change: () => this.load(),
+    })
+
+    this.f_to_date = this.page.add_field({
+      label: __('To Date'),
+      fieldtype: 'Date',
+      fieldname: 'to_date',
+      default: frappe.datetime.get_today(),
+      change: () => this.load(),
+    })
   }
 
   _setup_body() {
     this.$body = $('<div class="sd-results" style="padding:20px 15px;min-height:200px;"></div>')
-    // Use wrapper directly — guaranteed to contain .layout-main-section
     $(this.wrapper).find('.layout-main-section').append(this.$body)
   }
 
@@ -131,15 +144,19 @@ class ScheduleDashboard {
 
   _toggle_fields() {
     const v = this._view()
-    this.f_student_group.$wrapper.toggle(v !== 'instructor_daily')
-    this.f_instructor.$wrapper.toggle(v === 'instructor_daily')
-    this.f_date.$wrapper.toggle(v !== 'student_group_now')
+    const isTimetable = v === 'student_group_timetable'
+    const isInstructor = v === 'instructor_daily'
+
+    this.f_student_group.$wrapper.toggle(!isInstructor)
+    this.f_instructor.$wrapper.toggle(isInstructor)
+    this.f_date.$wrapper.toggle(isInstructor)
+    this.f_from_date.$wrapper.toggle(isTimetable)
+    this.f_to_date.$wrapper.toggle(isTimetable)
   }
 
   // ── public ─────────────────────────────────────────────────────────────
 
   on_show() {
-    // Refresh data when navigating back to this page
     this.load()
   }
 
@@ -164,7 +181,7 @@ class ScheduleDashboard {
       )
     } else {
       this.$body.html(
-        `<p class="text-muted" style="margin-top:20px;">${__('Select a Student Group to see the timetable.')}</p>`
+        `<p class="text-muted" style="margin-top:20px;">${__('Select a Student Group and date range to see the timetable.')}</p>`
       )
     }
   }
@@ -253,7 +270,7 @@ class ScheduleDashboard {
 
         if (!data.length) {
           this._empty(
-            `${__('No classes scheduled for')} <strong>${frappe.utils.escape_html(data[0] ? data[0].instructor_name : instructor)}</strong> ${__('on')} ${display_date}`
+            `${__('No classes scheduled for')} <strong>${frappe.utils.escape_html(instructor)}</strong> ${__('on')} ${display_date}`
           )
           return
         }
@@ -301,7 +318,8 @@ class ScheduleDashboard {
 
   _load_sg_timetable() {
     const sg = this.f_student_group.get_value()
-    const date = this.f_date.get_value() || frappe.datetime.get_today()
+    const start_date = this.f_from_date.get_value() || frappe.datetime.get_today()
+    const end_date = this.f_to_date.get_value() || start_date
 
     if (!sg) {
       this._show_prompt()
@@ -313,63 +331,79 @@ class ScheduleDashboard {
     frappe.call({
       method:
         'education.education.page.schedule_dashboard.schedule_dashboard.get_student_group_timetable',
-      args: { student_group: sg, date },
+      args: { student_group: sg, start_date, end_date },
       callback: (r) => {
         const result = r.message || {}
-        const periods = result.periods || []
-        const display_date = frappe.datetime.str_to_user(date)
+        const all_results = result.results || []
 
-        if (!periods.length) {
+        if (!all_results.length) {
           const prog = frappe.utils.escape_html(result.program || '')
-          this._empty(
-            `${__('No Period Time Blocks found for program')} <strong>${prog}</strong>. ${__('Create Period Time Block records for this program first.')}`
-          )
+          if (!result.program) {
+            this._empty(
+              `${__('No Period Time Blocks found for')} <strong>${frappe.utils.escape_html(sg)}</strong>. ${__('Please create Period Time Block records for this program first.')}`
+            )
+          } else {
+            this._empty(
+              `${__('No schedules found for')} <strong>${frappe.utils.escape_html(sg)}</strong> ${__('in the selected date range.')}`
+            )
+          }
           return
         }
 
-        let html = `
-          <h5 style="margin-bottom:14px;">${__('Timetable for')} <strong>${frappe.utils.escape_html(sg)}</strong> — ${display_date}</h5>
-          <table class="table table-bordered" style="font-size:13px;">
-            <thead class="grid-heading-row">
-              <tr>
-                <th style="width:130px;">${__('Period')}</th>
-                <th style="width:155px;">${__('Time')}</th>
-                <th>${__('Subject')}</th>
-                <th>${__('Instructor')}</th>
-                <th>${__('Room')}</th>
-              </tr>
-            </thead>
-            <tbody>`
+        let html = ''
 
-        for (const p of periods) {
-          const row_style = p.is_ongoing ? 'background:#d9f5e4;font-weight:600;' : ''
-          const badge = p.is_ongoing
-            ? ` <span class="indicator-pill green nowrap">${__('Now')}</span>`
-            : ''
-
-          const label = frappe.utils.escape_html(
-            p.period_label || `${__('Period')} ${p.period_number}`
-          )
-
-          const subject_cell = p.schedule_name
-            ? `<a href="/app/course-schedule/${p.schedule_name}">${frappe.utils.escape_html(p.course)}</a>`
-            : `<span class="text-muted">—</span>`
-
-          const instructor_cell = p.instructor
-            ? `<a href="/app/instructor/${encodeURIComponent(p.instructor)}">${frappe.utils.escape_html(p.instructor_name || p.instructor)}</a>`
-            : `<span class="text-muted">—</span>`
+        for (const day_result of all_results) {
+          const display_date = frappe.datetime.str_to_user(day_result.date)
+          const day_of_week = frappe.utils.escape_html(day_result.day_of_week)
 
           html += `
-            <tr style="${row_style}">
-              <td>${label}${badge}</td>
-              <td class="nowrap">${fmt12(p.from_time)} – ${fmt12(p.to_time)}</td>
-              <td>${subject_cell}</td>
-              <td>${instructor_cell}</td>
-              <td>${frappe.utils.escape_html(p.room || '—')}</td>
-            </tr>`
+            <h5 style="margin-top:24px;margin-bottom:10px;">
+              ${__('Timetable for')} <strong>${frappe.utils.escape_html(sg)}</strong>
+              &mdash; ${day_of_week}, ${display_date}
+            </h5>
+            <table class="table table-bordered" style="font-size:13px;margin-bottom:28px;">
+              <thead class="grid-heading-row">
+                <tr>
+                  <th style="width:130px;">${__('Period')}</th>
+                  <th style="width:165px;">${__('Time')}</th>
+                  <th>${__('Subject')}</th>
+                  <th>${__('Instructor')}</th>
+                  <th>${__('Room')}</th>
+                </tr>
+              </thead>
+              <tbody>`
+
+          for (const p of day_result.periods) {
+            const row_style = p.is_ongoing ? 'background:#d9f5e4;font-weight:600;' : ''
+            const badge = p.is_ongoing
+              ? ` <span class="indicator-pill green nowrap">${__('Now')}</span>`
+              : ''
+
+            const label = frappe.utils.escape_html(
+              p.period_label || `${__('Period')} ${p.period_number}`
+            )
+
+            const subject_cell = p.schedule_name
+              ? `<a href="/app/course-schedule/${p.schedule_name}">${frappe.utils.escape_html(p.course)}</a>`
+              : `<span class="text-muted">—</span>`
+
+            const instructor_cell = p.instructor
+              ? `<a href="/app/instructor/${encodeURIComponent(p.instructor)}">${frappe.utils.escape_html(p.instructor_name || p.instructor)}</a>`
+              : `<span class="text-muted">—</span>`
+
+            html += `
+              <tr style="${row_style}">
+                <td>${label}${badge}</td>
+                <td class="nowrap">${fmt12(p.from_time)} – ${fmt12(p.to_time)}</td>
+                <td>${subject_cell}</td>
+                <td>${instructor_cell}</td>
+                <td>${frappe.utils.escape_html(p.room || '—')}</td>
+              </tr>`
+          }
+
+          html += '</tbody></table>'
         }
 
-        html += '</tbody></table>'
         this.$body.html(html)
       },
       error: () => {
