@@ -23,6 +23,7 @@
   "section_break_7",
   "student_email_id",
   "date_of_birth",
+  "age",
   "blood_group",
   "column_break_3",
   "student_mobile_number",
@@ -177,6 +178,14 @@
    "fieldname": "date_of_birth",
    "fieldtype": "Date",
    "label": "Date of Birth"
+  },
+  {
+   "fieldname": "age",
+   "fieldtype": "Float",
+   "label": "Age",
+   "precision": 1,
+   "read_only": 1,
+   "is_virtual": 1
   },
   {
    "fieldname": "blood_group",

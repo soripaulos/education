@@ -1276,12 +1276,29 @@ def get_existing_teacher_reviews(student=None):
 def get_students_for_group(student_group):
 	if not student_group:
 		frappe.throw(_("Please select a Student Group first"))
-	return frappe.get_all(
+	students = frappe.get_all(
 		"Student Group Student",
 		filters={"parent": student_group, "active": 1},
 		fields=["student", "student_name", "group_roll_number"],
 		order_by="group_roll_number asc, student_name asc",
 	)
+
+	if not students:
+		return students
+
+	student_ids = {row.student for row in students if row.get("student")}
+	if student_ids:
+		gender_rows = frappe.get_all(
+			"Student",
+			filters={"name": ["in", list(student_ids)]},
+			fields=["name", "gender"],
+			limit_page_length=0,
+		)
+		gender_map = {row.name: row.gender for row in gender_rows}
+		for row in students:
+			row["gender"] = gender_map.get(row.get("student")) or ""
+
+	return students
 
 @frappe.whitelist()
 def delete_student_term_subject_results(student_group, academic_year, semester, subject, exam):
@@ -1636,6 +1653,7 @@ def calculate_results(calculation_type, academic_year, semester=None, student_gr
 	"""
 	Calculate term or year results based on parameters
 	Updated to use user's field names: semester instead of academic_term
+	Flexible to work with any selected academic year and semester (no preset defaults)
 	"""
 	try:
 		submit_results = result_action == "Save and Submit"

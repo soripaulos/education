@@ -328,6 +328,7 @@
 							<th>{{ _("#") }}</th>
 							<th>{{ _("Student ID") }}</th>
 							<th>{{ _("Student Name") }}</th>
+							<th>{{ _("Gender") }}</th>
 							<th>{{ _("Roll No") }}</th>
 							<th>{{ _("Score") }}</th>
 						</tr>
@@ -937,15 +938,18 @@
 				.map((student, index) => {
 					const studentIdRaw = student.student || "";
 					const studentNameRaw = student.student_name || "";
+					const genderRaw = student.gender || "";
 					const rollNumber = student.group_roll_number || student.roll_number || "";
 					const studentId = escapeHtml(studentIdRaw);
 					const studentName = escapeHtml(studentNameRaw);
+					const gender = escapeHtml(genderRaw);
 					const rollNo = escapeHtml(String(rollNumber));
 					return `
 						<tr>
 							<td>${index + 1}</td>
 							<td>${studentId}</td>
 							<td>${studentName}</td>
+							<td>${gender}</td>
 							<td>${rollNo}</td>
 							<td>
 								<input
@@ -1646,6 +1650,7 @@
 					studentResults[student.student] = {
 						student_id: student.student,
 						student_name: student.student_name,
+						gender: student.gender || "",
 						roll_number: student.group_roll_number || student.roll_number || "",
 						first_test: null,
 						second_test: null,
@@ -1854,6 +1859,7 @@
 									<th>Roll No</th>
 									<th>Student ID</th>
 									<th>Student Name</th>
+									<th>Gender</th>
 									<th class="center">First Test</th>
 									<th class="center">Second Test</th>
 									<th class="center">Mid Exam</th>
@@ -1891,6 +1897,7 @@
 							<td>${escapeHtml(result.roll_number)}</td>
 							<td>${escapeHtml(result.student_id)}</td>
 							<td>${escapeHtml(result.student_name)}</td>
+							<td>${escapeHtml(result.gender)}</td>
 							<td class="center">${formatScore(result.first_test)}</td>
 							<td class="center">${formatScore(result.second_test)}</td>
 							<td class="center">${formatScore(result.mid_exam)}</td>

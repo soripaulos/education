@@ -142,6 +142,17 @@ def get_data_sql(filters, subjects):
 	if not students:
 		frappe.msgprint(_("No students found in the selected student group"))
 		return []
+
+	student_ids = [student.student for student in students if student.student]
+	gender_map = {}
+	if student_ids:
+		gender_rows = frappe.get_all(
+			"Student",
+			filters={"name": ["in", student_ids]},
+			fields=["name", "gender"],
+			limit_page_length=0,
+		)
+		gender_map = {row.name: row.gender for row in gender_rows}
 	
 	# Main query with pivot logic - get results for students who have them
 	query_params = {
@@ -172,6 +183,9 @@ def get_data_sql(filters, subjects):
 	else:
 		results_data = frappe.db.sql(query, query_params, as_dict=True)
 	
+	for row in results_data:
+		row["gender"] = gender_map.get(row.get("student")) or ""
+
 	# Create a dict for quick lookup
 	results_dict = {row.student: row for row in results_data}
 	
@@ -185,6 +199,7 @@ def get_data_sql(filters, subjects):
 			row = frappe._dict({
 				"student": student.student,
 				"student_name": student.student_name,
+				"gender": gender_map.get(student.student) or "",
 				"student_group": filters.get("student_group"),
 				"total": 0,
 				"exam_entries": 0
@@ -193,6 +208,8 @@ def get_data_sql(filters, subjects):
 			for subject in subjects:
 				subject_key = "subject_" + frappe.scrub(subject)
 				row[subject_key] = 0
+
+		row["gender"] = gender_map.get(student.student) or row.get("gender") or ""
 		
 		# Calculate average (divided by total subjects in program)
 		row.average = round(row.total / len(subjects), 2) if len(subjects) > 0 else 0
@@ -269,6 +286,12 @@ def get_columns_sql(filters, subjects):
 			"label": _("Student Name"),
 			"fieldtype": "Data",
 			"width": 180
+		},
+		{
+			"fieldname": "gender",
+			"label": _("Gender"),
+			"fieldtype": "Data",
+			"width": 90
 		},
 		{
 			"fieldname": "student_group",
