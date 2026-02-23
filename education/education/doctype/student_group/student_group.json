@@ -8,6 +8,7 @@
  "editable_grid": 1,
  "doctype": "DocType",
  "document_type": "Document",
+ "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "academic_year",
