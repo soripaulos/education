@@ -1,0 +1,52 @@
+{
+ "actions": [],
+ "creation": "2024-07-31 10:00:00.000000",
+ "doctype": "DocType",
+ "custom": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "taxonomy_section",
+  "taxonomy_json",
+  "instructions"
+ ],
+ "fields": [
+  {
+   "fieldname": "taxonomy_section",
+   "fieldtype": "Section Break",
+   "label": "Feedback Taxonomy Configuration"
+  },
+  {
+   "fieldname": "taxonomy_json",
+   "fieldtype": "JSON",
+   "label": "Taxonomy JSON",
+   "description": "Define the complete hierarchy for feedback categories, subcategories, and issues here.",
+   "default": "{\n  \"Academic Issues\": {\n    \"Curriculum\": [\n      \"Content Difficulty\",\n      \"Pace Too Fast\",\n      \"Pace Too Slow\",\n      \"Missing Topics\",\n      \"Outdated Materials\"\n    ],\n    \"Teaching Methods\": [\n      \"Unclear Explanations\",\n      \"Lack of Examples\",\n      \"No Interactive Activities\",\n      \"Poor Use of Technology\",\n      \"Insufficient Practice\"\n    ],\n    \"Assessment\": [\n      \"Unfair Grading\",\n      \"Too Many Tests\",\n      \"Unclear Instructions\",\n      \"Late Feedback\",\n      \"Result Errors\"\n    ]\n  },\n  \"Facility Issues\": {\n    \"Classroom\": [\n      \"Poor Lighting\",\n      \"Uncomfortable Seating\",\n      \"Temperature Issues\",\n      \"Cleanliness\",\n      \"Overcrowding\"\n    ],\n    \"Technology\": [\n      \"Broken Equipment\",\n      \"Internet Issues\",\n      \"Software Problems\",\n      \"Lack of Resources\",\n      \"Outdated Hardware\"\n    ],\n    \"Safety\": [\n      \"Security Concerns\",\n      \"Emergency Procedures\",\n      \"Maintenance Issues\",\n      \"Accessibility\",\n      \"Fire Safety\"\n    ],\n    \"Sanitation\": [\n      \"Toilet Problems\",\n      \"Water Supply Issues\",\n      \"Waste Management\",\n      \"Hygiene Standards\"\n    ]\n  },\n  \"Administrative Issues\": {\n    \"Communication\": [\n      \"Poor Information Sharing\",\n      \"Late Notifications\",\n      \"Unclear Policies\",\n      \"Language Barriers\",\n      \"Unresponsive Staff\"\n    ],\n    \"Scheduling\": [\n      \"Conflicting Times\",\n      \"Too Many Classes\",\n      \"Break Time Issues\",\n      \"Event Planning\",\n      \"Exam Scheduling\"\n    ],\n    \"Documentation\": [\n      \"Missing Records\",\n      \"Incorrect Information\",\n      \"Slow Processing\",\n      \"Lost Documents\",\n      \"Incomplete Forms\"\n    ]\n  },\n  \"Student Services\": {\n    \"Library\": [\n      \"Limited Resources\",\n      \"Outdated Books\",\n      \"Poor Organization\",\n      \"Access Issues\"\n    ],\n    \"Counseling\": [\n      \"Unavailable Counselors\",\n      \"Poor Guidance\",\n      \"Lack of Support\",\n      \"Privacy Concerns\"\n    ],\n    \"Health Services\": [\n      \"No Nurse Available\",\n      \"Poor Medical Facilities\",\n      \"Emergency Response\",\n      \"Health Education\"\n    ]\n  },\n  \"Other Issues\": {}\n}"
+  },
+  {
+   "fieldname": "instructions",
+   "fieldtype": "HTML",
+   "label": "Instructions",
+   "options": "<p><b>How to manage your feedback taxonomy:</b></p>\n<ul>\n    <li>Edit the JSON structure above to change the categories, subcategories, and specific issues.</li>\n    <li>The mobile app and the feedback form will automatically update based on the structure you define here.</li>\n    <li>To create a category with no sub-options (like 'Other Issues'), give it an empty object: <code>\"Other Issues\": {}</code></li>\n    <li>Ensure you use valid JSON format, otherwise, it may break the feedback form.</li>\n</ul>"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "module": "Education",
+ "name": "Feedback Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+} 

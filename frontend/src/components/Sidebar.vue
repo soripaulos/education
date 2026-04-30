@@ -1,62 +1,76 @@
 <template>
-  <div
-    class="flex h-full flex-col justify-between transition-all duration-300 ease-in-out"
-    :class="sidebarState ? 'w-12' : 'w-56'"
-  >
-    <div class="flex flex-col overflow-hidden">
-      <UserDropdown
-        class="p-2"
-        :isCollapsed="sidebarState"
-        :educationSettings="
-          !educationSettings.loading && educationSettings.data
-        "
-      />
-      <div class="flex flex-col overflow-y-auto">
+  <nav class="bg-white shadow-sm border-b">
+    <div class="flex items-center justify-between px-4 h-16">
+      <!-- Logo and Brand -->
+      <div class="flex items-center">
+        <UserDropdown
+          class="mr-4"
+          :isCollapsed="false"
+          :educationSettings="!educationSettings.loading && educationSettings.data"
+        />
+      </div>
+
+      <!-- Desktop Navigation -->
+      <div class="hidden md:flex items-center space-x-2">
         <SidebarLink
+          v-for="link in links"
+          :key="link.to"
           :label="link.label"
           :to="link.to"
-          v-for="link in links"
-          :isCollapsed="sidebarState"
+          :isCollapsed="false"
           :icon="link.icon"
-          class="mx-2 my-0.5"
+          class="h-10"
+        />
+      </div>
+
+      <!-- Mobile menu button -->
+      <button 
+        @click="mobileMenuOpen = !mobileMenuOpen"
+        class="md:hidden p-2 rounded-md hover:bg-gray-100"
+      >
+        <Menu v-if="!mobileMenuOpen" class="h-6 w-6 text-gray-700" />
+        <X v-else class="h-6 w-6 text-gray-700" />
+      </button>
+    </div>
+
+    <!-- Mobile menu -->
+    <div 
+      v-show="mobileMenuOpen" 
+      class="md:hidden border-t"
+    >
+      <div class="px-2 pt-2 pb-3 space-y-1">
+        <SidebarLink
+          v-for="link in links"
+          :key="link.to"
+          :label="link.label"
+          :to="link.to"
+          :isCollapsed="false"
+          :icon="link.icon"
+          class="w-full"
+          @click="mobileMenuOpen = false"
         />
       </div>
     </div>
-    <button 
-      @click="toggleSidebar"
-      class="m-2 flex items-center p-2 rounded hover:bg-gray-100"
-    >
-      <span class="grid h-5 w-6 flex-shrink-0 place-items-center">
-        <ArrowLeftToLine
-          class="h-4.5 w-4.5 text-gray-700 transition-transform duration-300 ease-in-out"
-          :class="{ 'rotate-180': sidebarState }"
-        />
-      </span>
-      <span v-if="!sidebarState" class="ml-2">
-        {{ sidebarState ? 'Expand' : 'Collapse' }}
-      </span>
-    </button>
-  </div>
+  </nav>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { useStorage } from '@vueuse/core'
+import { ref } from 'vue'
 import SidebarLink from '@/components/SidebarLink.vue'
+import UserDropdown from './UserDropdown.vue'
+import { createResource } from 'frappe-ui'
 import {
-  LayoutDashboard,
   CalendarCheck,
   GraduationCap,
   Banknote,
   UserCheck,
-  ArrowLeftToLine,
-  BookOpen,
   BarChart2,
   Star,
+  Menu,
+  X,
 } from 'lucide-vue-next'
 
-import UserDropdown from './UserDropdown.vue'
-import { createResource } from 'frappe-ui'
+const mobileMenuOpen = ref(false)
 
 const links = [
   {
@@ -91,24 +105,8 @@ const links = [
   },
 ]
 
-// Create a reactive ref for immediate UI updates
-const sidebarState = ref(false)
-const isSidebarCollapsed = useStorage('sidebar_is_collapsed', false)
-
-// Sync the storage value with our reactive ref
-watch(isSidebarCollapsed, (newValue) => {
-  sidebarState.value = newValue
-}, { immediate: true })
-
-const toggleSidebar = () => {
-  sidebarState.value = !sidebarState.value
-  isSidebarCollapsed.value = sidebarState.value
-}
-
 const educationSettings = createResource({
   url: 'education.education.api.get_school_abbr_logo',
   auto: true,
 })
-</script>
-
-
+</script> 

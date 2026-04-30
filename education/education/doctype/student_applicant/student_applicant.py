@@ -10,30 +10,17 @@ from frappe.utils import add_years, date_diff, getdate, nowdate
 
 class StudentApplicant(Document):
 	def autoname(self):
-		from frappe.model.naming import set_name_by_naming_series
-
-		if self.student_admission:
-			naming_series = None
-			if self.program:
-				# set the naming series from the student admission if provided.
-				student_admission = get_student_admission_data(self.student_admission, self.program)
-				if student_admission:
-					naming_series = student_admission.get("applicant_naming_series")
-				else:
-					naming_series = None
-			else:
-				frappe.throw(_("Select the program first"))
-
-			if naming_series:
-				self.naming_series = naming_series
-
-		set_name_by_naming_series(self)
+		# Use the format naming defined in JSON: SA-{#####}
+		# No custom logic needed as Frappe will handle the format naming automatically
+		pass
 
 	def validate(self):
 		self.set_title()
 		self.validate_dates()
 		self.validate_term()
-
+		# National ID FIN validation (optional, must be 12 digits if present)
+		if self.national_id_fin and (not self.national_id_fin.isdigit() or len(self.national_id_fin) != 12):
+			frappe.throw(_("National ID FIN must be a 12-digit number."))
 		if self.student_admission and self.program and self.date_of_birth:
 			self.validation_from_student_admission()
 

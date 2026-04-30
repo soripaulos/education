@@ -27,8 +27,31 @@ frappe.ui.form.on('Student', {
           frm.set_df_property('student_email_id', 'reqd', 1)
         }
       })
+
+    // keep age display in sync on load
+    frm.doc.age = get_age_from_dob(frm.doc.date_of_birth)
+    frm.refresh_field('age')
+  },
+
+  date_of_birth: function (frm) {
+    // virtual field: compute for display only (not stored)
+    frm.doc.age = get_age_from_dob(frm.doc.date_of_birth)
+    frm.refresh_field('age')
   },
 })
+
+function get_age_from_dob(dob) {
+  if (!dob) return null
+
+  const dobDate = frappe.datetime.str_to_obj(dob)
+  const todayDate = frappe.datetime.str_to_obj(frappe.datetime.get_today())
+  if (!dobDate || !todayDate) return null
+
+  const msPerDay = 24 * 60 * 60 * 1000
+  const ageInYears = (todayDate.getTime() - dobDate.getTime()) / msPerDay / 365.25
+  if (ageInYears < 0) return 0.0
+  return Math.round(ageInYears * 10) / 10
+}
 
 frappe.ui.form.on('Student Guardian', {
   guardians_add: function (frm) {

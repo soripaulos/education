@@ -16,6 +16,11 @@ const routes = [
     component: () => import('@/pages/Grades.vue'),
   },
   {
+    path: '/assessment-logs',
+    name: 'AssessmentLogs',
+    component: () => import('@/pages/AssessmentLogs.vue'),
+  },
+  {
     path: '/fees',
     name: 'Fees',
     component: () => import('@/pages/Fees.vue'),
@@ -36,6 +41,12 @@ const routes = [
     component: () => import('@/pages/TeacherEvaluation.vue'),
   },
   {
+    path: '/courses',
+    name: 'Courses',
+    component: () => import('@/pages/Courses.vue'),
+  },
+
+  {
     path: '/:catchAll(.*)',
     redirect: '/schedule',
   },
@@ -50,6 +61,11 @@ router.beforeEach(async (to, from) => {
   const { isLoggedIn, user: sessionUser } = sessionStore()
   const { user } = usersStore()
   const { student } = studentStore()
+
+  // Allow access to public routes without authentication
+  if (to.meta.requiresAuth === false) {
+    return true
+  }
 
   if (!isLoggedIn) {
     window.location.href = '/login'

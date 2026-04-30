@@ -2,12 +2,12 @@
   <Popover placement="right" v-if="!event.status">
     <template #target="{ togglePopover }">
       <div
-        class="w-full p-2 rounded-lg"
+        class="w-full p-1 md:p-2 rounded-lg"
         :class="colorMap[event?.color]?.background_color || 'bg-green-100'"
         @click="togglePopover"
       >
         <div
-          class="flex gap-3 relative px-2 items-start"
+          class="flex gap-1 md:gap-2 relative px-1 items-start"
           :class="
             event.from_time && [
               'border-l-2',
@@ -15,14 +15,14 @@
             ]
           "
         >
-          <FeatherIcon name="circle" class="h-4 text-black" />
+          <FeatherIcon name="circle" class="h-3 flex-shrink-0 text-black" />
 
-          <div class="flex flex-col whitespace-nowrap w-fit overflow-hidden">
-            <p class="font-medium text-sm text-gray-800 text-ellipsis">
+          <div class="flex flex-col w-full overflow-hidden">
+            <p class="font-medium text-xs md:text-sm text-gray-800 truncate">
               {{ event.title }}
             </p>
             <p
-              class="font-normal text-xs text-gray-800 text-ellipsis"
+              class="font-normal text-xxs md:text-xs text-gray-800 truncate"
               v-if="event.from_time"
             >
               {{ event.from_time }} - {{ event.to_time }}
@@ -32,8 +32,6 @@
       </div>
     </template>
     <template #body-main>
-      <!-- <div class="p-2">Popover content {{ event.color }}</div> -->
-
       <!-- container div -->
       <div class="flex flex-col gap-5 pt-5 px-6 pb-6">
         <!-- heading  -->
@@ -70,19 +68,24 @@
   </Popover>
   <div
     v-else
-    class="w-full p-2 rounded-md"
+    class="w-full p-1 md:p-2 rounded-md"
     :class="event.background_color || 'bg-green-100'"
     @click="togglePopover"
   >
-    <div class="flex gap-3 relative px-2 items-start">
-      <FeatherIcon name="circle" class="h-4 text-black" />
+    <div class="flex items-start gap-1">
+      <FeatherIcon name="circle" class="h-3 flex-shrink-0 text-black" />
 
-      <div class="flex flex-col whitespace-nowrap w-fit overflow-hidden">
-        <p class="font-medium text-sm text-gray-800 text-ellipsis">
+      <div class="flex-1 min-w-0">
+        <!-- For short status texts like "Present", "Absent", etc. -->
+        <p v-if="isShortStatus" class="font-medium text-xs md:text-sm text-gray-800 text-center">
+          {{ event.title }}
+        </p>
+        <!-- For longer text titles -->
+        <p v-else class="font-medium text-xs md:text-sm text-gray-800 truncate">
           {{ event.title }}
         </p>
         <p
-          class="font-normal text-xs text-gray-800 text-ellipsis"
+          class="font-normal text-xxs md:text-xs text-gray-800 truncate"
           v-if="event.from_time"
         >
           {{ event.from_time }} - {{ event.to_time }}
@@ -94,6 +97,7 @@
 
 <script setup>
 import { FeatherIcon, Popover } from 'frappe-ui'
+import { computed } from 'vue'
 
 const props = defineProps({
   event: {
@@ -153,6 +157,12 @@ let colorMap = {
   },
 }
 
+// Check if the title is a short status like "Present", "Absent", etc.
+const isShortStatus = computed(() => {
+  const shortStatuses = ['Present', 'Absent', 'Leave'];
+  return props.event.status && shortStatuses.includes(props.event.title);
+})
+
 function parseDate() {
   let date = props.date.toDateString().split(' ').slice(0, 3)
   let day = date[0]
@@ -161,4 +171,16 @@ function parseDate() {
 }
 </script>
 
-<style></style>
+<style>
+.text-xxs {
+  font-size: 0.65rem;
+}
+
+/* Add custom styles for better text handling */
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+</style>

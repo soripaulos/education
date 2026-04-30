@@ -1,0 +1,215 @@
+{
+ "actions": [],
+ "creation": "2026-02-20 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "period_number",
+  "period_label",
+  "from_time",
+  "to_time",
+  "column_break_mon",
+  "monday",
+  "monday_instructor",
+  "column_break_tue",
+  "tuesday",
+  "tuesday_instructor",
+  "column_break_wed",
+  "wednesday",
+  "wednesday_instructor",
+  "column_break_thu",
+  "thursday",
+  "thursday_instructor",
+  "column_break_fri",
+  "friday",
+  "friday_instructor",
+  "section_break_weekend",
+  "saturday",
+  "saturday_instructor",
+  "column_break_sun",
+  "sunday",
+  "sunday_instructor"
+ ],
+ "fields": [
+  {
+   "fieldname": "period_number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Period",
+   "read_only": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "period_label",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Period Label",
+   "read_only": 1
+  },
+  {
+   "fieldname": "from_time",
+   "fieldtype": "Time",
+   "hidden": 1,
+   "label": "From Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "to_time",
+   "fieldtype": "Time",
+   "hidden": 1,
+   "label": "To Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_mon",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "monday",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Monday",
+   "options": "Course",
+   "columns": 1
+  },
+  {
+   "fieldname": "monday_instructor",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Mon Instructor",
+   "options": "Instructor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tue",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tuesday",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Tuesday",
+   "options": "Course",
+   "columns": 1
+  },
+  {
+   "fieldname": "tuesday_instructor",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Tue Instructor",
+   "options": "Instructor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_wed",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "wednesday",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Wednesday",
+   "options": "Course",
+   "columns": 1
+  },
+  {
+   "fieldname": "wednesday_instructor",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Wed Instructor",
+   "options": "Instructor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_thu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "thursday",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Thursday",
+   "options": "Course",
+   "columns": 1
+  },
+  {
+   "fieldname": "thursday_instructor",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Thu Instructor",
+   "options": "Instructor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_fri",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "friday",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Friday",
+   "options": "Course",
+   "columns": 1
+  },
+  {
+   "fieldname": "friday_instructor",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Fri Instructor",
+   "options": "Instructor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_weekend",
+   "fieldtype": "Section Break",
+   "collapsible": 1,
+   "label": "Weekend"
+  },
+  {
+   "fieldname": "saturday",
+   "fieldtype": "Link",
+   "label": "Saturday",
+   "options": "Course"
+  },
+  {
+   "fieldname": "saturday_instructor",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Sat Instructor",
+   "options": "Instructor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sun",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sunday",
+   "fieldtype": "Link",
+   "label": "Sunday",
+   "options": "Course"
+  },
+  {
+   "fieldname": "sunday_instructor",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Sun Instructor",
+   "options": "Instructor",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Weekly Schedule Entry",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

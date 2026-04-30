@@ -48,121 +48,82 @@
   
           <!-- Performance Chart Card -->
           <Card class="overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-300 sacred-hover">
-            <div class="p-6">
-              <h3 class="text-lg font-semibold mb-6 flex items-center">
+            <div class="p-1">
+              <h3 class="text-lg font-semibold mb-2 flex items-center">
                 <div class="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded mr-3"></div>
                 Performance Metrics
               </h3>
               <div class="relative">
                 <div 
                   ref="chartContainer" 
-                  class="w-full transition-all duration-300"
+                  class="w-full h-[280px] transition-all duration-300"
                 >
-                  <v-frappe-chart
-                    v-if="hasData"
-                    type="bar"
-                    :labels="chartData.labels"
-                    :data="[
-                      {
-                        name: 'Homework',
-                        values: [chartData.values[0], 0, 0, 0],
-                        chartType: 'bar'
-                      },
-                      {
-                        name: 'Participation',
-                        values: [0, chartData.values[1], 0, 0],
-                        chartType: 'bar'
-                      },
-                      {
-                        name: 'Test Scores',
-                        values: [0, 0, chartData.values[2], 0],
-                        chartType: 'bar'
-                      },
-                      {
-                        name: 'Proficiency',
-                        values: [0, 0, 0, chartData.values[3]],
-                        chartType: 'bar'
-                      }
-                    ]"
-                    :colors="['#4F46E5', '#EC4899', '#06B6D4', '#F59E0B']"
-                    :tooltipOptions="{
-                      formatTooltipX: d => evaluation.data.labels[chartData.labels.indexOf(d)],
-                      formatTooltipY: d => `${(d * 100).toFixed(1)}%`,
-                      valuesOverPoints: true,
-                      showTooltipTitle: true,
-                      showAllTooltips: true
-                    }"
-                    :axisOptions="{
-                      xAxisMode: 'tick',
-                      yAxisMode: 'tick',
-                      xIsSeries: true,
-                      rotateXLabels: 0,
-                      xAxisHeight: 40,
-                      shortenYAxisNumbers: 1,
-                      centerLine: 0,
-                      xAxisLabelDistance: -15,
-                      labelAlignDist: 0,
-                      formatXAxisLabel: (label, i) => chartData.labels[i],
-                      yMarkers: [{ 
-                        label: 'Target',
-                        value: 0.75,
-                        type: 'solid',
-                        options: { labelPos: 'right' }
-                      }],
-                      yRegions: [{
-                        label: 'Good',
-                        start: 0.7,
-                        end: 1,
-                        options: { labelPos: 'right' }
-                      }],
-                      yAxis: {
-                        min: 0,
-                        max: 1,
-                        stepSize: 0.2,
-                        labels: ['0%', '20%', '40%', '60%', '80%', '100%']
-                      }
-                    }"
-                    :barOptions="{
-                      spaceRatio: 0.05,
-                      height: 40,
-                      depth: 3,
-                      borderRadius: 4,
-                      stacked: 0,
-                      minWidth: 60,
-                      maxWidth: 100,
-                      width: 80
-                    }"
-                    :chartOptions="{
-                      responsiveView: true,
-                      maxSlices: 8,
-                      minWidth: chartDimensions.width * 0.95,
-                      isNavigable: true,
-                      animate: 1,
-                      valuesOverPoints: 1,
-                      showLegend: 1,
-                      showTooltip: 1,
-                      regionFill: 1,
-                      barSpacing: 20
-                    }"
-                    class="w-full p-4 hover:shadow-lg transition-all duration-300"
-                    :height="chartDimensions.height"
-                  />
+                  <!-- New Chart Implementation -->
+                  <div v-if="hasData" class="w-full h-full flex flex-col">
+                    <div class="flex-1 flex items-end gap-2 px-2">
+                      <!-- Y-axis labels -->
+                      <div class="flex flex-col justify-between text-xs text-gray-600 h-full py-1">
+                        <span>100%</span>
+                        <span>90%</span>
+                        <span>80%</span>
+                        <span>70%</span>
+                        <span>60%</span>
+                        <span>50%</span>
+                        <span>40%</span>
+                        <span>30%</span>
+                        <span>20%</span>
+                        <span>10%</span>
+                        <span>0%</span>
+                      </div>
+                      <!-- Chart area -->
+                      <div class="flex-1 relative h-full">
+                        <!-- Grid Lines -->
+                        <div class="absolute inset-0 flex flex-col justify-between">
+                          <template v-for="i in 11" :key="i">
+                            <div class="border-t border-gray-100 h-0"></div>
+                          </template>
+                        </div>
+                        <!-- Bars -->
+                        <div class="relative h-full flex items-end justify-around">
+                          <template v-for="(value, index) in chartData.values" :key="index">
+                            <div class="w-12 md:w-16 transition-all duration-500 ease-out hover:opacity-90 cursor-pointer group"
+                                 :style="{ height: `${value}%` }"
+                            >
+                              <div class="h-full rounded-t-lg shadow-lg transform transition-transform group-hover:translate-y-[-4px]"
+                                   :style="{ backgroundColor: ['#FF9B7B', '#4ECDC4', '#FF6B6B', '#556FB5'][index] }"
+                              >
+                                <!-- Tooltip -->
+                                <div class="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap transition-opacity z-10">
+                                  {{ `${value.toFixed(1)}%` }}
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- X-axis labels and Legend -->
+                    <div class="mt-4 px-2">
+                      <div class="flex justify-around mb-4">
+                        <span v-for="(label, index) in chartData.labels" :key="index" 
+                              class="text-xs md:text-sm text-gray-600 text-center max-w-[80px] md:max-w-[120px] truncate">
+                          {{ label }}
+                        </span>
+                      </div>
+                      <!-- Legend -->
+                      <div class="flex flex-wrap justify-center gap-4 text-xs md:text-sm border-t border-gray-100 pt-3">
+                        <div v-for="(label, index) in chartData.labels" :key="index"
+                             class="flex items-center gap-2">
+                          <div class="w-3 h-3 rounded-full"
+                               :style="{ backgroundColor: ['#FF9B7B', '#4ECDC4', '#FF6B6B', '#556FB5'][index] }">
+                          </div>
+                          <span class="text-gray-600">{{ label }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div v-else class="text-center text-gray-500 py-8">
                     No evaluation data available
-                  </div>
-                </div>
-  
-                <!-- Legend (only show if hasData) -->
-                <div v-if="hasData" class="mt-4 flex flex-wrap gap-4 justify-center text-sm">
-                  <div v-for="(label, index) in evaluation.data?.labels" 
-                       :key="label"
-                       class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full"
-                         :style="{ backgroundColor: ['#4F46E5', '#EC4899', '#06B6D4', '#F59E0B'][index] }">
-                    </div>
-                    <span class="text-gray-600">
-                      {{ chartData.labels[index] }} - {{ label }}
-                    </span>
                   </div>
                 </div>
               </div>
@@ -858,30 +819,14 @@
     return 'bg-red-500'
   }
   
-  // Add this computed property before the template
+  // Update the chartData computed property to use dynamic data
   const chartData = computed(() => {
     if (!evaluation.data?.labels) return null;
     
-    // Define label mappings (abbreviation -> full name)
-    const labelMappings = {
-      'HW': 'Homework',
-      'Part': 'Participation',
-      'Test': 'Test Scores',
-      'Prof': 'Proficiency'
-    };
-
-    // Create abbreviated labels
-    const abbreviatedLabels = evaluation.data.labels.map(label => {
-      // Find matching abbreviation or use first 3 chars + '.'
-      const abbr = Object.entries(labelMappings).find(([_, full]) => full === label)?.[0] 
-        || `${label.slice(0, 3)}.`;
-      return abbr;
-    });
-
     return {
-      labels: abbreviatedLabels,
-      values: evaluation.data.values,
-      mappings: labelMappings
+      labels: evaluation.data.labels,
+      values: evaluation.data.values.map(v => v * 100), // Convert decimals to percentages
+      mappings: {}
     };
   });
   
@@ -1040,9 +985,9 @@
   }
   
   .v-frappe-chart {
-    background: linear-gradient(to bottom, rgba(249, 250, 251, 0.5), white);
+    background: white;
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.5rem;
   }
   
   .v-frappe-chart .bar {
@@ -1062,10 +1007,62 @@
   .v-frappe-chart svg {
     transition: all 0.3s ease-in-out;
   }
+  
+  .custom-tooltip {
+    @apply bg-white shadow-lg rounded-lg p-3 border border-gray-100;
+    font-size: 0.875rem;
+  }
+  
+  @media (max-width: 768px) {
+    .custom-tooltip {
+      font-size: 0.75rem;
+      padding: 0.5rem;
+    }
+  }
+  
+  /* Improve touch interactions on mobile */
+  @media (max-width: 768px) {
+    .v-frappe-chart {
+      touch-action: pan-y pinch-zoom;
+    }
+  }
+  
+  /* Responsive chart container */
+  .chart-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .v-frappe-chart {
+      height: 250px !important;
+      padding: 1rem;
+    }
+    
+    .chart-container {
+      padding: 0 1rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .v-frappe-chart {
+      height: 200px !important;
+      padding: 0.75rem;
+    }
+    
+    :deep(.chart-container .axis-line) {
+      stroke-width: 0.5;
+    }
+    
+    :deep(.chart-container .chart-label) {
+      font-size: 10px;
+    }
+  }
   </style> 
   
   
 
 </``rewritten_file
-```
-</>`rewritten_file>
+```</>`

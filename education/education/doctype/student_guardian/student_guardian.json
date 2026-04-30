@@ -33,7 +33,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Relation",
-   "options": "\nMother\nFather\nOthers"
+   "options": "\nMother\nFather\nSibling\nUncle\nAunt\nOthers"
   }
  ],
  "istable": 1,

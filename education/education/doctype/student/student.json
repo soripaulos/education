@@ -23,15 +23,22 @@
   "section_break_7",
   "student_email_id",
   "date_of_birth",
+  "age",
   "blood_group",
   "column_break_3",
   "student_mobile_number",
+  "national_id_fin",
+  "custom_school_id",
+  "restricted",
+  "reason_for_restriction",
   "gender",
   "nationality",
   "address_tab",
   "section_break_22",
   "address_line_1",
   "address_line_2",
+  "kebele",
+  "sub_city",
   "pincode",
   "column_break_20",
   "city",
@@ -122,6 +129,33 @@
    "label": "Student Mobile Number"
   },
   {
+   "fieldname": "national_id_fin",
+   "fieldtype": "Data",
+   "label": "National ID FIN",
+   "length": 12,
+   "description": "12-digit numeric identifier for official records (optional but preferred)"
+  },
+  {
+   "fieldname": "custom_school_id",
+   "fieldtype": "Data",
+   "label": "School ID",
+   "unique": 1
+  },
+  {
+   "fieldname": "restricted",
+   "fieldtype": "Check",
+   "label": "Restricted",
+   "description": "Check if student has restrictions"
+  },
+  {
+   "fieldname": "reason_for_restriction",
+   "fieldtype": "Select",
+   "label": "Reason for Restriction",
+   "options": "School payment not complete\nSuspended/Expelled\nNot promoted to next grade",
+   "depends_on": "eval:doc.restricted == 1",
+   "description": "Reason for student restriction"
+  },
+  {
    "default": "Today",
    "fieldname": "joining_date",
    "fieldtype": "Date",
@@ -144,6 +178,14 @@
    "fieldname": "date_of_birth",
    "fieldtype": "Date",
    "label": "Date of Birth"
+  },
+  {
+   "fieldname": "age",
+   "fieldtype": "Float",
+   "label": "Age",
+   "precision": 1,
+   "read_only": 1,
+   "is_virtual": 1
   },
   {
    "fieldname": "blood_group",
@@ -186,6 +228,16 @@
    "fieldname": "address_line_2",
    "fieldtype": "Data",
    "label": "Address Line 2"
+  },
+  {
+   "fieldname": "kebele",
+   "fieldtype": "Data",
+   "label": "Kebele"
+  },
+  {
+   "fieldname": "sub_city",
+   "fieldtype": "Data",
+   "label": "Sub City"
   },
   {
    "fieldname": "pincode",

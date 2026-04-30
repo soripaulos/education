@@ -1,5 +1,5 @@
 <template>
-  <div class="p-5 h-full">
+  <div class="p-2 md:p-5 h-full overflow-auto">
     <!-- actions buttons for calendar -->
 
     <!-- left side  -->
@@ -8,7 +8,7 @@
     <!-- Increment and Decrement Button, View change button default is months or can be set via props! -->
 
     <div class="flex justify-between mb-2">
-      <span class="text-xl font-medium">
+      <span class="text-base md:text-xl font-medium">
         {{ getMonth() + ', ' + currentYear }}</span
       >
       <div class="flex gap-x-1">
@@ -28,12 +28,12 @@
       </div>
     </div>
 
-    <div class="h-[92%] min-h-[600px] min-w-[600px]">
+    <div class="h-full overflow-auto">
       <!-- Day List -->
       <div class="grid grid-cols-7 w-full pb-2">
         <span
           v-for="day in daysList"
-          class="text-center text-gray-600 font-normal text-sm"
+          class="text-center text-gray-600 font-normal text-xs md:text-sm"
           >{{ day }}</span
         >
       </div>
@@ -44,18 +44,18 @@
       >
         <div
           v-for="date in currentMonthDates"
-          class="border-r-[1px] border-b-[1px] border-gray-200"
+          class="border-r-[1px] border-b-[1px] border-gray-200 min-h-[3.5rem]"
         >
           <div
-            class="flex justify-center h-full font-normal mx-2"
+            class="flex justify-center h-full font-normal mx-1 md:mx-2"
             :class="currentMonthDate(date) ? 'text-gray-500' : 'text-gray-200'"
           >
             <div
               v-if="currentMonthDate(date)"
-              class="relative flex flex-col items-center w-full overflow-y-auto"
+              class="relative flex flex-col items-center w-full overflow-hidden"
             >
               <span
-                class="py-1 sticky top-0 bg-white w-full text-center z-10"
+                class="py-1 sticky top-0 bg-white w-full text-center z-10 text-xs md:text-sm mb-1"
                 :class="
                   date.toDateString() === new Date().toDateString() &&
                   'font-bold'
@@ -64,26 +64,23 @@
                 {{ date.getDate() }}
               </span>
 
-              <div class="w-full">
+              <div class="w-full px-1 space-y-1 overflow-y-auto">
                 <CalendarEvent
                   v-for="calendarEvent in parsedData[parseDate(date)]"
                   :event="calendarEvent"
                   :date="date"
-                  class="mb-2 cursor-pointer w-full"
+                  class="cursor-pointer w-full"
                   :draggable="false"
                   :key="calendarEvent.name"
                 />
               </div>
             </div>
-            <span v-else>{{
+            <span v-else class="text-xs md:text-sm">{{
               shortMonthList[date.getMonth()] + ' ' + date.getDate()
             }}</span>
           </div>
         </div>
       </div>
-      <!-- <div class=" w-20 h-20 bg-orange-400 absolute top-[212px] left">
-				
-			</div> -->
     </div>
   </div>
 </template>
@@ -179,4 +176,42 @@ function currentMonthDate(date) {
 }
 </script>
 
-<style></style>
+<style>
+/* Add responsive styles */
+@media (max-width: 640px) {
+  .grid-cols-7 > div {
+    min-width: 3rem;
+  }
+}
+
+/* Additional style for small screens */
+@media (max-width: 480px) {
+  .grid-cols-7 {
+    min-width: 350px; /* Ensure minimum total width */
+  }
+}
+
+/* To better handle calendar cell content */
+.grid-cols-7 > div {
+  position: relative;
+  max-height: 10rem;
+}
+
+.overflow-y-auto {
+  max-height: calc(100% - 1.5rem);
+  scrollbar-width: thin;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent; 
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 3px;
+}
+</style>
