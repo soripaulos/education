@@ -2756,14 +2756,11 @@ def upload_file_guest():
 
 
 
-# ================================================================
-# REPORT CARD GENERATOR API
-# ================================================================
-# Helper functions (mirrored from Server Script "Generate Student Report Card")
+# ----------------------------------------
+# REPORT CARD GENERATOR TOOL
+# ----------------------------------------
 
-import re as re_module
-
-def _get_grade(percentage, grading_scale_name="Standard Grading Scale"):
+def get_grade(percentage, grading_scale_name="Standard Grading Scale"):
     """Look up grade code from grading scale based on percentage threshold."""
     if percentage is None:
         return None
@@ -2777,7 +2774,7 @@ def _get_grade(percentage, grading_scale_name="Standard Grading Scale"):
         return None
 
 
-def _get_promotion_decision(year_average, current_program):
+def get_promotion_decision(year_average, current_program):
     """
     Auto-compute promotion decision based on year_average and current program.
     Sequences: Nursery -> LKG -> UKG -> Grade 1 -> ... -> Grade 12
@@ -2790,7 +2787,8 @@ def _get_promotion_decision(year_average, current_program):
     suffix = ""
     base = program
 
-    suffix_match = re_module.search(r'(\s+[A-Z][A-Z0-9\s]*)$', program)
+    import re
+    suffix_match = re.search(r'(\s+[A-Z][A-Z0-9\s]*)$', program)
     if suffix_match:
         suffix = suffix_match.group(1).strip()
         base = program[:suffix_match.start()].strip()
@@ -2801,7 +2799,7 @@ def _get_promotion_decision(year_average, current_program):
         "UKG": "Grade 1",
     }
 
-    grade_match = re_module.match(r'^Grade\s+(\d+)$', base)
+    grade_match = re.match(r'^Grade\s+(\d+)$', base)
     if grade_match:
         current_grade = int(grade_match.group(1))
         if current_grade >= 12:
@@ -2818,7 +2816,7 @@ def _get_promotion_decision(year_average, current_program):
     return f"Promoted to {base}"
 
 
-def _compute_year_average_from_courses(year_report_name):
+def compute_year_average_from_courses(year_report_name):
     """Compute average from Course Year Summary percentages when stored value is 0/None."""
     rows = frappe.get_all(
         "Course Year Summary",
@@ -2829,10 +2827,9 @@ def _compute_year_average_from_courses(year_report_name):
     return sum(vals) / len(vals) if vals else None
 
 
-def _generate_single_student_report_card(student, academic_year, result_action="Save as Draft"):
+def generate_student_report_card(student, academic_year):
     """
     Generate or update a Student Report Card for a given student + academic year.
-    Returns dict with name and action.
     """
     # 1. Fetch all Student Term Reports for this student + year
     strs = frappe.get_all(
@@ -2870,7 +2867,7 @@ def _generate_single_student_report_card(student, academic_year, result_action="
     student_name = student_doc.student_name
 
     # 4. Fetch Student Group / Program
-    student_group_name = first_str.student_group if first_str else None
+    student_group_name = first_str.student_group
     program_name = None
     if student_group_name:
         sg = frappe.get_doc("Student Group", student_group_name)
@@ -2904,7 +2901,7 @@ def _generate_single_student_report_card(student, academic_year, result_action="
         for cys in cys_list:
             year_subjects[cys.course] = cys
         if year_report.year_average == 0 or year_report.year_average is None:
-            year_avg_computed = _compute_year_average_from_courses(year_report.name)
+            year_avg_computed = compute_year_average_from_courses(year_report.name)
         else:
             year_avg_computed = year_report.year_average
 
@@ -2921,20 +2918,20 @@ def _generate_single_student_report_card(student, academic_year, result_action="
             "first_semester_score": first.total_score_for_term if first else None,
             "first_semester_max_score": first.total_maximum_score if first else None,
             "first_semester_percentage": first.percentage if first else None,
-            "first_semester_grade": _get_grade(first.percentage) if first else None,
+            "first_semester_grade": get_grade(first.percentage) if first else None,
             "second_semester_score": second.total_score_for_term if second else None,
             "second_semester_max_score": second.total_maximum_score if second else None,
             "second_semester_percentage": second.percentage if second else None,
-            "second_semester_grade": _get_grade(second.percentage) if second else None,
+            "second_semester_grade": get_grade(second.percentage) if second else None,
             "year_score": year.total_year_score if year else None,
             "year_max_score": year.total_year_max_score if year else None,
             "year_percentage": year.year_average_percentage if year else None,
-            "year_grade": _get_grade(year.year_average_percentage) if year else None,
+            "year_grade": get_grade(year.year_average_percentage) if year else None,
         }
         subject_rows.append(row)
 
-    # 8. Build promotion decision
-    promotion = _get_promotion_decision(year_avg_computed, program_name) if year_avg_computed is not None else None
+    # 8. Build promotion decision using computed year average
+    promotion = get_promotion_decision(year_avg_computed, program_name) if year_avg_computed is not None else None
 
     # 9. Check if SRC already exists (upsert)
     existing = frappe.get_all(
@@ -2953,7 +2950,7 @@ def _generate_single_student_report_card(student, academic_year, result_action="
         "date_of_birth": student_doc.date_of_birth,
         "age": getattr(student_doc, "age", None),
         "gender": student_doc.gender,
-        "blood_group": getattr(student_doc, "blood_group", None),
+        "blood_group": student_doc.blood_group,
         "first_semester": first_str.name if first_str else None,
         "first_semester_remarks": first_str.custom_first_semester_remarks if first_str else None,
         "first_sem_rank": first_str.rank_in_group if first_str else None,
@@ -2973,102 +2970,77 @@ def _generate_single_student_report_card(student, academic_year, result_action="
     if existing:
         src = frappe.get_doc("Student Report Card", existing[0].name)
         for key, val in common.items():
-            if key != "subjects":
-                src.set(key, val)
-        # Rebuild child table
-        src.set("subjects", [])
-        for row in subject_rows:
-            src.append("subjects", row)
+            src.set(key, val)
         src.save()
-        _submit_if_needed(src, result_action)
         src_name = src.name
         action = "Updated"
-        if src.docstatus == 1:
-            action = "Submitted"
     else:
-        src = frappe.new_doc("Student Report Card")
+        src = frappe.get_doc({"doctype": "Student Report Card"})
         for key, val in common.items():
-            if key != "subjects":
-                src.set(key, val)
-        for row in subject_rows:
-            src.append("subjects", row)
+            src.set(key, val)
         src.insert()
-        _submit_if_needed(src, result_action)
         src_name = src.name
         action = "Created"
-        if src.docstatus == 1:
-            action = "Submitted"
 
     return {"name": src_name, "action": action}
 
 
-def _submit_if_needed(doc, result_action):
-    """Submit doc if result_action is 'Save and Submit'."""
-    if result_action == 'Save and Submit' and doc.docstatus == 0:
-        doc.submit()
-
-
 @frappe.whitelist()
-def generate_student_report_cards(academic_year, student=None, student_group=None, result_action="Save as Draft"):
+def generate_report_cards(generation_mode, academic_year, student=None, student_group=None, result_action="Save as Draft"):
     """
-    Generate Student Report Cards.
-
-    Args:
-        academic_year: Academic Year docname (e.g. "2018 E.C.")
-        student: Student docname — for Single Student mode
-        student_group: Student Group docname — for Student Group mode
-        result_action: "Save as Draft" or "Save and Submit"
-        If neither student nor student_group is provided, generates for all students.
-
-    Returns:
-        Single dict for single student: {"name": "...", "action": "Created|Updated|Submitted"}
-        List of dicts for batch: [{"name":..., "action":...}, ...]
+    Generate Student Report Cards for a student, group, or all students.
+    Called from Report Card Generator Tool via frappe.call.
     """
     try:
-        if student:
-            # Single student mode
-            result = _generate_single_student_report_card(student, academic_year, result_action)
-            frappe.db.commit()
-            return result
+        if not academic_year:
+            return {"status": "error", "message": "Academic Year is required"}
 
-        elif student_group:
-            # Student group mode
-            students = frappe.get_all(
-                "Student Group Student",
-                filters={"parent": student_group},
-                fields=["student"]
-            )
-            results = []
-            for st in students:
-                try:
-                    result = _generate_single_student_report_card(st.student, academic_year, result_action)
-                    results.append(result)
-                except Exception as e:
-                    results.append({"student": st.student, "action": "Error", "error": str(e)})
-            frappe.db.commit()
-            return results
+        if not generation_mode:
+            return {"status": "error", "message": "Generation Mode is required"}
 
-        else:
-            # All students mode
+        # Collect students based on generation mode
+        if generation_mode == "Single Student":
+            if not student:
+                return {"status": "error", "message": "Student is required for Single Student mode"}
+            students = [student]
+        elif generation_mode == "Student Group":
+            if not student_group:
+                return {"status": "error", "message": "Student Group is required for Student Group mode"}
+            sg = frappe.get_doc("Student Group", student_group)
+            students = [d.student for d in sg.students] if sg.students else []
+        else:  # All Students
             strs = frappe.get_all(
                 "Student Term Report",
                 filters={"academic_year": academic_year},
                 fields=["student"]
             )
             seen = set()
-            results = []
+            students = []
             for s in strs:
                 if s.student not in seen:
                     seen.add(s.student)
-                    try:
-                        result = _generate_single_student_report_card(s.student, academic_year, result_action)
-                        results.append(result)
-                    except Exception as e:
-                        results.append({"student": s.student, "action": "Error", "error": str(e)})
-            frappe.db.commit()
-            return results
+                    students.append(s.student)
+
+        if not students:
+            return {"status": "error", "message": "No students found for the selected criteria"}
+
+        generated = 0
+        errors = []
+
+        for stu in students:
+            try:
+                result = generate_student_report_card(stu, academic_year)
+                generated += 1
+            except Exception as e:
+                errors.append(f"{stu}: {str(e)}")
+
+        msg = f"Generated {generated} report cards."
+        if errors:
+            msg += f" Errors: {len(errors)}"
+
+        return {"status": "success", "message": msg}
 
     except Exception as e:
         frappe.db.rollback()
-        frappe.log_error(frappe.get_traceback(), "Report Card Generation Error")
-        return {"action": "Error", "error": str(e)}
+        frappe.log_error(frappe.get_traceback(), "Report Card Generator Error")
+        return {"status": "error", "message": str(e)}
