@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-05-16 00:00:00.000000",
+ "custom": 1,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "student",
+  "student_name",
+  "academic_year",
+  "student_group",
+  "column_break_5",
+  "is_final",
+  "year_average",
+  "rank_in_group",
+  "section_break_9",
+  "semesters",
+  "year_courses"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "RCR-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "label": "Student Name",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Academic Year",
+   "options": "Academic Year",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Student Group",
+   "options": "Student Group",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "is_final",
+   "fieldtype": "Check",
+   "label": "Is Final (Year-End)"
+  },
+  {
+   "fieldname": "year_average",
+   "fieldtype": "Float",
+   "label": "Year Average",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rank_in_group",
+   "fieldtype": "Int",
+   "label": "Rank in Group"
+  },
+  {
+   "fieldname": "section_break_9",
+   "fieldtype": "Section Break",
+   "label": "Semester Results"
+  },
+  {
+   "fieldname": "semesters",
+   "fieldtype": "Table",
+   "label": "Semesters",
+   "options": "Report Card Semester"
+  },
+  {
+   "fieldname": "year_courses",
+   "fieldtype": "Table",
+   "label": "Year Course Summary",
+   "options": "Report Card Year"
+  }
+ ],
+ "issubmittable": 1,
+ "links": [],
+ "module": "Education",
+ "name": "Report Card",
+ "naming_rule": "By \"Naming Series\"",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Academics User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Instructor",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

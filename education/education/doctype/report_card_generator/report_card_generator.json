@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:title",
+ "creation": "2026-05-16 00:00:00.000000",
+ "custom": 1,
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "academic_year",
+  "generation_mode",
+  "column_break_2",
+  "student",
+  "student_group"
+ ],
+ "fields": [
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Academic Year",
+   "options": "Academic Year",
+   "reqd": 1,
+   "collapsible": 0
+  },
+  {
+   "fieldname": "generation_mode",
+   "fieldtype": "Select",
+   "label": "Generation Mode",
+   "options": "Single Student\nStudent Group\nAll Students",
+   "reqd": 1,
+   "default": "All Students"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "hidden": 1,
+   "depends_on": "eval:doc.generation_mode == 'Single Student'"
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Student Group",
+   "options": "Student Group",
+   "hidden": 1,
+   "depends_on": "eval:doc.generation_mode == 'Student Group'"
+  }
+ ],
+ "icon": "fa fa-file-text",
+ "idx": 0,
+ "is_submittable": 0,
+ "issingle": 1,
+ "istable": 0,
+ "modified": "2026-05-16 00:00:00.000000",
+ "module": "Education",
+ "name": "Report Card Generator",
+ "owner": "Administrator",
+ "document_type": "Tool",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "read_only": 0,
+ "show_name_in_global_search": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "__js": "frappe.ui.form.on('Report Card Generator', {\n\trefresh: function(frm) {\n\t\tfrm.page.set_primary_action(__('Generate Report Cards'), function() {\n\t\t\tgenerate_report_cards(frm);\n\t\t});\n\t\tfrm.add_custom_button(__('Preview'), function() {\n\t\t\tfrappe.msgprint('Preview will open the first Report Card for the selected academic year.');\n\t\t});\n\t},\n\tgeneration_mode: function(frm) {\n\t\tfrm.refresh_fields();\n\t}\n});\n\nfunction generate_report_cards(frm) {\n\tif (!frm.doc.academic_year) {\n\t\tfrappe.msgprint(__('Please select an Academic Year'));\n\t\treturn;\n\t}\n\n\tif (frm.doc.generation_mode === 'Single Student' && !frm.doc.student) {\n\t\tfrappe.msgprint(__('Please select a Student'));\n\t\treturn;\n\t}\n\n\tif (frm.doc.generation_mode === 'Student Group' && !frm.doc.student_group) {\n\t\tfrappe.msgprint(__('Please select a Student Group'));\n\t\treturn;\n\t}\n\n\tlet msg = `Generate Report Cards for ${frm.doc.academic_year}`;\n\tif (frm.doc.generation_mode === 'Single Student' && frm.doc.student) msg += ` — ${frm.doc.student}`;\n\telse if (frm.doc.generation_mode === 'Student Group' && frm.doc.student_group) msg += ` — ${frm.doc.student_group}`;\n\telse msg += ' (All Students)';\n\n\tfrappe.confirm(msg + '?', function() {\n\t\tfrappe.show_alert({ message: __('Generating...'), indicator: 'blue' });\n\t\tfrappe.call({\n\t\t\tmethod: 'education.education.doctype.report_card_generator.report_card_generator.generate_report_cards',\n\t\t\targs: {\n\t\t\t\tgeneration_mode: frm.doc.generation_mode,\n\t\t\t\tacademic_year: frm.doc.academic_year,\n\t\t\t\tstudent: frm.doc.student,\n\t\t\t\tstudent_group: frm.doc.student_group\n\t\t\t},\n\t\t\tcallback: function(r) {\n\t\t\t\tif (r.message && r.message.status === 'success') {\n\t\t\t\t\tfrappe.show_alert({ message: r.message.message, indicator: 'green' });\n\t\t\t\t\tfrappe.msgprint(r.message.message);\n\t\t\t\t} else {\n\t\t\t\t\tfrappe.show_alert({ message: r.message.message || 'Error', indicator: 'red' });\n\t\t\t\t\tfrappe.msgprint(r.message.message || 'Generation failed.');\n\t\t\t\t}\n\t\t\t}\n\t\t});\n\t});\n}"
+}

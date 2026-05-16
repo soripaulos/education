@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-05-16 00:00:00.000000",
+ "custom": 1,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "academic_term",
+  "term_average",
+  "rank_in_group",
+  "promotion_decision",
+  "first_semester_remarks",
+  "second_semester_remarks",
+  "courses"
+ ],
+ "fields": [
+  {
+   "fieldname": "academic_term",
+   "fieldtype": "Link",
+   "label": "Academic Term",
+   "options": "Academic Term",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "term_average",
+   "fieldtype": "Float",
+   "label": "Term Average",
+   "precision": "2"
+  },
+  {
+   "fieldname": "rank_in_group",
+   "fieldtype": "Int",
+   "label": "Rank in Group"
+  },
+  {
+   "fieldname": "promotion_decision",
+   "fieldtype": "Data",
+   "label": "Promotion Decision"
+  },
+  {
+   "fieldname": "first_semester_remarks",
+   "fieldtype": "Small Text",
+   "label": "First Semester Remarks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "second_semester_remarks",
+   "fieldtype": "Small Text",
+   "label": "Second Semester Remarks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "courses",
+   "fieldtype": "Table",
+   "label": "Courses",
+   "options": "Report Card Course"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "module": "Education",
+ "name": "Report Card Semester",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
