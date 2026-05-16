@@ -1,0 +1,118 @@
+{
+ "allow_rename": 0,
+ "creation": "2026-04-30 10:00:00.000000",
+ "custom": 0,
+ "docstatus": 0,
+ "doctype": "DocType",
+ "document_type": "Tool",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_1",
+  "generation_mode",
+  "column_break_1",
+  "academic_year",
+  "student",
+  "student_group",
+  "section_break_3",
+  "result_action",
+  "section_break_2",
+  "generate_btn",
+  "generation_result"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break",
+   "label": "Generation Parameters"
+  },
+  {
+   "fieldname": "generation_mode",
+   "fieldtype": "Select",
+   "label": "Generation Mode",
+   "options": "Single Student\nStudent Group\nAll Students",
+   "reqd": 1,
+   "default": "Single Student"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Academic Year",
+   "options": "Academic Year",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.generation_mode=='Single Student'",
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "mandatory_depends_on": "eval:doc.generation_mode=='Single Student'"
+  },
+  {
+   "depends_on": "eval:doc.generation_mode=='Student Group'",
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Student Group",
+   "options": "Student Group",
+   "mandatory_depends_on": "eval:doc.generation_mode=='Student Group'"
+  },
+  {
+   "fieldname": "section_break_3",
+   "fieldtype": "Section Break",
+   "label": "Result Action"
+  },
+  {
+   "fieldname": "result_action",
+   "fieldtype": "Select",
+   "label": "After Generation",
+   "options": "Save as Draft\nSave and Submit",
+   "default": "Save as Draft",
+   "reqd": 1,
+   "description": "Choose whether to save report cards as drafts or submit them immediately"
+  },
+  {
+   "fieldname": "section_break_2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "generate_btn",
+   "fieldtype": "Button",
+   "label": "Generate Report Cards"
+  },
+  {
+   "fieldname": "generation_result",
+   "fieldtype": "Small Text",
+   "label": "Generation Result",
+   "read_only": 1
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-04-30 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Report Card Generator",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Academics User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
