@@ -10,7 +10,8 @@
   "total_year_score",
   "total_year_max_score",
   "year_average_percentage",
-  "terms_count"
+  "terms_count",
+  "excluded_from_average"
  ],
  "fields": [
   {
@@ -48,6 +49,15 @@
    "fieldname": "terms_count",
    "fieldtype": "Int",
    "label": "Terms Count",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Shown on the report but not counted in the year average",
+   "fieldname": "excluded_from_average",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Excluded from Average",
    "read_only": 1
   }
  ],

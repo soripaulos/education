@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-12 10:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "level",
+  "student",
+  "student_name",
+  "student_group",
+  "course",
+  "message"
+ ],
+ "fields": [
+  {
+   "fieldname": "level",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Level",
+   "options": "Info\nSuccess\nWarning\nSkipped\nError",
+   "columns": 1
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "columns": 1
+  },
+  {
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Student Name",
+   "columns": 2
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Student Group",
+   "options": "Student Group",
+   "columns": 2
+  },
+  {
+   "fieldname": "course",
+   "fieldtype": "Data",
+   "label": "Course / Term",
+   "columns": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Message",
+   "columns": 5
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-12 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Result Calculation Log Entry",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

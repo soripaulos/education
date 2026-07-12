@@ -17,6 +17,7 @@
   "assessment_tab",
   "assessment",
   "default_grading_scale",
+  "exclude_from_result_average",
   "assessment_criteria",
   "connections_tab"
  ],
@@ -62,6 +63,13 @@
    "fieldtype": "Link",
    "label": "Default Grading Scale",
    "options": "Grading Scale"
+  },
+  {
+   "default": "0",
+   "description": "If checked, this course's scores are still recorded and shown on report cards, but they are excluded from term and year average calculations (e.g. Art in Kindergarten). The Result Calculation Tool can override this per run.",
+   "fieldname": "exclude_from_result_average",
+   "fieldtype": "Check",
+   "label": "Exclude from Result Average"
   },
   {
    "fieldname": "assessment_criteria",
