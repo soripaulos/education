@@ -1651,34 +1651,44 @@ def trigger_year_calculation(academic_year, student_group=None):
 @frappe.whitelist()
 def calculate_results(calculation_type, academic_year, semester=None, student_group=None, result_action="Save as Draft"):
 	"""
-	Calculate term or year results based on parameters
-	Updated to use user's field names: semester instead of academic_term
-	Flexible to work with any selected academic year and semester (no preset defaults)
+	Calculate term or year results based on parameters.
+
+	Kept for backward compatibility: delegates to the Result Calculation Tool
+	engine (education.education.doctype.result_calculation_tool), which adds
+	validation, per-student error isolation and a Result Calculation Log.
+	Runs synchronously; use the Result Calculation Tool page for background
+	runs, previews and the full set of customization options.
 	"""
 	try:
-		submit_results = result_action == "Save and Submit"
-		
-		if calculation_type == "Term Results":
-			if not semester:
-				frappe.throw("Semester is required for Term Results calculation")
-			
-			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_term_results
-			calculate_term_results(semester, academic_year, student_group, submit_results)
-			
-		elif calculation_type == "Year Results":
-			from education.education.doctype.student_term_subject_result.student_term_subject_result import calculate_year_results
-			calculate_year_results(academic_year, student_group, submit_results)
-		
-		else:
-			frappe.throw("Invalid calculation type")
-			
-		frappe.db.commit()
-		
-		if submit_results:
-			return {"status": "success", "message": "Calculation completed and results submitted successfully"}
-		else:
-			return {"status": "success", "message": "Calculation completed and results saved as drafts"}
-		
+		from education.education.doctype.result_calculation_tool.result_calculation_tool import (
+			start_calculation,
+		)
+
+		result = start_calculation(
+			{
+				"calculation_type": calculation_type,
+				"academic_year": academic_year,
+				"semester": semester,
+				"student_group": student_group,
+				"result_action": result_action,
+				"run_in_background": 0,
+			}
+		)
+
+		if result.get("status") == "Failed":
+			return {
+				"status": "error",
+				"message": result.get("summary"),
+				"log_name": result.get("log_name"),
+			}
+
+		return {
+			"status": "success",
+			"message": f"{result.get('summary')} (log: {result.get('log_name')})",
+			"log_name": result.get("log_name"),
+			"calculation_status": result.get("status"),
+		}
+
 	except Exception as e:
 		frappe.db.rollback()
 		frappe.log_error(f"Result calculation failed: {str(e)}")

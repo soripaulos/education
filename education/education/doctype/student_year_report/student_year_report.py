@@ -3,11 +3,15 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 
 def calculate_course_summaries(doc):
-	"""Fetch all term reports and calculate the year's summary for each course."""
+	"""Fetch all term reports and calculate the year's summary for each course.
+
+	Courses flagged "Exclude from Result Average" on the Course master are
+	shown on the report but not counted in the year average.
+	"""
 	doc.course_year_summary = []
 	term_reports = frappe.get_all("Student Term Report",
 		filters={
@@ -36,20 +40,34 @@ def calculate_course_summaries(doc):
 			course_data[course]["max_score"] += summary.total_maximum_score
 			course_data[course]["count"] += 1
 
+	excluded_courses = set()
+	if course_data and frappe.db.has_column("Course", "exclude_from_result_average"):
+		excluded_courses = {
+			c.name
+			for c in frappe.get_all(
+				"Course",
+				filters={"name": ["in", list(course_data)], "exclude_from_result_average": 1},
+				fields=["name"],
+			)
+		}
+
 	total_year_average = 0
 	num_courses = 0
 	for course, data in course_data.items():
 		percentage = (data["total_score"] / data["max_score"] * 100) if data["max_score"] else 0
+		excluded = course in excluded_courses or not data["max_score"]
 		doc.append("course_year_summary", {
 			"course": course,
 			"total_year_score": data["total_score"],
 			"total_year_max_score": data["max_score"],
 			"year_average_percentage": percentage,
-			"terms_count": data["count"]
+			"terms_count": data["count"],
+			"excluded_from_average": cint(excluded)
 		})
-		total_year_average += percentage
-		num_courses += 1
-	
+		if not excluded:
+			total_year_average += percentage
+			num_courses += 1
+
 	if num_courses > 0:
 		doc.year_average = total_year_average / num_courses
 
@@ -58,10 +76,17 @@ class StudentYearReport(Document):
 	def validate(self):
 		if self.student:
 			self.student_name = frappe.db.get_value("Student", self.student, "student_name")
-		calculate_course_summaries(self)
+		if not self.flags.get("from_calculation_tool"):
+			# manual edits recalculate from submitted term reports; the
+			# Result Calculation Tool builds the summary itself (with its
+			# own policies for missing terms and course exclusions)
+			calculate_course_summaries(self)
 
 	def on_submit(self):
 		"""Calculate rank after submission"""
+		if self.flags.get("skip_rank_queue"):
+			# the Result Calculation Tool ranks the whole group in one pass
+			return
 		self.queue_action(
 			"calculate_rank_for_group",
 			student_group=self.student_group,

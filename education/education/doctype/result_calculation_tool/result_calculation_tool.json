@@ -10,14 +10,31 @@
  "field_order": [
   "section_break_1",
   "calculation_type",
+  "result_action",
+  "run_in_background",
   "column_break_1",
   "academic_year",
   "semester",
   "student_group",
-  "section_break_3",
-  "result_action",
-  "section_break_2",
-  "calculate_button"
+  "data_quality_section",
+  "draft_result_handling",
+  "incomplete_subject_policy",
+  "column_break_dq",
+  "only_active_students",
+  "existing_report_policy",
+  "course_inclusion_section",
+  "respect_course_exclusion_flags",
+  "column_break_ci",
+  "excluded_courses",
+  "year_options_section",
+  "missing_term_policy",
+  "year_average_method",
+  "column_break_yo",
+  "terms_to_include",
+  "preview_section",
+  "preview_html",
+  "logs_section",
+  "logs_html"
  ],
  "fields": [
   {
@@ -26,66 +43,180 @@
    "label": "Calculation Parameters"
   },
   {
+   "default": "Term Results",
    "fieldname": "calculation_type",
    "fieldtype": "Select",
    "label": "Calculation Type",
    "options": "Term Results\nYear Results",
-   "reqd": 1,
-   "default": "Term Results"
+   "reqd": 1
+  },
+  {
+   "default": "Save as Draft",
+   "description": "Choose whether to save results as drafts or submit them immediately",
+   "fieldname": "result_action",
+   "fieldtype": "Select",
+   "label": "After Calculation",
+   "options": "Save as Draft\nSave and Submit",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "description": "Recommended for large batches. Progress and a full log are shown either way.",
+   "fieldname": "run_in_background",
+   "fieldtype": "Check",
+   "label": "Run in Background"
   },
   {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
   },
- {
-  "fieldname": "academic_year",
-  "fieldtype": "Link",
-  "label": "Academic Year",
-  "options": "Academic Year",
-  "reqd": 1
- },
- {
-  "depends_on": "eval:doc.calculation_type=='Term Results'",
-  "fieldname": "semester",
-  "fieldtype": "Link",
-  "label": "Semester",
-  "options": "Academic Term",
-  "mandatory_depends_on": "eval:doc.calculation_type=='Term Results'"
- },
   {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Academic Year",
+   "options": "Academic Year",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.calculation_type=='Term Results'",
+   "fieldname": "semester",
+   "fieldtype": "Link",
+   "label": "Semester",
+   "mandatory_depends_on": "eval:doc.calculation_type=='Term Results'",
+   "options": "Academic Term"
+  },
+  {
+   "description": "Leave blank to calculate for all student groups",
    "fieldname": "student_group",
    "fieldtype": "Link",
    "label": "Student Group (Optional)",
-   "options": "Student Group",
-   "description": "Leave blank to calculate for all student groups"
+   "options": "Student Group"
   },
   {
-   "fieldname": "section_break_3",
+   "fieldname": "data_quality_section",
    "fieldtype": "Section Break",
-   "label": "Result Action"
+   "label": "Data Quality & Validation"
   },
   {
-   "fieldname": "result_action",
+   "default": "Ignore Draft Results",
+   "description": "How to treat subject results (or term reports, for year calculation) that are still in Draft. \"Ignore\" uses submitted records only and warns about drafts. \"Include\" counts drafts as if submitted. \"Block\" refuses to run while drafts exist.",
+   "fieldname": "draft_result_handling",
    "fieldtype": "Select",
-   "label": "After Calculation",
-   "options": "Save as Draft\nSave and Submit",
-   "default": "Save as Draft",
-   "reqd": 1,
-   "description": "Choose whether to save results as drafts or submit them immediately"
+   "label": "Draft Data Handling",
+   "options": "Ignore Draft Results\nInclude Draft Results\nBlock if Drafts Exist"
   },
   {
-   "fieldname": "section_break_2",
-   "fieldtype": "Section Break"
+   "default": "Calculate with Available Subjects",
+   "depends_on": "eval:doc.calculation_type=='Term Results'",
+   "description": "What to do when a student is missing results for subjects that other students in the same group have",
+   "fieldname": "incomplete_subject_policy",
+   "fieldtype": "Select",
+   "label": "Missing Subject Handling",
+   "options": "Calculate with Available Subjects\nSkip Students with Missing Subjects\nBlock if Any Subject Missing"
   },
   {
-   "fieldname": "calculate_button",
-   "fieldtype": "Button",
-   "label": "Calculate Results"
+   "fieldname": "column_break_dq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "Skip students marked as inactive in the Student Group (e.g. left the school). Their results are reported in the preview but no report card is generated.",
+   "fieldname": "only_active_students",
+   "fieldtype": "Check",
+   "label": "Only Active Students"
+  },
+  {
+   "default": "Replace Existing Submitted Reports",
+   "description": "What to do when a report for a student already exists and is submitted. \"Replace\" cancels, deletes and recreates it with fresh numbers. \"Skip\" leaves it untouched.",
+   "fieldname": "existing_report_policy",
+   "fieldtype": "Select",
+   "label": "Existing Submitted Reports",
+   "options": "Replace Existing Submitted Reports\nSkip Existing Submitted Reports"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "course_inclusion_section",
+   "fieldtype": "Section Break",
+   "label": "Course Inclusion"
+  },
+  {
+   "default": "1",
+   "description": "Courses with \"Exclude from Result Average\" checked on the Course master (e.g. Art in KG) are shown on reports but not counted in averages. Uncheck to ignore those flags for this run.",
+   "fieldname": "respect_course_exclusion_flags",
+   "fieldtype": "Check",
+   "label": "Respect Course-Level Exclusion Flags"
+  },
+  {
+   "fieldname": "column_break_ci",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Additional courses to exclude from average calculation for this run only. Their scores still appear on the reports.",
+   "fieldname": "excluded_courses",
+   "fieldtype": "Table MultiSelect",
+   "label": "Also Exclude These Courses",
+   "options": "Result Calculation Course"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.calculation_type=='Year Results'",
+   "fieldname": "year_options_section",
+   "fieldtype": "Section Break",
+   "label": "Year Calculation Options"
+  },
+  {
+   "default": "Average Available Terms",
+   "description": "How to handle students who don't have results for every term (joined mid-year, left, expelled, ...). \"Average Available Terms\" uses only the terms the student attended and marks the report as Partial Year. \"Treat Missing Terms as Zero\" counts each missing term as 0. \"Exclude\" skips those students entirely. \"Block\" refuses to run while any student has missing terms.",
+   "fieldname": "missing_term_policy",
+   "fieldtype": "Select",
+   "label": "Missing Term Handling",
+   "options": "Average Available Terms\nTreat Missing Terms as Zero\nExclude Students with Missing Terms\nBlock if Any Term Missing"
+  },
+  {
+   "default": "Average of Term Averages",
+   "description": "\"Average of Term Averages\" weighs each term equally. \"Average of Course Year Percentages\" averages each course's combined year percentage (weighs terms by their maximum scores).",
+   "fieldname": "year_average_method",
+   "fieldtype": "Select",
+   "label": "Year Average Method",
+   "options": "Average of Term Averages\nAverage of Course Year Percentages"
+  },
+  {
+   "fieldname": "column_break_yo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Which terms make up the year. Leave empty to auto-detect every term of the academic year that has submitted term reports.",
+   "fieldname": "terms_to_include",
+   "fieldtype": "Table MultiSelect",
+   "label": "Terms to Include",
+   "options": "Result Calculation Term"
+  },
+  {
+   "fieldname": "preview_section",
+   "fieldtype": "Section Break",
+   "label": ""
+  },
+  {
+   "fieldname": "preview_html",
+   "fieldtype": "HTML",
+   "label": "Preview"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "logs_section",
+   "fieldtype": "Section Break",
+   "label": "Recent Calculation Runs"
+  },
+  {
+   "fieldname": "logs_html",
+   "fieldtype": "HTML",
+   "label": "Recent Runs"
   }
  ],
+ "hide_toolbar": 0,
  "issingle": 1,
  "links": [],
- "modified": "2024-12-19 10:30:00.000000",
+ "modified": "2026-07-12 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Education",
  "name": "Result Calculation Tool",
@@ -102,9 +233,33 @@
    "role": "Academics User",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Education Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
   }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
-} 
+}

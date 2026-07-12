@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 
 class StudentTermReport(Document):
@@ -13,15 +13,32 @@ class StudentTermReport(Document):
 		self.calculate_term_average()
 
 	def calculate_term_average(self):
-		"""Calculate term average from course summary"""
-		if self.course_summary:
-			total_score = sum([flt(row.total_score_for_term) for row in self.course_summary])
-			total_subjects = len(self.course_summary)
-			if total_subjects > 0:
-				self.term_average = total_score / total_subjects
+		"""Calculate term average as the mean percentage of the courses that
+		count towards the average (rows flagged 'excluded_from_average' are
+		shown on the report but not counted)."""
+		if not self.course_summary:
+			return
+
+		included_percentages = []
+		for row in self.course_summary:
+			# keep row percentage consistent with its totals
+			if flt(row.total_maximum_score) > 0:
+				row.percentage = flt(row.total_score_for_term) / flt(row.total_maximum_score) * 100
+			elif not row.percentage:
+				row.percentage = 0
+			if not cint(row.excluded_from_average):
+				included_percentages.append(flt(row.percentage))
+
+		if included_percentages:
+			self.term_average = sum(included_percentages) / len(included_percentages)
+		else:
+			self.term_average = 0
 
 	def on_submit(self):
 		"""Calculate rank after submission"""
+		if self.flags.get("skip_rank_queue"):
+			# the Result Calculation Tool ranks the whole group in one pass
+			return
 		self.queue_action(
 			"calculate_rank_for_group",
 			student_group=self.student_group,
