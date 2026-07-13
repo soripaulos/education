@@ -43,12 +43,17 @@ def get_context(context):
             default_academic_year = candidate
             break
     if not default_academic_year:
+        # ignore_permissions: this only picks a default field value for the
+        # form (not exposed as a browsable list), so it must not depend on
+        # the calling user's Academic Year read permission - restricted
+        # accounts like the DD Student Registrar role have none.
         recent = frappe.get_all(
             "Academic Year",
             filters={"disabled": 0},
             fields=["name"],
             order_by="year_start_date desc",
             limit=1,
+            ignore_permissions=True,
         )
         default_academic_year = recent[0].name if recent else "2018 E.C."
 
