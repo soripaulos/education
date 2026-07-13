@@ -1885,8 +1885,61 @@ def generate_school_id(branch="M1"):
 			new_num = 10001
 	else:
 		new_num = 10001
-	
+
 	return f"{branch}/{new_num:05d}/18"
+
+
+@frappe.whitelist()
+def generate_dd_school_id():
+	"""Generate a new MBS Dembi Dollo school ID in the format MB/DD/#####/19
+	with a random, unique 5-digit number.
+
+	Login required — this is intentionally NOT exposed to guests (allow_guest
+	is omitted) because the Dembi Dollo registration page is staff-only.
+	"""
+	import random
+	import time
+
+	max_attempts = 100
+	for _attempt in range(max_attempts):
+		random_num = random.randint(10001, 99999)
+		school_id = f"MB/DD/{random_num:05d}/19"
+
+		exists_in_student = frappe.db.exists("Student", {"custom_school_id": school_id})
+		exists_in_applicant = frappe.db.exists("Student Applicant", {"custom_school_id": school_id})
+
+		if not exists_in_student and not exists_in_applicant:
+			return school_id
+
+		# If ID exists, try again with a different number
+		time.sleep(0.001)
+
+	# Sequential fallback (extremely unlikely to be reached given the range)
+	frappe.log_error("Could not generate unique DD school ID after multiple attempts, using sequential fallback")
+
+	last_id = frappe.db.sql(
+		"""
+		SELECT custom_school_id
+		FROM `tabStudent Applicant`
+		WHERE custom_school_id LIKE %s
+		ORDER BY creation DESC
+		LIMIT 1
+		""",
+		("MB/DD/%",),
+		as_dict=True,
+	)
+
+	new_num = 10001
+	if last_id:
+		# Format is MB/DD/#####/19 -> parts = ['MB', 'DD', '#####', '19']
+		parts = last_id[0]["custom_school_id"].split("/")
+		if len(parts) == 4:
+			try:
+				new_num = max(int(parts[2]) + 1, 10001)
+			except ValueError:
+				new_num = 10001
+
+	return f"MB/DD/{new_num:05d}/19"
 
 @frappe.whitelist(allow_guest=True)
 def create_guardian(guardian_data):
