@@ -1896,14 +1896,13 @@ def generate_dd_school_id():
 
 	Login required — this is intentionally NOT exposed to guests (allow_guest
 	is omitted) because the Dembi Dollo registration page is staff-only.
-	Also requires the same "create Student Applicant" permission the page
-	itself is gated on, so no other logged-in user (e.g. a student) can call
-	this endpoint directly.
+	Gated on the same "DD Student Registrar" role as the /apply-dd page, so no
+	other logged-in user (e.g. a student) can call this endpoint directly.
 	"""
 	import random
 	import time
 
-	if not frappe.has_permission("Student Applicant", ptype="create"):
+	if "DD Student Registrar" not in frappe.get_roles():
 		frappe.throw(_("You are not permitted to generate a school ID."), frappe.PermissionError)
 
 	max_attempts = 100

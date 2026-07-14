@@ -5,11 +5,17 @@ from frappe import _
 no_cache = 1
 
 
+# Only holders of this role may open the page. Membership is pure data:
+# grant/revoke this role (Desk > User, or via API) to change who has access -
+# no code change needed. Currently: Ermias Tesfaye, Nana Abebe, Sori Paulos.
+ALLOWED_ROLE = "DD Student Registrar"
+
+
 def get_context(context):
     """Context for the MBS Dembi Dollo Student Registration Page.
 
     Unlike the public /mbreg1825 form, this page is login-only and further
-    restricted to users who are permitted to create Student Applicant records.
+    restricted to holders of the "DD Student Registrar" role.
     """
     # 1) Require login. Redirect guests to the login page and back here.
     if frappe.session.user == "Guest":
@@ -22,8 +28,9 @@ def get_context(context):
         frappe.local.flags.redirect_location = "/login?redirect-to=" + redirect_to
         raise frappe.Redirect
 
-    # 2) Require permission to create student applications.
-    if not frappe.has_permission("Student Applicant", ptype="create"):
+    # 2) Restrict to holders of the dedicated registrar role. (Administrator
+    #    implicitly has every role, so it always retains access.)
+    if ALLOWED_ROLE not in frappe.get_roles():
         frappe.throw(
             _("You are not permitted to access the Student Registration Page."),
             frappe.PermissionError,
