@@ -1109,6 +1109,7 @@ class _Calculator:
 		doc.student_group = group_name
 		doc.course_summary = []
 
+		included_percentages = []
 		for subject in sorted(subjects_data):
 			totals = subjects_data[subject]
 			max_score = flt(totals["total_max_score"])
@@ -1124,16 +1125,27 @@ class _Calculator:
 					group_name,
 					course=subject,
 				)
+			percentage = (flt(totals["total_score"]) / max_score * 100) if max_score else 0
 			doc.append(
 				"course_summary",
 				{
 					"course": subject,
 					"total_score_for_term": flt(totals["total_score"]),
 					"total_maximum_score": max_score,
-					"percentage": (flt(totals["total_score"]) / max_score * 100) if max_score else 0,
+					"percentage": percentage,
 					"excluded_from_average": cint(excluded),
 				},
 			)
+			if not excluded:
+				included_percentages.append(percentage)
+
+		# Set the term average here in the tool rather than relying on the
+		# Student Term Report controller. That doctype is a Custom DocType on
+		# the site, so its Python controller (validate -> calculate_term_average)
+		# does not run; without this, term_average would stay 0.
+		doc.term_average = (
+			sum(included_percentages) / len(included_percentages) if included_percentages else 0
+		)
 
 		doc.save(ignore_permissions=True)
 		return doc, action
