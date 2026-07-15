@@ -19,3 +19,4 @@ education.patches.v15_0.create_custom_permissions
 education.patches.v15_0.install_result_calculation_system
 education.patches.v15_0.enhance_result_calculation_tool
 education.patches.v15_0.create_dd_registration_user
+education.patches.v15_0.consolidate_report_remark_fields

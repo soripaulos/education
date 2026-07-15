@@ -15,6 +15,10 @@ frappe.ui.form.on('Result Calculation Tool', {
 			frappe.set_route('List', 'Result Calculation Log');
 		});
 
+		frm.add_custom_button(__('Bulk Sign Reports'), function () {
+			open_bulk_sign_dialog(frm);
+		});
+
 		setup_realtime(frm);
 		render_recent_logs(frm);
 	},
@@ -337,6 +341,100 @@ function setup_realtime(frm) {
 	frappe.realtime.on('result_calculation_complete', function (data) {
 		show_completion(frm, data.log, data.status, data.summary);
 	});
+}
+
+// ---------------------------------------------------------------------------
+// Bulk sign
+// ---------------------------------------------------------------------------
+
+function open_bulk_sign_dialog(frm) {
+	let d = new frappe.ui.Dialog({
+		title: __('Bulk Sign Reports'),
+		fields: [
+			{
+				fieldname: 'calculation_type',
+				fieldtype: 'Select',
+				label: __('Report Type'),
+				options: 'Term Results\nYear Results',
+				default: frm.doc.calculation_type || 'Term Results',
+				reqd: 1,
+			},
+			{
+				fieldname: 'director',
+				fieldtype: 'Link',
+				label: __('Director'),
+				options: 'School Director',
+				reqd: 1,
+				description: __("The selected director's stored signature is stamped onto every matching report."),
+			},
+			{ fieldname: 'cb_scope', fieldtype: 'Column Break' },
+			{
+				fieldname: 'academic_year',
+				fieldtype: 'Link',
+				label: __('Academic Year'),
+				options: 'Academic Year',
+				default: frm.doc.academic_year,
+				reqd: 1,
+			},
+			{
+				fieldname: 'semester',
+				fieldtype: 'Link',
+				label: __('Semester'),
+				options: 'Academic Term',
+				default: frm.doc.semester,
+				depends_on: "eval:doc.calculation_type=='Term Results'",
+			},
+			{
+				fieldname: 'student_group',
+				fieldtype: 'Link',
+				label: __('Student Group (optional)'),
+				options: 'Student Group',
+				default: frm.doc.student_group,
+			},
+			{ fieldname: 'sb_opts', fieldtype: 'Section Break' },
+			{
+				fieldname: 'only_unsigned',
+				fieldtype: 'Check',
+				label: __('Only reports not yet signed'),
+				default: 0,
+			},
+			{
+				fieldname: 'also_submit',
+				fieldtype: 'Check',
+				label: __('Also submit draft reports after signing'),
+				default: 0,
+			},
+		],
+		primary_action_label: __('Sign Reports'),
+		primary_action: function (values) {
+			frappe.call({
+				method: 'education.education.doctype.result_calculation_tool.result_calculation_tool.bulk_sign_reports',
+				args: { params: values },
+				freeze: true,
+				freeze_message: __('Signing reports...'),
+				callback: function (r) {
+					if (!r.message) return;
+					let m = r.message;
+					d.hide();
+					frappe.msgprint({
+						title: __('Bulk Sign Complete'),
+						indicator: m.failed ? 'orange' : 'green',
+						message: __(
+							'{0} of {1} report(s) signed by {2}.{3}{4}',
+							[
+								m.signed,
+								m.total,
+								frappe.utils.escape_html(m.director),
+								m.submitted ? '<br>' + __('{0} submitted.', [m.submitted]) : '',
+								m.failed ? '<br>' + __('{0} failed (see Error Log).', [m.failed]) : '',
+							]
+						),
+					});
+				},
+			});
+		},
+	});
+	d.show();
 }
 
 // ---------------------------------------------------------------------------

@@ -7,7 +7,8 @@
  "field_order": [
   "course",
   "course_name",
-  "required"
+  "required",
+  "exclude_from_result_average"
  ],
  "fields": [
   {
@@ -33,6 +34,14 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Mandatory"
+  },
+  {
+   "default": "0",
+   "description": "If checked, this course's scores are recorded and shown on reports for this Grade (Program) but are NOT counted in the term/year average. Exclusion is per-Grade, so the same course can count in one Grade and be excluded in another (e.g. Art in Kindergarten).",
+   "fieldname": "exclude_from_result_average",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Exclude from Result Average"
   }
  ],
  "istable": 1,

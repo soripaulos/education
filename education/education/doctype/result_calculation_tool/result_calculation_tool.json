@@ -141,10 +141,10 @@
   },
   {
    "default": "1",
-   "description": "Courses with \"Exclude from Result Average\" checked on the Course master (e.g. Art in KG) are shown on reports but not counted in averages. Uncheck to ignore those flags for this run.",
+   "description": "Courses with \"Exclude from Result Average\" checked on a Grade's course list (Program > Courses, e.g. Art in Kindergarten) are shown on reports but not counted in that Grade's averages. Uncheck to ignore those flags for this run.",
    "fieldname": "respect_course_exclusion_flags",
    "fieldtype": "Check",
-   "label": "Respect Course-Level Exclusion Flags"
+   "label": "Respect Grade-Level Exclusion Flags"
   },
   {
    "fieldname": "column_break_ci",

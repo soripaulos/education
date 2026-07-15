@@ -134,16 +134,62 @@ def _check_permission():
 # ---------------------------------------------------------------------------
 
 
-def _get_excluded_courses(opts):
-	"""Return (excluded_set, flagged_list, manual_list)."""
-	flagged = []
-	if opts.respect_course_exclusion_flags and frappe.db.has_column("Course", "exclude_from_result_average"):
-		flagged = [
-			c.name
-			for c in frappe.get_all("Course", filters={"exclude_from_result_average": 1}, fields=["name"])
-		]
-	manual = list(opts.excluded_courses or [])
-	return set(flagged) | set(manual), flagged, manual
+def _get_group_programs(groups):
+	"""Return {student_group: program} for the given groups."""
+	if not groups:
+		return {}
+	rows = frappe.get_all(
+		"Student Group",
+		filters={"name": ["in", list(groups)]},
+		fields=["name", "program"],
+	)
+	return {r.name: r.program for r in rows}
+
+
+def _get_program_excluded_map(programs, respect_flags):
+	"""Return {program: set(courses excluded from the average for that Grade)}.
+
+	Exclusion is per-Grade (Program): a course is excluded only for the
+	programs whose Program Course row has 'exclude_from_result_average' checked
+	(e.g. Art in Kindergarten, but not in higher grades).
+	"""
+	programs = {p for p in programs if p}
+	result = {p: set() for p in programs}
+	if not programs or not respect_flags:
+		return result
+	if not frappe.db.has_column("Program Course", "exclude_from_result_average"):
+		return result
+	rows = frappe.get_all(
+		"Program Course",
+		filters={
+			"parent": ["in", list(programs)],
+			"parenttype": "Program",
+			"exclude_from_result_average": 1,
+		},
+		fields=["parent", "course"],
+	)
+	for r in rows:
+		result.setdefault(r.parent, set()).add(r.course)
+	return result
+
+
+def _resolve_group_exclusions(opts, groups):
+	"""Return (group_programs, {group: excluded_course_set}, all_excluded_set).
+
+	Per-group exclusion = the per-run manual list (global) plus the courses
+	flagged on that group's Program.
+	"""
+	manual = set(opts.excluded_courses or [])
+	group_programs = _get_group_programs(list(groups))
+	program_excluded = _get_program_excluded_map(
+		set(group_programs.values()), opts.respect_course_exclusion_flags
+	)
+	group_excluded = {}
+	for g in groups:
+		program = group_programs.get(g)
+		group_excluded[g] = set(manual) | program_excluded.get(program, set())
+	all_excluded = set().union(*group_excluded.values()) if group_excluded else set(manual)
+	return group_programs, group_excluded, all_excluded
 
 
 def _get_docstatus_list(opts):
@@ -195,13 +241,11 @@ def _collect_term_data(opts):
 		fields=["name", "student", "student_group", "subject", "score", "max_score", "docstatus"],
 	)
 
-	excluded_courses, flagged_courses, manual_courses = _get_excluded_courses(opts)
-
 	groups = {}
 	all_students = set()
 	for row in results:
 		group = groups.setdefault(
-			row.student_group, frappe._dict(students={}, universe=set(), all_subjects=set())
+			row.student_group, frappe._dict(students={}, universe=set(), all_subjects=set(), excluded=set())
 		)
 		student = group.students.setdefault(row.student, {})
 		subject = student.setdefault(
@@ -211,15 +255,20 @@ def _collect_term_data(opts):
 		subject["total_max_score"] += flt(row.max_score)
 		subject["entries"] += 1
 		group.all_subjects.add(row.subject)
-		if row.subject not in excluded_courses:
-			group.universe.add(row.subject)
 		all_students.add(row.student)
+
+	# Per-Grade (Program) course exclusions: a course counts in one Grade and
+	# can be excluded in another, so exclusions are resolved per student group.
+	group_programs, group_excluded, all_excluded = _resolve_group_exclusions(opts, list(groups))
+	manual_courses = sorted(set(opts.excluded_courses or []))
 
 	membership = _get_group_membership(list(groups))
 	student_names = _get_student_names(all_students)
 
-	# students in the group roster who have no results at all
 	for group_name, group in groups.items():
+		group.program = group_programs.get(group_name)
+		group.excluded = group_excluded.get(group_name, set())
+		group.universe = {s for s in group.all_subjects if s not in group.excluded}
 		group.members_without_results = sorted(
 			m
 			for m, active in membership.get(group_name, {}).items()
@@ -236,7 +285,7 @@ def _collect_term_data(opts):
 		# missing subjects per student, measured against the group's subject universe
 		group.incomplete = {}
 		for student, subjects in group.students.items():
-			present = {s for s in subjects if s not in excluded_courses}
+			present = {s for s in subjects if s not in group.excluded}
 			missing = group.universe - present
 			if missing:
 				group.incomplete[student] = sorted(missing)
@@ -251,8 +300,8 @@ def _collect_term_data(opts):
 		results_count=len(results),
 		draft_count=draft_count,
 		submitted_count=submitted_count,
-		excluded_courses=excluded_courses,
-		flagged_courses=flagged_courses,
+		excluded_courses=all_excluded,
+		flagged_courses=sorted(all_excluded - set(opts.excluded_courses or [])),
 		manual_courses=manual_courses,
 		groups=groups,
 		membership=membership,
@@ -307,19 +356,21 @@ def _collect_year_data(opts):
 		# terms with data that aren't linked to this academic year (data-entry mistakes)
 		expected_terms += sorted(t for t in detected_terms if t not in year_terms)
 
-	excluded_courses, flagged_courses, manual_courses = _get_excluded_courses(opts)
-
 	groups = {}
 	for row in reports:
 		if row.academic_term not in expected_terms:
 			continue
-		group = groups.setdefault(row.student_group, frappe._dict(students={}))
+		group = groups.setdefault(row.student_group, frappe._dict(students={}, excluded=set()))
 		student = group.students.setdefault(
 			row.student, frappe._dict(student_name=row.student_name, terms={})
 		)
 		student.terms[row.academic_term] = frappe._dict(
 			report=row.name, term_average=flt(row.term_average)
 		)
+
+	# Per-Grade (Program) course exclusions, resolved per student group.
+	group_programs, group_excluded, all_excluded = _resolve_group_exclusions(opts, list(groups))
+	manual_courses = sorted(set(opts.excluded_courses or []))
 
 	membership = _get_group_membership(list(groups))
 
@@ -333,6 +384,8 @@ def _collect_year_data(opts):
 		)
 
 	for group_name, group in groups.items():
+		group.program = group_programs.get(group_name)
+		group.excluded = group_excluded.get(group_name, set())
 		group.incomplete = {}
 		for student, data in group.students.items():
 			missing = [t for t in expected_terms if t not in data.terms]
@@ -356,8 +409,8 @@ def _collect_year_data(opts):
 		year_terms=year_terms,
 		foreign_terms=foreign_terms,
 		term_report_counts=term_report_counts,
-		excluded_courses=excluded_courses,
-		flagged_courses=flagged_courses,
+		excluded_courses=all_excluded,
+		flagged_courses=sorted(all_excluded - set(opts.excluded_courses or [])),
 		manual_courses=manual_courses,
 		groups=groups,
 		membership=membership,
@@ -508,7 +561,7 @@ def _preview_term(opts):
 				"students_with_results": len(g.students),
 				"subjects": sorted(g.all_subjects),
 				"included_subjects": sorted(g.universe),
-				"excluded_subjects": sorted(g.all_subjects & data.excluded_courses),
+				"excluded_subjects": sorted(g.all_subjects & g.excluded),
 				"incomplete_students": _cap(
 					[
 						{"student": s, "student_name": names.get(s, s), "missing": missing}
@@ -767,6 +820,98 @@ def get_recent_logs(limit=5):
 		order_by="creation desc",
 		limit_page_length=cint(limit) or 5,
 	)
+
+
+# ---------------------------------------------------------------------------
+# Bulk signing
+# ---------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def get_directors():
+	"""Active School Directors available to sign reports."""
+	_check_permission()
+	return frappe.get_all(
+		"School Director",
+		filters={"disabled": 0},
+		fields=["name", "director_name", "section"],
+		order_by="director_name",
+	)
+
+
+@frappe.whitelist()
+def bulk_sign_reports(params):
+	"""Stamp a selected director's signature onto a batch of term or year
+	reports (and optionally submit the drafts among them).
+
+	params: calculation_type, academic_year, semester, student_group,
+	        director (School Director), also_submit, only_unsigned.
+	"""
+	_check_permission()
+	if isinstance(params, str):
+		params = json.loads(params)
+	p = frappe._dict(params or {})
+
+	if not p.director:
+		frappe.throw(_("Please select a director to sign with."))
+	if not p.academic_year:
+		frappe.throw(_("Academic Year is required."))
+
+	director_row = frappe.db.get_value(
+		"School Director", p.director, ["director_name", "signature"], as_dict=True
+	)
+	if not director_row:
+		frappe.throw(_("Director {0} not found.").format(p.director))
+	if not director_row.signature:
+		frappe.throw(_("{0} has no saved signature. Add one on the School Director record first.").format(p.director))
+
+	if p.calculation_type == "Year Results":
+		doctype = "Student Year Report"
+		filters = {"academic_year": p.academic_year}
+	else:
+		doctype = "Student Term Report"
+		filters = {"academic_year": p.academic_year}
+		if p.semester:
+			filters["academic_term"] = p.semester
+	if p.student_group:
+		filters["student_group"] = p.student_group
+	filters["docstatus"] = ["<", 2]  # drafts and submitted, never cancelled
+	if cint(p.get("only_unsigned")):
+		filters["custom_director_signature"] = ["in", ["", None]]
+
+	names = [r.name for r in frappe.get_all(doctype, filters=filters, fields=["name"])]
+
+	signed = submitted = failed = 0
+	also_submit = cint(p.get("also_submit"))
+	for name in names:
+		try:
+			doc = frappe.get_doc(doctype, name)
+			doc.custom_director = p.director
+			doc.custom_director_signature = director_row.signature
+			if doc.docstatus == 0:
+				doc.save(ignore_permissions=True)
+				if also_submit:
+					doc.flags.skip_rank_queue = True
+					doc.submit()
+					submitted += 1
+			else:
+				# already submitted: only the allow_on_submit signature/director
+				# fields change
+				doc.save(ignore_permissions=True)
+			signed += 1
+		except Exception:
+			failed += 1
+			frappe.log_error(frappe.get_traceback(), f"Bulk sign failed for {name}")
+	frappe.db.commit()
+
+	return {
+		"signed": signed,
+		"submitted": submitted,
+		"failed": failed,
+		"total": len(names),
+		"director": director_row.director_name or p.director,
+		"doctype": doctype,
+	}
 
 
 # ---------------------------------------------------------------------------
@@ -1031,7 +1176,7 @@ class _Calculator:
 				frappe.db.savepoint("rct_student")
 				try:
 					report, action = self.upsert_term_report(
-						student, student_name, group_name, group.students[student], data.excluded_courses
+						student, student_name, group_name, group.students[student], group.excluded
 					)
 					if action == "skipped_existing":
 						self.counters.skipped += 1
@@ -1271,7 +1416,7 @@ class _Calculator:
 						expected_terms,
 						missing_terms,
 						course_rows,
-						data.excluded_courses,
+						group.excluded,
 					)
 					if action == "skipped_existing":
 						self.counters.skipped += 1

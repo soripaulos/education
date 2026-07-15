@@ -78,8 +78,7 @@ def generate_student_report_card(student, academic_year):
 		filters={"student": student, "academic_year": academic_year},
 		fields=[
 			"name", "academic_term", "student_group", "term_average", "rank_in_group",
-			"custom_first_semester_remarks", "custom_second_semester_remarks",
-			"custom_final_result", "custom_director_signature",
+			"custom_remark", "custom_director", "custom_director_signature",
 		],
 		order_by="academic_term asc",
 	)
@@ -101,7 +100,10 @@ def generate_student_report_card(student, academic_year):
 	year_reports = frappe.get_all(
 		"Student Year Report",
 		filters={"student": student, "academic_year": academic_year},
-		fields=["name", "year_average", "rank_in_group"],
+		fields=[
+			"name", "year_average", "rank_in_group",
+			"custom_remark", "custom_director", "custom_director_signature",
+		],
 	)
 	year_report = year_reports[0] if year_reports else None
 
@@ -133,13 +135,13 @@ def generate_student_report_card(student, academic_year):
 			})
 
 		semesters.append({
-			"academic_term":          str_rec.academic_term,
-			"term_average":            str_rec.term_average,
-			"rank_in_group":          str_rec.rank_in_group,
-			"promotion_decision":     str_rec.custom_final_result,
-			"first_semester_remarks": str_rec.custom_first_semester_remarks,
-			"second_semester_remarks": str_rec.custom_second_semester_remarks,
-			"courses":                courses,
+			"academic_term":      str_rec.academic_term,
+			"term_average":       str_rec.term_average,
+			"rank_in_group":      str_rec.rank_in_group,
+			"remarks":            str_rec.custom_remark,
+			"director":           str_rec.custom_director,
+			"director_signature": str_rec.custom_director_signature,
+			"courses":            courses,
 		})
 
 	# --- 5. Build year course rows (from SYR) ----------------------------
@@ -171,6 +173,10 @@ def generate_student_report_card(student, academic_year):
 		fields=["name"],
 	)
 
+	year_remarks = year_report.custom_remark if year_report else None
+	year_director = year_report.custom_director if year_report else None
+	year_director_signature = year_report.custom_director_signature if year_report else None
+
 	if existing:
 		rc = frappe.get_doc("Report Card", existing[0].name)
 		rc.set("student_name", student_name)
@@ -178,6 +184,9 @@ def generate_student_report_card(student, academic_year):
 		rc.set("is_final", 1 if year_report else 0)
 		rc.set("year_average", year_avg)
 		rc.set("rank_in_group", year_report.rank_in_group if year_report else None)
+		rc.set("year_remarks", year_remarks)
+		rc.set("year_director", year_director)
+		rc.set("year_director_signature", year_director_signature)
 		rc.set("semesters", semesters)
 		rc.set("year_courses", year_courses)
 		rc.save()
@@ -193,6 +202,9 @@ def generate_student_report_card(student, academic_year):
 			"is_final":      1 if year_report else 0,
 			"year_average":  year_avg,
 			"rank_in_group": year_report.rank_in_group if year_report else None,
+			"year_remarks":  year_remarks,
+			"year_director": year_director,
+			"year_director_signature": year_director_signature,
 			"semesters":     semesters,
 			"year_courses":  year_courses,
 		})
