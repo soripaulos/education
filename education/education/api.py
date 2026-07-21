@@ -1791,7 +1791,7 @@ def get_academic_years():
 	except Exception as e:
 		frappe.log_error(message=str(e), title="Academic Years API Error")
 		# Return a fallback list with the current academic year
-		return [{"name": "2018 E.C.", "year_start_date": "2024-09-01", "year_end_date": "2025-08-31"}]
+		return [{"name": "2019 E.C.", "year_start_date": "2025-09-01", "year_end_date": "2026-08-31"}]
 
 @frappe.whitelist(allow_guest=True)
 def search_student_by_school_id(school_id):
@@ -1831,7 +1831,7 @@ def search_student_by_school_id(school_id):
 
 @frappe.whitelist(allow_guest=True)
 def generate_school_id(branch="M1"):
-	"""Generate a new school ID with format M1/*****/18 or M2/*****/18 with random numbers above 10000"""
+	"""Generate a new school ID with format M1/*****/19 or M2/*****/19 with random numbers above 10000"""
 	import random
 	import time
 	
@@ -1845,8 +1845,8 @@ def generate_school_id(branch="M1"):
 		# Generate random number between 10001 and 99999
 		random_num = random.randint(10001, 99999)
 		
-		# Format: M1/12345/18 or M2/12345/18
-		school_id = f"{branch}/{random_num:05d}/18"
+		# Format: M1/12345/19 or M2/12345/19
+		school_id = f"{branch}/{random_num:05d}/19"
 		
 		# Check if this ID already exists in both Student and Student Applicant tables
 		exists_in_student = frappe.db.exists("Student", {"custom_school_id": school_id})
@@ -1886,7 +1886,7 @@ def generate_school_id(branch="M1"):
 	else:
 		new_num = 10001
 
-	return f"{branch}/{new_num:05d}/18"
+	return f"{branch}/{new_num:05d}/19"
 
 
 @frappe.whitelist()
@@ -2048,7 +2048,7 @@ def create_student_application(application_data):
 		app_doc.middle_name = application_data.get("middle_name")
 		app_doc.last_name = application_data.get("last_name")
 		app_doc.program = application_data.get("program")
-		app_doc.academic_year = application_data.get("academic_year", "2018 E.C.")
+		app_doc.academic_year = application_data.get("academic_year", "2019 E.C.")
 		
 		# Handle School ID: Use existing ID if provided, otherwise generate new
 		school_id = application_data.get("custom_school_id")
@@ -2066,7 +2066,7 @@ def create_student_application(application_data):
 			app_doc.student_email_id = application_data.get("student_email_id") or ""
 		else:
 			# Generate student email automatically from school ID for new students
-			# Format: schoolid@m.b.s (e.g., M1/12345/18@m.b.s)
+			# Format: schoolid@m.b.s (e.g., M1/12345/19@m.b.s)
 			# Clean the school ID to make it email-friendly
 			email_prefix = school_id.replace("/", "").replace("\\", "").lower()
 			app_doc.student_email_id = f"{email_prefix}@m.b.s"
@@ -3082,7 +3082,7 @@ def generate_student_report_cards(academic_year, student=None, student_group=Non
     Generate Student Report Cards.
 
     Args:
-        academic_year: Academic Year docname (e.g. "2018 E.C.")
+        academic_year: Academic Year docname (e.g. "2019 E.C.")
         student: Student docname — for Single Student mode
         student_group: Student Group docname — for Student Group mode
         result_action: "Save as Draft" or "Save and Submit"
