@@ -9,9 +9,9 @@
   "academic_term",
   "term_average",
   "rank_in_group",
-  "promotion_decision",
-  "first_semester_remarks",
-  "second_semester_remarks",
+  "remarks",
+  "director",
+  "director_signature",
   "courses"
  ],
  "fields": [
@@ -35,20 +35,21 @@
    "label": "Rank in Group"
   },
   {
-   "fieldname": "promotion_decision",
-   "fieldtype": "Data",
-   "label": "Promotion Decision"
-  },
-  {
-   "fieldname": "first_semester_remarks",
+   "fieldname": "remarks",
    "fieldtype": "Small Text",
-   "label": "First Semester Remarks",
+   "label": "Remarks",
    "read_only": 1
   },
   {
-   "fieldname": "second_semester_remarks",
-   "fieldtype": "Small Text",
-   "label": "Second Semester Remarks",
+   "fieldname": "director",
+   "fieldtype": "Data",
+   "label": "Director",
+   "read_only": 1
+  },
+  {
+   "fieldname": "director_signature",
+   "fieldtype": "Signature",
+   "label": "Director Signature",
    "read_only": 1
   },
   {

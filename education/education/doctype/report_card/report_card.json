@@ -16,6 +16,9 @@
   "is_final",
   "year_average",
   "rank_in_group",
+  "year_remarks",
+  "year_director",
+  "year_director_signature",
   "section_break_9",
   "semesters",
   "year_courses"
@@ -79,6 +82,24 @@
    "fieldname": "rank_in_group",
    "fieldtype": "Int",
    "label": "Rank in Group"
+  },
+  {
+   "fieldname": "year_remarks",
+   "fieldtype": "Small Text",
+   "label": "Year Remarks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "year_director",
+   "fieldtype": "Data",
+   "label": "Year Director",
+   "read_only": 1
+  },
+  {
+   "fieldname": "year_director_signature",
+   "fieldtype": "Signature",
+   "label": "Year Director Signature",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_9",

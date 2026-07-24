@@ -128,7 +128,7 @@
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between items-center py-6">
                         <div class="flex items-center">
-                            <h1 class="text-2xl font-bold text-gray-900">Member Registration 1825</h1>
+                            <h1 class="text-2xl font-bold text-gray-900">MBS Dembi Dollo Student Registration Page</h1>
                         </div>
                         <div class="flex items-center space-x-4">
                             <div class="text-sm text-gray-500">
@@ -256,10 +256,6 @@
                                     </div>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">Work Address</label>
-                                        <input v-model="fatherData.work_address" type="text" class="input-field">
-                                    </div>
-                                    <div>
                                         <label class="block text-sm font-medium text-gray-700">Photo</label>
                                         <input type="file" @change="handleImageUpload('father', $event)" accept="image/*" class="input-field">
                                     </div>
@@ -313,10 +309,6 @@
                                         <div v-if="motherData.occupation === 'Other'" class="mt-2">
                                             <input v-model="motherData.occupation_other" type="text" class="input-field" placeholder="Please specify">
                                     </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Work Address</label>
-                                        <input v-model="motherData.work_address" type="text" class="input-field">
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Photo</label>
@@ -388,10 +380,6 @@
                                     </div>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">Work Address</label>
-                                        <input v-model="guardianData.work_address" type="text" class="input-field">
-                                    </div>
-                                    <div>
                                         <label class="block text-sm font-medium text-gray-700">Photo</label>
                                         <input type="file" @change="handleImageUpload('guardian', $event)" accept="image/*" class="input-field">
                                     </div>
@@ -409,22 +397,20 @@
                         
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700">Home Address *</label>
+                                <label class="block text-sm font-medium text-gray-700">Address Line 1 *</label>
                                 <input v-model="studentData.address_line_1" type="text" class="input-field" required placeholder="Enter your home address">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Sub-city *</label>
-                                <select v-model="studentData.sub_city" class="input-field" required @change="onSubCityChange">
-                                    <option value="">Select Sub-city</option>
-                                    <option v-for="subCity in subCities" :key="subCity" :value="subCity">{{ subCity }}</option>
-                                </select>
+                                <label class="block text-sm font-medium text-gray-700">Kebele *</label>
+                                <input v-model="studentData.kebele" type="text" class="input-field" required placeholder="Enter kebele">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Kebele *</label>
-                                <select v-model="studentData.kebele" class="input-field" required :disabled="!studentData.sub_city">
-                                    <option value="">Select Kebele</option>
-                                    <option v-for="kebele in availableKebeles" :key="kebele.id" :value="kebele.name" v-text="kebele.name"></option>
-                                </select>
+                                <label class="block text-sm font-medium text-gray-700">City</label>
+                                <input :value="studentData.city" type="text" class="input-field bg-gray-100" readonly>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">State</label>
+                                <input :value="studentData.state" type="text" class="input-field bg-gray-100" readonly>
                             </div>
                         </div>
                     </div>
@@ -482,92 +468,33 @@
                             </button>
                         </div>
                         
-                        <!-- Branch Selection for New Students -->
-                        <div v-if="studentType === 'new'" class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">Select Branch</label>
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <button
-                                    @click="branchSelection = 'M1'"
-                                    :class="[
-                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
-                                        branchSelection === 'M1' 
-                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                    ]"
-                                >
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0">
-                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                <span class="text-blue-600 font-semibold">M1</span>
-                                            </div>
-                                        </div>
-                                        <div class="ml-3">
-                                            <p class="text-sm font-medium">Main Branch</p>
-                                        </div>
-                                    </div>
-                                </button>
-                                <button
-                                    @click="branchSelection = 'M2'"
-                                    :class="[
-                                        'relative rounded-lg border p-4 text-left transition-all duration-200',
-                                        branchSelection === 'M2' 
-                                            ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                            : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                    ]"
-                                >
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0">
-                                            <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                                                <span class="text-green-600 font-semibold">M2</span>
-                                            </div>
-                                        </div>
-                                        <div class="ml-3">
-                                            <p class="text-sm font-medium">Second Branch</p>
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- School ID Lookup for Existing Students -->
+                        <!-- School ID for Existing Students (no lookup; recorded as-is) -->
                         <div v-if="studentType === 'existing'" class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">Enter School ID</label>
-                            <div class="flex space-x-2">
-                                <div class="relative flex-1">
-                            <input 
-                                v-model="existingSchoolId" 
-                                type="text" 
-                                class="input-field" 
-                                placeholder="e.g., M1/10001/19"
-                                        :disabled="isCheckingSchoolId"
-                                        @keydown.enter="lookupStudent"
+                            <label class="block text-sm font-medium text-gray-700">Enter School ID *</label>
+                            <div class="relative">
+                                <div class="flex">
+                                    <span class="inline-flex items-center px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm font-medium">MB/DD/</span>
+                                    <input
+                                        v-model="existingSchoolId"
+                                        type="text"
+                                        class="input-field rounded-l-none"
+                                        placeholder="e.g., 12345"
                                     >
                                 </div>
-                                <button 
-                                    @click="lookupStudent"
-                                    :disabled="isCheckingSchoolId || !existingSchoolId.trim()"
-                                    :class="[
-                                        'px-4 py-2 rounded-md font-medium transition-colors',
-                                        isCheckingSchoolId || !existingSchoolId.trim() 
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                                    ]"
-                                >
-                                    <span v-if="isCheckingSchoolId" class="flex items-center">
-                                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Checking...
-                                    </span>
-                                    <span v-else>Check ID</span>
-                                </button>
                             </div>
-                            <div v-if="existingStudent" class="bg-green-50 p-4 rounded-lg">
-                                <p class="text-green-800 font-medium">Student Found:</p>
-                                <p class="text-green-700" v-text="existingStudent.first_name + ' ' + (existingStudent.middle_name || '') + ' ' + existingStudent.last_name"></p>
-                            </div>
-                            <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
+                            <p class="text-xs text-gray-600">
+                                This student will be recorded as an <strong>existing student</strong>. The School ID will be saved as
+                                <strong v-text="existingSchoolId ? ('MB/DD/' + existingSchoolId.trim()) : 'MB/DD/...'"></strong>.
+                                No lookup is performed &mdash; a new applicant record is created.
+                            </p>
+                        </div>
+
+                        <!-- New Student note (school ID auto-generated) -->
+                        <div v-if="studentType === 'new'" class="bg-blue-50 p-4 rounded-lg">
+                            <p class="text-sm text-blue-800">
+                                A new School ID will be generated automatically in the format
+                                <strong>MB/DD/#####/19</strong> when the application is submitted.
+                            </p>
                         </div>
                     </div>
                     
@@ -580,15 +507,15 @@
                         
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">First Name *</label>
+                                <label class="block text-sm font-medium text-gray-700">Student Name *</label>
                                 <input v-model="studentData.first_name" type="text" class="input-field" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Middle Name</label>
-                                <input v-model="studentData.middle_name" type="text" class="input-field">
+                                <label class="block text-sm font-medium text-gray-700">Father's Name *</label>
+                                <input v-model="studentData.middle_name" type="text" class="input-field" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Last Name *</label>
+                                <label class="block text-sm font-medium text-gray-700">Grandfather's Name *</label>
                                 <input v-model="studentData.last_name" type="text" class="input-field" required>
                             </div>
                             <div v-if="calendarType === 'gregorian'">
@@ -763,10 +690,10 @@
                         <!-- Address Information Preview -->
                         <div class="bg-gray-50 p-6 rounded-lg">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
-                            <p><strong>Home Address:</strong> <span v-text="studentData.address_line_1"></span></p>
-                            <p><strong>Sub-city:</strong> <span v-text="studentData.sub_city"></span></p>
+                            <p><strong>Address Line 1:</strong> <span v-text="studentData.address_line_1"></span></p>
                             <p><strong>Kebele:</strong> <span v-text="studentData.kebele"></span></p>
-                            <p><strong>City:</strong> Adama, Ethiopia</p>
+                            <p><strong>City:</strong> <span v-text="studentData.city"></span></p>
+                            <p><strong>State:</strong> <span v-text="studentData.state"></span></p>
                         </div>
                     </div>
                     
@@ -918,6 +845,10 @@
     </div>
 
     <script>
+        // Academic year resolved server-side (valid Academic Year link value)
+        window.DD_DEFAULT_ACADEMIC_YEAR = "{{ default_academic_year or '2018 E.C.' }}";
+    </script>
+    <script>
         // Vue.js Application
         const { createApp } = Vue;
         
@@ -929,11 +860,8 @@
                     loading: true,
                     isSubmitting: false,
                     guardianType: 'parent',
-                    studentType: 'existing',
-                    branchSelection: 'M1',
-                    existingStudent: null,
+                    studentType: 'new',
                     existingSchoolId: '',
-                    schoolIdError: '',
                     showSuccessModal: false,
                     submittedApplicationId: '',
                     fatherData: {
@@ -979,32 +907,21 @@
                         program: '',
                         primary_mobile_number: '',
                         nationality: 'Ethiopian',
-                        academic_year: '2019 E.C.',
+                        academic_year: (window.DD_DEFAULT_ACADEMIC_YEAR || '2018 E.C.'),
                         custom_school_id: '',
                         address_line_1: '',
                         kebele: '',
                         sub_city: '',
-                        city: 'Adama',
+                        city: 'Dembi Dollo',
                         state: 'Oromia',
                         pincode: '',
                         country: 'Ethiopia',
                         image: ''
                     },
                                     programs: [
-                    {name: 'Nursery', program_name: 'Nursery'},
-                    {name: 'LKG', program_name: 'LKG'},
-                    {name: 'UKG', program_name: 'UKG'},
                     {name: 'Nursery AO', program_name: 'Nursery AO'},
                     {name: 'LKG AO', program_name: 'LKG AO'},
                     {name: 'UKG AO', program_name: 'UKG AO'},
-                    {name: 'Grade 1', program_name: 'Grade 1'},
-                    {name: 'Grade 2', program_name: 'Grade 2'},
-                    {name: 'Grade 3', program_name: 'Grade 3'},
-                    {name: 'Grade 4', program_name: 'Grade 4'},
-                    {name: 'Grade 5', program_name: 'Grade 5'},
-                    {name: 'Grade 6', program_name: 'Grade 6'},
-                    {name: 'Grade 7', program_name: 'Grade 7'},
-                    {name: 'Grade 8', program_name: 'Grade 8'},
                     {name: 'Grade 1 AO', program_name: 'Grade 1 AO'},
                     {name: 'Grade 2 AO', program_name: 'Grade 2 AO'},
                     {name: 'Grade 3 AO', program_name: 'Grade 3 AO'},
@@ -1012,18 +929,12 @@
                     {name: 'Grade 5 AO', program_name: 'Grade 5 AO'},
                     {name: 'Grade 6 AO', program_name: 'Grade 6 AO'},
                     {name: 'Grade 7 AO', program_name: 'Grade 7 AO'},
-                    {name: 'Grade 8 AO', program_name: 'Grade 8 AO'},
-                    {name: 'Grade 9', program_name: 'Grade 9'},
-                    {name: 'Grade 10', program_name: 'Grade 10'},
-                    {name: 'Grade 11 NS', program_name: 'Grade 11 NS'},
-                    {name: 'Grade 12 NS', program_name: 'Grade 12 NS'},
-                    {name: 'Grade 11 SS', program_name: 'Grade 11 SS'},
-                    {name: 'Grade 12 SS', program_name: 'Grade 12 SS'}
+                    {name: 'Grade 8 AO', program_name: 'Grade 8 AO'}
                 ],
                 academicYears: [
-                    {name: '2019 E.C.', year_start_date: '2025-09-01', year_end_date: '2026-08-31'},
                     {name: '2018 E.C.', year_start_date: '2024-09-01', year_end_date: '2025-08-31'},
-                    {name: '2017 E.C.', year_start_date: '2023-09-01', year_end_date: '2024-08-31'}
+                    {name: '2017 E.C.', year_start_date: '2023-09-01', year_end_date: '2024-08-31'},
+                    {name: '2019 E.C.', year_start_date: '2025-09-01', year_end_date: '2026-08-31'}
                 ],
                 educationLevels: [
                     'No Formal Education', 'Primary Education', 'Secondary Education', 
@@ -1038,13 +949,9 @@
                     validationErrors: {},
                     phoneErrors: {},
                     availableMobileNumbers: [],
-                    kebeleSubCityData: {},
-                    subCities: [],
-                    availableKebeles: [],
 
                     
                     // Loading states
-                    isCheckingSchoolId: false,
                     isUploadingFile: false,
                     isUploadingBirthCertificate: false,
                     isGeneratingPDF: false,
@@ -1063,19 +970,19 @@
                     
                     // Ethiopian calendar data
                     ethiopianMonths: [
-                        { value: '1', name: 'Meskerem' },
-                        { value: '2', name: 'Tikimt' },
-                        { value: '3', name: 'Hidar' },
-                        { value: '4', name: 'Tahsas' },
-                        { value: '5', name: 'Tir' },
-                        { value: '6', name: 'Yekatit' },
-                        { value: '7', name: 'Megabit' },
-                        { value: '8', name: 'Miyazya' },
-                        { value: '9', name: 'Ginbot' },
-                        { value: '10', name: 'Sene' },
-                        { value: '11', name: 'Hamle' },
-                        { value: '12', name: 'Nehasie' },
-                        { value: '13', name: 'Pagume' }
+                        { value: '1', name: 'Fulbaana' },
+                        { value: '2', name: 'Onkololeessa' },
+                        { value: '3', name: 'Sadaasa' },
+                        { value: '4', name: 'Muddee' },
+                        { value: '5', name: 'Amajjii' },
+                        { value: '6', name: 'Guraandhala' },
+                        { value: '7', name: 'Bitooteessa' },
+                        { value: '8', name: 'Ebla' },
+                        { value: '9', name: 'Caamsaa' },
+                        { value: '10', name: 'Waxabajjii' },
+                        { value: '11', name: 'Adooleessa' },
+                        { value: '12', name: 'Hagayya' },
+                        { value: '13', name: 'Qaammee' }
                     ],
                     ethiopianYears: [],
                     ethiopianDays: []
@@ -1142,25 +1049,25 @@
                             }
                         case 2: // Home Address
                             return (
-                                this.studentData.address_line_1 && 
-                                this.studentData.sub_city &&
+                                this.studentData.address_line_1 &&
                                 this.studentData.kebele
                             );
                         case 3: // Student Type Selection
                             if (this.studentType === 'new') {
-                                return this.branchSelection;
+                                return true;
                             } else if (this.studentType === 'existing') {
-                                return this.existingStudent !== null;
+                                return !!this.existingSchoolId.trim();
                             }
                             return false;
                         case 4: // Student Details
-                            const dateValid = this.calendarType === 'ethiopian' ? 
-                                (this.ethiopianDate && !this.ethiopianDateError) : 
+                            const dateValid = this.calendarType === 'ethiopian' ?
+                                (this.ethiopianDate && !this.ethiopianDateError) :
                                 this.studentData.date_of_birth;
-                            
+
                             const baseValidation = (
-                                this.studentData.first_name && 
-                                this.studentData.last_name && 
+                                this.studentData.first_name &&
+                                this.studentData.middle_name &&
+                                this.studentData.last_name &&
                                 dateValid &&
                                 this.studentData.program &&
                                 this.studentData.image
@@ -1201,43 +1108,11 @@
             
             methods: {
                 async loadInitialData() {
-                    try {
-                        // Load kebele and sub-city data (only dynamic data needed)
-                        const kebeleResponse = await fetch('/api/method/education.education.api.get_kebele_subcity_data');
-                        if (!kebeleResponse.ok) {
-                            const errorData = await kebeleResponse.json();
-                            console.error('Failed to load kebele data:', errorData);
-                            // Use fallback data if API fails
-                            this.kebeleSubCityData = {
-                                'Bole': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                                'Gadaa': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                                'Bokkuu': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                                'Luugoo': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                                'Dambalaa': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                                'Daabe': ['Kebele 01', 'Kebele 02', 'Kebele 03']
-                            };
-                            this.subCities = Object.keys(this.kebeleSubCityData);
-                        } else {
-                            const kebeleData = await kebeleResponse.json();
-                            this.kebeleSubCityData = kebeleData.message || {};
-                            this.subCities = Object.keys(this.kebeleSubCityData);
-                        }
-                        
-                    } catch (error) {
-                        console.error('Error loading kebele data:', error);
-                        // Use fallback data if everything fails
-                        this.kebeleSubCityData = {
-                            'Bole': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                            'Gadaa': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                            'Bokkuu': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                            'Luugoo': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                            'Dambalaa': ['Kebele 01', 'Kebele 02', 'Kebele 03'],
-                            'Daabe': ['Kebele 01', 'Kebele 02', 'Kebele 03']
-                        };
-                        this.subCities = Object.keys(this.kebeleSubCityData);
-                    }
+                    // Dembi Dollo page uses a free-text kebele and fixed city/state,
+                    // so there is no sub-city/kebele reference data to load.
+                    return;
                 },
-                
+
                 // File upload handling
                 // File upload handling
                 handleImageUpload(type, event) {
@@ -1368,27 +1243,11 @@
                     
                     this.isSubmitting = true;
                     this.showNotification('Submitting application...', 'info');
-                    
+
                     try {
-                        // Check for duplicate applications
-                        const checkResponse = await fetch('/api/method/education.education.api.check_duplicate_application', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                mobile: this.guardianType === 'parent' ? this.fatherData.mobile_number : this.guardianData.mobile_number
-                            })
-                        });
-                        
-                        if (checkResponse.ok) {
-                            const checkData = await checkResponse.json();
-                            if (checkData.message && checkData.message.exists) {
-                                this.showNotification('An application with this mobile number already exists', 'error');
-                                this.isSubmitting = false;
-                                return;
-                            }
-                        }
+                        // Note: no duplicate-by-mobile check here. This is a staff
+                        // registration tool where one guardian may register several
+                        // children, so that check would produce false positives.
 
                         // Create guardians first
                         const guardians = [];
@@ -1499,38 +1358,43 @@
                         
                         // Handle school ID based on student type
                         let schoolId = '';
+                        let studentEmailId = '';
                         if (this.studentType === 'new') {
-                            // Generate new school ID for new students
-                            const schoolIdResponse = await fetch('/api/method/education.education.api.generate_school_id', {
+                            // Auto-generate a new Dembi Dollo school ID: MB/DD/#####/19
+                            const schoolIdResponse = await fetch('/api/method/education.education.api.generate_dd_school_id', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
-                                body: JSON.stringify({
-                                    branch: this.branchSelection
-                                })
+                                body: JSON.stringify({})
                             });
-                            
+
                             if (!schoolIdResponse.ok) {
                                 const errorData = await schoolIdResponse.json();
                                 throw new Error(`Failed to generate school ID: ${errorData.message || errorData.exc || schoolIdResponse.statusText}`);
                             }
-                            
+
                             const schoolIdData = await schoolIdResponse.json();
                             if (schoolIdData.message) {
                                 schoolId = schoolIdData.message;
                             } else {
                                 throw new Error(`Failed to get school ID: ${schoolIdData.exc || 'Unknown error'}`);
                             }
-                        } else if (this.studentType === 'existing' && this.existingStudent) {
-                            // Use existing school ID for existing students
-                            schoolId = this.existingStudent.custom_school_id;
+                        } else if (this.studentType === 'existing') {
+                            // No lookup: record as a new applicant flagged "Existing",
+                            // prefixing the entered ID with MB/DD/.
+                            schoolId = 'MB/DD/' + this.existingSchoolId.trim();
+                            // Derive a unique student email from the school ID so the
+                            // unique student_email_id constraint is never violated by
+                            // multiple blank emails.
+                            studentEmailId = schoolId.replace(/[\\/]/g, '').toLowerCase() + '@m.b.s';
                         }
-                        
+
                         // Prepare application data
                         const applicationData = {
                             ...this.studentData,
                             custom_school_id: schoolId,
+                            student_email_id: studentEmailId,
                             applicant_type: this.studentType === 'existing' ? 'Existing' : 'New',
                             birth_certificate_image: this.studentData.birth_certificate_image,
                             guardians: guardians,
@@ -1806,7 +1670,7 @@
                     this.currentStep = 1;
                     this.guardianType = 'parent';
                     this.studentType = 'new';
-                    this.branchSelection = 'M1';
+                    this.existingSchoolId = '';
                     this.submittedApplicationId = '';
                     
                     // Reset all form data
@@ -1856,7 +1720,7 @@
                         program: '',
                         primary_mobile_number: '',
                         nationality: 'Ethiopian',
-                        academic_year: '2019 E.C.',
+                        academic_year: (window.DD_DEFAULT_ACADEMIC_YEAR || '2018 E.C.'),
                         custom_school_id: '',
                         national_id_fin: '',
                         student_email_id: '',
@@ -1865,16 +1729,15 @@
                         address_line_1: '',
                         kebele: '',
                         sub_city: '',
-                        city: 'Adama',
+                        city: 'Dembi Dollo',
                         state: 'Oromia',
                         pincode: '',
                         country: 'Ethiopia',
                         image: ''
                     };
-                    
+
                     this.validationErrors = {};
                     this.phoneErrors = {}; // Reset phone errors
-                    this.availableKebeles = []; // Reset kebele options
                     
                     // Reset calendar related fields
                     this.calendarType = 'ethiopian';
@@ -1921,12 +1784,9 @@
                     this.studentData.birth_certificate_image = '';
                     this.studentData.image = '';
                     
-                    // Reset student type and branch selection for new student
+                    // Reset student type for new student
                     this.studentType = 'new';
-                    this.branchSelection = 'M1';
-                    this.existingStudent = null;
                     this.existingSchoolId = '';
-                    this.schoolIdError = '';
                     
                     // Reset validation errors
                     this.validationErrors = {};
@@ -1979,71 +1839,6 @@
                     return emailRegex.test(email);
                 },
                 
-                // Enhanced school ID lookup with loading state
-                                async lookupStudent() {
-                    if (!this.existingSchoolId) {
-                        this.existingStudent = null;
-                        this.schoolIdError = '';
-                        return;
-                    }
-                    
-                    this.isCheckingSchoolId = true;
-                    this.schoolIdError = '';
-                    
-                    try {
-                        const response = await fetch('/api/method/education.education.api.search_student_by_school_id', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                school_id: this.existingSchoolId
-                            })
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                        }
-                        
-                        const data = await response.json();
-                        
-                        if (data.message) {
-                            this.existingStudent = data.message;
-                            this.schoolIdError = '';
-                            
-                            // Check if student is restricted (only for Student doctype, not Student Applicant)
-                            if (data.message.restricted) {
-                                const restrictionReason = data.message.reason_for_restriction || 'Unknown reason';
-                                this.schoolIdError = `Student is restricted: ${restrictionReason}. Cannot proceed with application.`;
-                                this.existingStudent = null;
-                                this.showNotification(`Student is restricted: ${restrictionReason}`, 'error');
-                                return;
-                            }
-                            
-                            // Pre-fill student data
-                            this.studentData.first_name = data.message.first_name || '';
-                            this.studentData.middle_name = data.message.middle_name || '';
-                            this.studentData.last_name = data.message.last_name || '';
-                            this.studentData.custom_school_id = data.message.custom_school_id;
-                            this.studentData.national_id_fin = data.message.national_id_fin || '';
-                            this.studentData.student_email_id = data.message.student_email_id || '';
-                            this.studentData.applicant_type = 'Existing';
-                            this.showNotification('Student found successfully!', 'success');
-                        } else {
-                            this.existingStudent = null;
-                            this.schoolIdError = 'Student not found with this school ID';
-                            this.showNotification('Student not found with this school ID', 'error');
-                        }
-                    } catch (error) {
-                        console.error('Error looking up student:', error);
-                        this.existingStudent = null;
-                        this.schoolIdError = 'Error connecting to server. Please try again.';
-                        this.showNotification('Error looking up student. Please try again.', 'error');
-                    } finally {
-                        this.isCheckingSchoolId = false;
-                    }
-                },
-                
                 // Enhanced form validation
                 validateForm() {
                     const errors = {};
@@ -2092,10 +1887,13 @@
                     
                     // Student validation
                     if (!this.studentData.first_name) {
-                        errors.student_first_name = 'Student\'s first name is required';
+                        errors.student_first_name = 'Student Name is required';
+                    }
+                    if (!this.studentData.middle_name) {
+                        errors.student_middle_name = 'Father\'s Name is required';
                     }
                     if (!this.studentData.last_name) {
-                        errors.student_last_name = 'Student\'s last name is required';
+                        errors.student_last_name = 'Grandfather\'s Name is required';
                     }
                     // Date of birth validation based on calendar type
                     if (this.calendarType === 'ethiopian') {
@@ -2259,13 +2057,6 @@
                     if (guardianType === 'father') return 'Father';
                     if (guardianType === 'mother') return 'Mother';
                     return 'Guardian';
-                },
-
-                onSubCityChange() {
-                    // Reset kebele when sub-city changes
-                    this.studentData.kebele = '';
-                    // Update available kebeles based on selected sub-city
-                    this.availableKebeles = this.kebeleSubCityData[this.studentData.sub_city] || [];
                 },
 
                 convertEthiopianToGregorian() {
