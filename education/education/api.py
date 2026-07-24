@@ -3171,7 +3171,7 @@ def generate_student_report_cards(academic_year, student=None, student_group=Non
 # Roles that receive the 30-minute "new applicants" notification. There is no
 # role literally named "Accountant" on the site, so we target both Accounts
 # roles. Edit this list to change who gets notified - it is pure data.
-ACCOUNTS_NOTIFY_ROLES = ["Accounts Manager", "Accounts User"]
+ACCOUNTS_NOTIFY_ROLES = ["Accountant", "Accounts Manager", "Accounts User"]
 
 
 def _derive_branch(school_id=None, explicit=None):
