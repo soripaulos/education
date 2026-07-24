@@ -2059,7 +2059,11 @@ def create_student_application(application_data):
 			school_id = generate_school_id(branch)
 		
 		app_doc.custom_school_id = school_id
-		
+
+		# Branch: auto-derived from the School ID prefix (MB/DD, M2) with an
+		# optional explicit override passed from the form (second-branch choice).
+		app_doc.branch = _derive_branch(school_id, application_data.get("branch"))
+
 		# Handle student email based on applicant type
 		if application_data.get("applicant_type") == "Existing":
 			# For existing students, use their existing email if available
@@ -2116,10 +2120,19 @@ def create_student_application(application_data):
 			sibling_row.student_name = sibling.get("student_name")
 			sibling_row.program = sibling.get("program")
 			sibling_row.academic_year = sibling.get("academic_year")
-		
+
+		# Suggested Student Group (gender-balanced round-robin). Non-binding;
+		# a human still does the final enrollment.
+		try:
+			app_doc.suggested_student_section = _suggest_section(
+				app_doc.program, gender=app_doc.gender
+			)
+		except Exception:
+			app_doc.suggested_student_section = ""
+
 		app_doc.insert()
 		return app_doc.name
-		
+
 	except Exception as e:
 		error_msg = str(e)
 		frappe.log_error(message=f"Student application creation failed: {error_msg}\nData: {application_data}", title="Student Application Creation Error")
@@ -2156,6 +2169,7 @@ def update_student_application(application_id, application_data):
 		app_doc.middle_name = application_data.get("middle_name")
 		app_doc.last_name = application_data.get("last_name")
 		app_doc.custom_school_id = application_data.get("custom_school_id")
+		app_doc.branch = _derive_branch(application_data.get("custom_school_id"), application_data.get("branch"))
 		app_doc.program = application_data.get("program")
 		app_doc.academic_year = application_data.get("academic_year")
 		
@@ -2309,6 +2323,8 @@ def generate_application_pdf(application_id):
         # Convert app_doc to a format similar to the session data structure
         app_data = {
             'submittedApplicationId': app_doc.name,
+            'branch': app_doc.get('branch') or 'Main',
+            'applicant_type': app_doc.get('applicant_type') or 'New',
             'guardianType': 'parent' if len(app_doc.guardians) >= 2 else 'guardian',
             'studentData': {
                 'first_name': app_doc.first_name or '',
@@ -2489,6 +2505,8 @@ def generate_application_pdf(application_id):
                     <div class='school-name'>Makko Billi School</div>
                     <div class='app-title'>Student Application Form</div>
                     <div class='app-id'>Application ID: {app_data.get('submittedApplicationId', '')}</div>
+                    <div class='app-id' style='background:#dbeafe;color:#1e40af;font-weight:bold;font-size:14px;margin-left:6px;'>School ID: {app_data.get('studentData', {}).get('custom_school_id', '')}</div>
+                    <div class='app-id' style='margin-left:6px;'>Branch: {app_data.get('branch', 'Main')} &nbsp;|&nbsp; Type: {app_data.get('applicant_type', 'New')}</div>
                 </div>
 
                 <div class='main-container'>
@@ -3140,3 +3158,685 @@ def generate_student_report_cards(academic_year, student=None, student_group=Non
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "Report Card Generation Error")
         return {"action": "Error", "error": str(e)}
+
+
+# ================================================================
+# BRANCH, PROMOTION, EXISTING-STUDENT & SECTION-SUGGESTION API
+# ================================================================
+# Shared by the /mbreg1825 (public) and /apply-dd (Dembi Dollo) registration
+# pages. Everything here is deliberately defensive: the pages call it from
+# guest/registrar contexts, so failures degrade gracefully instead of breaking
+# the multi-step form.
+
+# Roles that receive the 30-minute "new applicants" notification. There is no
+# role literally named "Accountant" on the site, so we target both Accounts
+# roles. Edit this list to change who gets notified - it is pure data.
+ACCOUNTS_NOTIFY_ROLES = ["Accounts Manager", "Accounts User"]
+
+
+def _derive_branch(school_id=None, explicit=None):
+    """Return the canonical Branch value for an applicant.
+
+    Rules (in priority order):
+      - School ID starting with "MB/DD" -> "MBS Dembi Dollo"
+      - School ID starting with "M2/"   -> "MBS #2"
+      - An explicit branch choice from the form (second branch) -> "MBS #2"
+        / Dembi Dollo -> "MBS Dembi Dollo"
+      - Otherwise default to "Main".
+    """
+    sid = (school_id or "").strip().upper()
+    if sid.startswith("MB/DD"):
+        return "MBS Dembi Dollo"
+    if sid.startswith("M2/"):
+        return "MBS #2"
+
+    if explicit:
+        e = str(explicit).strip().lower()
+        if e in ("m2", "mbs #2", "mbs no 2", "mbs no. 2", "mbs number two",
+                 "branch 2", "second branch", "2", "#2"):
+            return "MBS #2"
+        if "dembi" in e or e in ("mb/dd", "dd", "mbs dembi dollo"):
+            return "MBS Dembi Dollo"
+        if e in ("m1", "main", "main branch"):
+            return "Main"
+
+    return "Main"
+
+
+def _split_program_suffix(program):
+    """Split a program like "Grade 8 AO" into ("Grade 8", "AO")."""
+    program = (program or "").strip()
+    match = re_module.search(r"\s+(AO|NS|SS)$", program)
+    if match:
+        return program[: match.start()].strip(), match.group(1)
+    return program, ""
+
+
+def _resolve_program(base, suffix):
+    """Return the best existing Program name for a base + optional suffix.
+
+    Prefers the suffixed program (e.g. "Grade 9 AO"); falls back to the base
+    program (e.g. "Grade 10" when "Grade 10 AO" does not exist).
+    """
+    candidates = []
+    if suffix:
+        candidates.append(f"{base} {suffix}")
+    candidates.append(base)
+    for candidate in candidates:
+        if frappe.db.exists("Program", candidate):
+            return candidate
+    return candidates[0]
+
+
+def _compute_next_program(current_program):
+    """Compute the program a *promoted* student advances into.
+
+    Sequence: Nursery -> LKG -> UKG -> Grade 1 -> ... -> Grade 12.
+    The medium suffix (AO) is preserved where the target program exists.
+    Grades 11/12 use the NS stream by default (only NS/SS streams exist there).
+    Returns None when the student has graduated (Grade 12).
+    """
+    base, suffix = _split_program_suffix(current_program)
+
+    early = {"Nursery": "LKG", "LKG": "UKG", "UKG": "Grade 1"}
+    if base in early:
+        return _resolve_program(early[base], suffix)
+
+    grade_match = re_module.match(r"^Grade\s+(\d+)$", base)
+    if grade_match:
+        current_grade = int(grade_match.group(1))
+        if current_grade >= 12:
+            return None  # graduated
+        next_grade = current_grade + 1
+        # Streams (NS/SS) start at Grade 11; default to NS when none chosen.
+        if next_grade >= 11 and not suffix:
+            suffix = "NS"
+        return _resolve_program(f"Grade {next_grade}", suffix)
+
+    # Unknown program shape: best effort, keep them where they are.
+    return current_program
+
+
+def _get_not_promoted_record(school_id, academic_year=None):
+    """Return a Not Promoted Student record for this school ID, or None."""
+    if not school_id:
+        return None
+    filters = {"school_id": school_id.strip()}
+    if academic_year:
+        filters["academic_year"] = academic_year
+    rows = frappe.get_all(
+        "Not Promoted Student",
+        filters=filters,
+        fields=["name", "reason", "current_program", "academic_year"],
+        order_by="modified desc",
+        limit=1,
+        ignore_permissions=True,
+    )
+    return rows[0] if rows else None
+
+
+@frappe.whitelist(allow_guest=True)
+def get_next_program(current_program, school_id=None, academic_year=None):
+    """Public helper: given a student's current program, return their next one.
+
+    If the student's School ID appears in the Not Promoted Student list they are
+    treated as *not promoted* (they repeat the current program).
+    """
+    not_promoted = _get_not_promoted_record(school_id, academic_year)
+    if not_promoted:
+        return {
+            "promoted": False,
+            "next_program": current_program,
+            "reason": not_promoted.get("reason") or "",
+        }
+    return {
+        "promoted": True,
+        "next_program": _compute_next_program(current_program),
+        "reason": "",
+    }
+
+
+def _get_student_current_enrollment(student_name):
+    """Return (program, student_group) for a Student's most recent enrollment."""
+    rows = frappe.get_all(
+        "Program Enrollment",
+        filters={"student": student_name},
+        fields=["name", "program", "academic_year"],
+        order_by="creation desc",
+        limit=1,
+        ignore_permissions=True,
+    )
+    if not rows:
+        return None, None
+    program = rows[0].program
+    group = frappe.db.get_value(
+        "Student Group Student",
+        {"student": student_name},
+        "parent",
+        order_by="creation desc",
+    )
+    return program, group
+
+
+def _guardian_details(guardian_name):
+    """Return a flat dict of a Guardian's editable details."""
+    if not guardian_name or not frappe.db.exists("Guardian", guardian_name):
+        return {}
+    g = frappe.get_doc("Guardian", guardian_name)
+    return {
+        "guardian": g.name,
+        "guardian_name": g.guardian_name or "",
+        "mobile_number": g.mobile_number or "",
+        "alternate_number": g.get("alternate_number") or "",
+        "email_address": g.get("email_address") or "",
+        "education": g.get("education") or "",
+        "occupation": g.get("occupation") or "",
+        "work_address": g.get("work_address") or "",
+        "image": g.get("image") or "",
+    }
+
+
+@frappe.whitelist(allow_guest=True)
+def get_existing_student_details(school_id):
+    """Fetch a full existing-student profile for the "Existing Student" flow.
+
+    Returns the student's picture, full name, personal + address details, the
+    linked guardians (with editable details), the current grade/section, and a
+    computed promotion decision. ``can_continue`` is True only when the student
+    is promoted AND not restricted.
+    """
+    if not school_id:
+        return {"found": False, "message": "Please enter a School ID."}
+
+    school_id = school_id.strip()
+    student_name = frappe.db.get_value("Student", {"custom_school_id": school_id}, "name")
+    if not student_name:
+        return {
+            "found": False,
+            "message": "No existing student found with this School ID.",
+        }
+
+    student = frappe.get_doc("Student", student_name)
+
+    # Guardians (from the student's own guardian table)
+    guardians = []
+    for row in student.get("guardians", []):
+        details = _guardian_details(row.guardian)
+        if details:
+            details["relation"] = row.get("relation") or ""
+            guardians.append(details)
+
+    current_program, current_group = _get_student_current_enrollment(student_name)
+
+    # Promotion decision
+    not_promoted = _get_not_promoted_record(school_id)
+    is_promoted = not bool(not_promoted)
+    is_restricted = bool(student.get("restricted"))
+    next_program = current_program if not is_promoted else _compute_next_program(current_program)
+    suggested_section = _suggest_section(next_program, gender=student.get("gender"),
+                                         prev_section=current_group)
+
+    can_continue = is_promoted and not is_restricted
+
+    block_reason = ""
+    if is_restricted:
+        block_reason = student.get("reason_for_restriction") or "This student is restricted."
+    elif not is_promoted:
+        block_reason = (not_promoted.get("reason")
+                        or "This student was not promoted and cannot re-apply online.")
+
+    return {
+        "found": True,
+        "student": student_name,
+        "custom_school_id": school_id,
+        "branch": _derive_branch(school_id),
+        "first_name": student.first_name or "",
+        "middle_name": student.middle_name or "",
+        "last_name": student.last_name or "",
+        "student_name": student.student_name or "",
+        "image": student.image or "",
+        "gender": student.gender or "",
+        "date_of_birth": str(student.date_of_birth) if student.date_of_birth else "",
+        "student_mobile_number": student.student_mobile_number or "",
+        "student_email_id": student.student_email_id or "",
+        "national_id_fin": student.get("national_id_fin") or "",
+        "nationality": student.get("nationality") or "Ethiopian",
+        "address_line_1": student.get("address_line_1") or "",
+        "address_line_2": student.get("address_line_2") or "",
+        "kebele": student.get("kebele") or "",
+        "sub_city": student.get("sub_city") or "",
+        "city": student.get("city") or "",
+        "state": student.get("state") or "",
+        "country": student.get("country") or "Ethiopia",
+        "pincode": student.get("pincode") or "",
+        "guardians": guardians,
+        "current_program": current_program or "",
+        "current_section": current_group or "",
+        "is_promoted": is_promoted,
+        "is_restricted": is_restricted,
+        "next_program": next_program or "",
+        "suggested_section": suggested_section or "",
+        "can_continue": can_continue,
+        "block_reason": block_reason,
+    }
+
+
+def _suggest_section(program, gender=None, prev_section=None):
+    """Suggest a Student Group for an applicant.
+
+    - Existing students (prev_section given): carry the section letter forward,
+      e.g. "Grade 7 A" -> the "... A" group of the next program when it exists.
+    - New students: gender-balanced round-robin across the program's active
+      groups (fewest members first, then fewest of the same gender).
+    Returns a Student Group name, or "" when none can be suggested.
+    """
+    if not program:
+        return ""
+
+    active_groups = frappe.get_all(
+        "Student Group",
+        filters={"program": program, "disabled": 0},
+        fields=["name"],
+        order_by="name asc",
+        ignore_permissions=True,
+    )
+    group_names = [g.name for g in active_groups]
+    if not group_names:
+        return ""
+
+    # Existing student: keep the same section letter if the next program has it.
+    if prev_section:
+        letter = prev_section.strip().split(" ")[-1]
+        for name in group_names:
+            if name.strip().split(" ")[-1] == letter:
+                return name
+        # fall through to balancing if the letter has no counterpart
+
+    # New student: balance by current suggested-section load + gender.
+    existing = frappe.get_all(
+        "Student Applicant",
+        filters={"program": program, "suggested_student_section": ["in", group_names]},
+        fields=["suggested_student_section", "gender"],
+        ignore_permissions=True,
+    )
+    total_counts = {name: 0 for name in group_names}
+    gender_counts = {name: 0 for name in group_names}
+    for row in existing:
+        grp = row.suggested_student_section
+        if grp in total_counts:
+            total_counts[grp] += 1
+            if gender and row.gender == gender:
+                gender_counts[grp] += 1
+
+    # Pick the group with the fewest total members; break ties by fewest of the
+    # applicant's gender, then by name for determinism.
+    best = sorted(
+        group_names,
+        key=lambda name: (total_counts[name], gender_counts[name], name),
+    )
+    return best[0]
+
+
+@frappe.whitelist(allow_guest=True)
+def suggest_student_section(program, gender=None, prev_section=None):
+    """Whitelisted wrapper around :func:`_suggest_section`."""
+    return _suggest_section(program, gender=gender, prev_section=prev_section)
+
+
+def _sync_guardian(guardian_data):
+    """Create or update a Guardian from edited details and return its name."""
+    name = guardian_data.get("guardian")
+    mobile = (guardian_data.get("mobile_number") or "").strip()
+    if mobile and not mobile.startswith("+251"):
+        mobile = f"+251{mobile}"
+
+    if not name and mobile:
+        name = frappe.db.get_value("Guardian", {"mobile_number": mobile}, "name")
+
+    editable = {
+        "guardian_name": guardian_data.get("guardian_name"),
+        "email_address": guardian_data.get("email_address"),
+        "education": guardian_data.get("education"),
+        "occupation": guardian_data.get("occupation"),
+        "work_address": guardian_data.get("work_address"),
+        "image": guardian_data.get("photo") or guardian_data.get("image"),
+    }
+    alt = (guardian_data.get("alternate_number") or "").strip()
+    if alt and not alt.startswith("+251"):
+        alt = f"+251{alt}"
+    if alt:
+        editable["alternate_number"] = alt
+
+    if name and frappe.db.exists("Guardian", name):
+        guardian_doc = frappe.get_doc("Guardian", name)
+        for key, value in editable.items():
+            if value not in (None, ""):
+                setattr(guardian_doc, key, value)
+        if mobile:
+            guardian_doc.mobile_number = mobile
+        guardian_doc.save(ignore_permissions=True)
+        return guardian_doc.name
+
+    guardian_doc = frappe.new_doc("Guardian")
+    guardian_doc.guardian_name = editable.get("guardian_name") or "Guardian"
+    guardian_doc.mobile_number = mobile
+    for key, value in editable.items():
+        if value not in (None, ""):
+            setattr(guardian_doc, key, value)
+    guardian_doc.insert(ignore_permissions=True)
+    return guardian_doc.name
+
+
+@frappe.whitelist(allow_guest=True)
+def submit_existing_student_application(application_data):
+    """Existing-student registration: update the Student record + guardians in
+    place, then create a fresh Student Applicant for the promoted grade.
+
+    Guards: the student must exist, be promoted, and not be restricted.
+    """
+    try:
+        if isinstance(application_data, str):
+            application_data = frappe.parse_json(application_data)
+
+        school_id = (application_data.get("custom_school_id") or "").strip()
+        if not school_id:
+            frappe.throw(_("School ID is required for existing students."))
+
+        student_name = frappe.db.get_value("Student", {"custom_school_id": school_id}, "name")
+        if not student_name:
+            frappe.throw(_("No existing student found with School ID {0}.").format(school_id))
+
+        student = frappe.get_doc("Student", student_name)
+
+        # Re-validate promotion + restriction server-side (never trust the client).
+        if student.get("restricted"):
+            frappe.throw(_("This student is restricted and cannot re-apply: {0}")
+                         .format(student.get("reason_for_restriction") or ""))
+        not_promoted = _get_not_promoted_record(school_id)
+        if not_promoted:
+            frappe.throw(_("This student was not promoted and cannot re-apply online."))
+
+        current_program, current_group = _get_student_current_enrollment(student_name)
+        next_program = application_data.get("program") or _compute_next_program(current_program)
+        if not next_program:
+            frappe.throw(_("This student has graduated; no next grade to apply for."))
+
+        # 1) Sync guardians (shared Guardian docs) from edited data.
+        synced_guardians = []
+        for guardian in application_data.get("guardians", []):
+            guardian_name = _sync_guardian(guardian)
+            synced_guardians.append({
+                "guardian": guardian_name,
+                "guardian_name": guardian.get("guardian_name"),
+                "relation": guardian.get("relation"),
+            })
+
+        # 2) Update the Student doc in place with any changed core info.
+        for field in ("first_name", "middle_name", "last_name", "date_of_birth",
+                      "gender", "nationality", "national_id_fin", "student_mobile_number",
+                      "address_line_1", "address_line_2", "kebele", "sub_city",
+                      "city", "state", "country", "pincode"):
+            value = application_data.get(field)
+            if value not in (None, ""):
+                setattr(student, field, value)
+        if application_data.get("image"):
+            student.image = application_data.get("image")
+
+        # Rewrite the student's guardian table to match the edited set.
+        if synced_guardians:
+            student.set("guardians", [])
+            for g in synced_guardians:
+                row = student.append("guardians")
+                row.guardian = g["guardian"]
+                row.guardian_name = g["guardian_name"]
+                if g.get("relation"):
+                    row.relation = g["relation"]
+        student.save(ignore_permissions=True)
+
+        # 3) Create a fresh Student Applicant for the promoted grade.
+        suggested_section = _suggest_section(next_program, gender=student.gender,
+                                             prev_section=current_group)
+        app_doc = frappe.new_doc("Student Applicant")
+        app_doc.first_name = application_data.get("first_name") or student.first_name
+        app_doc.middle_name = application_data.get("middle_name") or student.middle_name
+        app_doc.last_name = application_data.get("last_name") or student.last_name
+        app_doc.program = next_program
+        app_doc.academic_year = application_data.get("academic_year") or "2019 E.C."
+        app_doc.custom_school_id = school_id
+        app_doc.student_email_id = student.student_email_id or application_data.get("student_email_id") or ""
+        app_doc.date_of_birth = application_data.get("date_of_birth") or student.date_of_birth
+        app_doc.gender = application_data.get("gender") or student.gender
+        app_doc.student_mobile_number = (application_data.get("primary_mobile_number")
+                                         or application_data.get("student_mobile_number")
+                                         or student.student_mobile_number)
+        app_doc.national_id_fin = application_data.get("national_id_fin") or student.get("national_id_fin")
+        app_doc.applicant_type = "Existing"
+        app_doc.nationality = application_data.get("nationality") or student.get("nationality") or "Ethiopian"
+        app_doc.branch = _derive_branch(school_id, application_data.get("branch"))
+        app_doc.suggested_student_section = suggested_section
+        app_doc.application_status = "Applied"
+        if application_data.get("image") or student.image:
+            app_doc.image = application_data.get("image") or student.image
+        if application_data.get("birth_certificate_image"):
+            app_doc.birth_certificate_image = application_data.get("birth_certificate_image")
+
+        for field in ("address_line_1", "address_line_2", "kebele", "sub_city",
+                      "city", "state", "country", "pincode"):
+            value = application_data.get(field) or student.get(field)
+            if value not in (None, ""):
+                setattr(app_doc, field, value)
+
+        for g in synced_guardians:
+            row = app_doc.append("guardians")
+            row.guardian = g["guardian"]
+            row.guardian_name = g["guardian_name"]
+            row.relation = g.get("relation")
+
+        app_doc.insert(ignore_permissions=True)
+        frappe.db.commit()
+
+        return {
+            "name": app_doc.name,
+            "custom_school_id": school_id,
+            "branch": app_doc.branch,
+            "program": next_program,
+            "suggested_section": suggested_section,
+        }
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "Existing Student Application Error")
+        frappe.throw(_("Error submitting existing-student application: {0}").format(str(e)))
+
+
+# ================================================================
+# STAFF DASHBOARDS: generated IDs + paid applicants
+# ================================================================
+
+def _require_staff():
+    """Allow only registrar/academic/accounts staff to read the dashboards."""
+    allowed = {"System Manager", "Academics User", "Education Manager",
+               "DD Student Registrar", "Accounts Manager", "Accounts User"}
+    if frappe.session.user == "Administrator":
+        return
+    if not (allowed & set(frappe.get_roles())):
+        frappe.throw(_("You are not permitted to view this page."), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def get_generated_ids(search=None, branch=None, applicant_type=None, limit=200):
+    """Staff view: applicants with their generated School ID and status."""
+    _require_staff()
+    filters = {}
+    if branch:
+        filters["branch"] = branch
+    if applicant_type:
+        filters["applicant_type"] = applicant_type
+
+    or_filters = None
+    if search:
+        search = f"%{search}%"
+        or_filters = {
+            "custom_school_id": ["like", search],
+            "first_name": ["like", search],
+            "middle_name": ["like", search],
+            "last_name": ["like", search],
+            "student_mobile_number": ["like", search],
+        }
+
+    rows = frappe.get_all(
+        "Student Applicant",
+        filters=filters,
+        or_filters=or_filters,
+        fields=["name", "first_name", "middle_name", "last_name", "custom_school_id",
+                "program", "branch", "applicant_type", "application_status", "paid",
+                "gender", "student_mobile_number", "suggested_student_section",
+                "academic_year", "creation"],
+        order_by="creation desc",
+        limit_page_length=cint(limit) or 200,
+    )
+    for r in rows:
+        r["full_name"] = " ".join([p for p in [r.get("first_name"), r.get("middle_name"),
+                                                r.get("last_name")] if p])
+    return rows
+
+
+@frappe.whitelist()
+def get_paid_applicants(search=None, branch=None, limit=200):
+    """Staff view: applicants who have applied AND have paid=1."""
+    _require_staff()
+    filters = {"paid": 1}
+    if branch:
+        filters["branch"] = branch
+
+    or_filters = None
+    if search:
+        search = f"%{search}%"
+        or_filters = {
+            "custom_school_id": ["like", search],
+            "first_name": ["like", search],
+            "last_name": ["like", search],
+            "student_mobile_number": ["like", search],
+        }
+
+    rows = frappe.get_all(
+        "Student Applicant",
+        filters=filters,
+        or_filters=or_filters,
+        fields=["name", "first_name", "middle_name", "last_name", "custom_school_id",
+                "program", "branch", "applicant_type", "application_status", "paid",
+                "gender", "student_mobile_number", "suggested_student_section",
+                "academic_year", "creation"],
+        order_by="creation desc",
+        limit_page_length=cint(limit) or 200,
+    )
+    for r in rows:
+        r["full_name"] = " ".join([p for p in [r.get("first_name"), r.get("middle_name"),
+                                                r.get("last_name")] if p])
+    return rows
+
+
+# ================================================================
+# 30-MINUTE ACCOUNTANT NOTIFICATION (CRON)
+# ================================================================
+
+def _applicant_parent_phones(applicant_doc):
+    """Collect the guardian phone numbers for an applicant (';'-joined)."""
+    phones = []
+    for row in applicant_doc.get("guardians", []):
+        mobile = frappe.db.get_value("Guardian", row.guardian, "mobile_number")
+        if mobile and mobile not in phones:
+            phones.append(mobile)
+    return "; ".join(phones)
+
+
+def notify_accountants_of_new_applicants():
+    """Scheduled every 30 minutes.
+
+    Collects Student Applicants created in the last 30 minutes, categorises them
+    by branch and by New/Existing, writes a CSV, and raises an in-system
+    Notification Log (with the CSV attached as a File) for the Accounts roles.
+    """
+    import csv
+    import io
+
+    cutoff = frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=-30)
+    applicants = frappe.get_all(
+        "Student Applicant",
+        filters={"creation": [">=", cutoff]},
+        fields=["name", "first_name", "middle_name", "last_name", "custom_school_id",
+                "gender", "program", "branch", "applicant_type",
+                "suggested_student_section", "student_mobile_number", "creation"],
+        order_by="applicant_type asc, branch asc, creation asc",
+    )
+    if not applicants:
+        return
+
+    # Build the CSV (mandatory columns + branch/type for categorisation).
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Applicant Type", "Branch", "Student Name", "School ID", "Gender",
+        "Parent Phone", "Grade (Program)", "Section (Suggested Student Group)",
+        "Student Mobile", "Registered At",
+    ])
+
+    counts = {}
+    for row in applicants:
+        app_doc = frappe.get_doc("Student Applicant", row.name)
+        full_name = " ".join([p for p in [row.first_name, row.middle_name, row.last_name] if p])
+        parent_phones = _applicant_parent_phones(app_doc)
+        atype = row.applicant_type or "New"
+        branch = row.branch or "Main"
+        counts.setdefault(atype, {}).setdefault(branch, 0)
+        counts[atype][branch] += 1
+        writer.writerow([
+            atype, branch, full_name, row.custom_school_id or "", row.gender or "",
+            parent_phones, row.program or "", row.suggested_student_section or "",
+            row.student_mobile_number or "", str(row.creation),
+        ])
+
+    timestamp = frappe.utils.now_datetime().strftime("%Y%m%d_%H%M")
+    file_name = f"new_applicants_{timestamp}.csv"
+    file_doc = frappe.get_doc({
+        "doctype": "File",
+        "file_name": file_name,
+        "is_private": 1,
+        "content": output.getvalue(),
+    })
+    file_doc.insert(ignore_permissions=True)
+
+    # Summary lines for the notification body.
+    summary_lines = []
+    for atype in sorted(counts):
+        for branch in sorted(counts[atype]):
+            summary_lines.append(f"{atype} / {branch}: {counts[atype][branch]}")
+    summary_html = "<br>".join(summary_lines)
+
+    content = (
+        f"<p><b>{len(applicants)}</b> new student applicant(s) were registered "
+        f"in the last 30 minutes.</p>"
+        f"<p>{summary_html}</p>"
+        f"<p><a href='{file_doc.file_url}'>Download CSV: {file_name}</a></p>"
+    )
+
+    # Notify every user holding an Accounts role.
+    recipients = frappe.get_all(
+        "Has Role",
+        filters={"role": ["in", ACCOUNTS_NOTIFY_ROLES], "parenttype": "User"},
+        distinct=True,
+        pluck="parent",
+    )
+    for user in set(recipients):
+        if user in ("Administrator", "Guest") or not frappe.db.get_value("User", user, "enabled"):
+            continue
+        frappe.get_doc({
+            "doctype": "Notification Log",
+            "subject": f"{len(applicants)} new applicant(s) - last 30 min",
+            "email_content": content,
+            "for_user": user,
+            "type": "Alert",
+            "document_type": "File",
+            "document_name": file_doc.name,
+        }).insert(ignore_permissions=True)
+
+    frappe.db.commit()

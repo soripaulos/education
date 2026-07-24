@@ -242,6 +242,33 @@ after_install = "education.install.after_install"
 # 	],
 # }
 
+# Every 30 minutes: notify Accounts users of newly registered applicants,
+# split by branch and by New/Existing, with a downloadable CSV attached.
+scheduler_events = {
+	"cron": {
+		"*/30 * * * *": [
+			"education.education.api.notify_accountants_of_new_applicants"
+		]
+	}
+}
+
+# Fixtures - custom fields added to core doctypes so they travel with the app.
+fixtures = [
+	{
+		"dt": "Custom Field",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Student Applicant-branch",
+					"Student Applicant-suggested_student_section"
+				]
+			]
+		]
+	}
+]
+
 # Testing
 # -------
 
