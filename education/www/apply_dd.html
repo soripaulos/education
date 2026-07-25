@@ -130,12 +130,12 @@
                         <div class="flex items-center">
                             <h1 class="text-2xl font-bold text-gray-900">MBS Dembi Dollo Student Registration Page</h1>
                         </div>
-                        <div class="flex items-center space-x-4">
+                        <div v-if="currentStep >= 1" class="flex items-center space-x-4">
                             <div class="text-sm text-gray-500">
                                 Step {{ currentStep }} of {{ totalSteps }}
                             </div>
                             <div class="w-48 bg-gray-200 rounded-full h-2">
-                                <div 
+                                <div
                                     class="bg-blue-600 h-2 rounded-full step-indicator"
                                     :style="{ width: `${(currentStep / totalSteps) * 100}%` }"
                                 ></div>
@@ -148,7 +148,119 @@
             <!-- Main Content -->
             <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div class="bg-white rounded-lg form-card p-6">
-                    
+
+                    <!-- Step 0: Start Gate - New vs Existing Student -->
+                    <div v-if="currentStep === 0" class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-2xl font-semibold text-gray-900 mb-2">Welcome</h2>
+                            <p class="text-gray-600">Are you registering a new student or an existing student?</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <button
+                                @click="chooseFlow('new')"
+                                :class="[
+                                    'rounded-lg border p-8 text-center transition-all duration-200',
+                                    flowChoice === 'new' ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                ]"
+                            >
+                                <svg class="h-10 w-10 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                <p class="text-lg font-medium">New Student</p>
+                                <p class="text-sm text-gray-500">First time applying (School ID auto-generated)</p>
+                            </button>
+
+                            <button
+                                @click="chooseFlow('existing')"
+                                :class="[
+                                    'rounded-lg border p-8 text-center transition-all duration-200',
+                                    flowChoice === 'existing' ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                                ]"
+                            >
+                                <svg class="h-10 w-10 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <p class="text-lg font-medium">Existing Student</p>
+                                <p class="text-sm text-gray-500">Already has a school ID</p>
+                            </button>
+                        </div>
+
+                        <!-- New Student: continue -->
+                        <div v-if="flowChoice === 'new'" class="border-t border-gray-200 pt-6">
+                            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                                <p class="text-sm text-blue-800">A new School ID will be generated automatically in the format <strong>MB/DD/#####/19</strong> on submission.</p>
+                            </div>
+                            <button @click="startNewFlow" class="btn-primary w-full">Continue as New Student →</button>
+                        </div>
+
+                        <!-- Existing Student: school ID lookup + rich detail -->
+                        <div v-if="flowChoice === 'existing'" class="space-y-4 border-t border-gray-200 pt-6">
+                            <label class="block text-sm font-medium text-gray-700">Enter the student's School ID</label>
+                            <div class="flex space-x-2">
+                                <input
+                                    v-model="existingSchoolId"
+                                    type="text"
+                                    class="input-field flex-1"
+                                    placeholder="e.g., MB/DD/12345/19"
+                                    :disabled="isLoadingExistingDetails"
+                                    @keydown.enter="lookupExistingStudent"
+                                >
+                                <button
+                                    @click="lookupExistingStudent"
+                                    :disabled="isLoadingExistingDetails || !existingSchoolId.trim()"
+                                    :class="[
+                                        'px-4 py-2 rounded-md font-medium transition-colors',
+                                        isLoadingExistingDetails || !existingSchoolId.trim() ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+                                    ]"
+                                >
+                                    <span v-if="isLoadingExistingDetails">Checking...</span>
+                                    <span v-else>Fetch Details</span>
+                                </button>
+                            </div>
+                            <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
+
+                            <div v-if="existingDetails && existingDetails.found" class="rounded-lg border border-gray-200 overflow-hidden">
+                                <div class="bg-gray-50 p-5 flex items-start space-x-4">
+                                    <img v-if="existingDetails.image" :src="existingDetails.image" alt="Student" class="h-24 w-24 rounded-lg object-cover border border-gray-300">
+                                    <div v-else class="h-24 w-24 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 text-xs">No Photo</div>
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-semibold text-gray-900" v-text="existingDetails.student_name"></h3>
+                                        <p class="text-sm text-gray-600">School ID: <strong v-text="existingDetails.custom_school_id"></strong></p>
+                                        <p class="text-sm text-gray-600">Phone: <span v-text="existingDetails.student_mobile_number || '—'"></span></p>
+                                        <p class="text-sm text-gray-600">Current Grade: <span v-text="existingDetails.current_program || '—'"></span></p>
+                                        <p class="text-sm text-gray-600">Branch: <span v-text="existingDetails.branch"></span></p>
+                                    </div>
+                                </div>
+                                <div class="p-5 space-y-3">
+                                    <div v-if="existingDetails.is_restricted" class="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-800">
+                                        <strong>Restricted:</strong> <span v-text="existingDetails.block_reason"></span>
+                                    </div>
+                                    <div v-else-if="!existingDetails.is_promoted" class="bg-yellow-50 border-l-4 border-yellow-500 p-3 text-sm text-yellow-800">
+                                        <strong>Not Promoted:</strong> <span v-text="existingDetails.block_reason"></span>
+                                    </div>
+                                    <div v-else class="bg-green-50 border-l-4 border-green-500 p-3 text-sm text-green-800">
+                                        <strong>Promoted.</strong> This student will be registered for <strong v-text="existingDetails.next_program"></strong>.
+                                        <span v-if="existingDetails.suggested_section">Suggested section: <strong v-text="existingDetails.suggested_section"></strong>.</span>
+                                    </div>
+                                    <div v-if="existingDetails.guardians && existingDetails.guardians.length" class="text-sm text-gray-700">
+                                        <p class="font-medium mb-1">Parent / Guardian(s) on record:</p>
+                                        <ul class="list-disc ml-5">
+                                            <li v-for="g in existingDetails.guardians" :key="g.guardian">
+                                                <span v-text="g.guardian_name"></span>
+                                                <span class="text-gray-500" v-text="g.relation ? '(' + g.relation + ')' : ''"></span>
+                                                — <span v-text="g.mobile_number"></span>
+                                            </li>
+                                        </ul>
+                                        <p class="text-xs text-gray-500 mt-1">You'll be able to review and edit parent details in the next steps.</p>
+                                    </div>
+                                    <button v-if="existingDetails.can_continue" @click="startExistingFlow" class="btn-primary w-full">Continue Application →</button>
+                                    <p v-else class="text-sm text-red-600 text-center">This student cannot re-apply online. Please contact the school office.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Step 1: Guardian Information -->
                     <div v-if="currentStep === 1" class="space-y-6">
                         <div class="text-center">
@@ -415,87 +527,26 @@
                         </div>
                     </div>
                     
-                    <!-- Step 3: Student Type Selection -->
+                    <!-- Step 3: Confirm (type chosen on the start page) -->
                     <div v-if="currentStep === 3" class="space-y-6">
                         <div class="text-center">
-                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Student Type</h2>
-                            <p class="text-gray-600">Is this a new student or an existing student?</p>
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Confirm</h2>
+                            <p class="text-gray-600">Review your selection before continuing.</p>
                         </div>
-                        
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <button
-                                @click="studentType = 'new'"
-                                :class="[
-                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
-                                    studentType === 'new' 
-                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                ]"
-                            >
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-4">
-                                        <p class="text-lg font-medium">New Student</p>
-                                        <p class="text-sm text-gray-500">First time applying to our school</p>
-                                    </div>
-                                </div>
-                            </button>
-                            
-                            <button
-                                @click="studentType = 'existing'"
-                                :class="[
-                                    'relative rounded-lg border p-6 text-left transition-all duration-200',
-                                    studentType === 'existing' 
-                                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
-                                        : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                                ]"
-                            >
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-4">
-                                        <p class="text-lg font-medium">Existing Student</p>
-                                        <p class="text-sm text-gray-500">Already has a school ID</p>
-                                    </div>
-                                </div>
-                            </button>
+                        <div class="bg-gray-50 p-6 rounded-lg space-y-2 text-sm text-gray-800">
+                            <p><strong>Registration Type:</strong> <span v-text="studentType === 'existing' ? 'Existing Student' : 'New Student'"></span></p>
+                            <p><strong>Branch:</strong> MBS Dembi Dollo</p>
+                            <template v-if="studentType === 'new'">
+                                <p class="text-gray-600">A new School ID (MB/DD/#####/19) will be generated on submission.</p>
+                            </template>
+                            <template v-if="studentType === 'existing' && existingDetails">
+                                <p><strong>Student:</strong> <span v-text="existingDetails.student_name"></span></p>
+                                <p><strong>School ID:</strong> <span v-text="existingDetails.custom_school_id"></span></p>
+                                <p><strong>Applying For:</strong> <span v-text="existingDetails.next_program"></span> <span class="text-gray-500">(promoted from <span v-text="existingDetails.current_program"></span>)</span></p>
+                                <p v-if="existingDetails.suggested_section"><strong>Suggested Section:</strong> <span v-text="existingDetails.suggested_section"></span></p>
+                            </template>
                         </div>
-                        
-                        <!-- School ID for Existing Students (no lookup; recorded as-is) -->
-                        <div v-if="studentType === 'existing'" class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">Enter School ID *</label>
-                            <div class="relative">
-                                <div class="flex">
-                                    <span class="inline-flex items-center px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm font-medium">MB/DD/</span>
-                                    <input
-                                        v-model="existingSchoolId"
-                                        type="text"
-                                        class="input-field rounded-l-none"
-                                        placeholder="e.g., 12345"
-                                    >
-                                </div>
-                            </div>
-                            <p class="text-xs text-gray-600">
-                                This student will be recorded as an <strong>existing student</strong>. The School ID will be saved as
-                                <strong v-text="existingSchoolId ? ('MB/DD/' + existingSchoolId.trim()) : 'MB/DD/...'"></strong>.
-                                No lookup is performed &mdash; a new applicant record is created.
-                            </p>
-                        </div>
-
-                        <!-- New Student note (school ID auto-generated) -->
-                        <div v-if="studentType === 'new'" class="bg-blue-50 p-4 rounded-lg">
-                            <p class="text-sm text-blue-800">
-                                A new School ID will be generated automatically in the format
-                                <strong>MB/DD/#####/19</strong> when the application is submitted.
-                            </p>
-                        </div>
+                        <p class="text-xs text-gray-500 text-center">To change this, use "Start New Application".</p>
                     </div>
                     
                     <!-- Step 4: Student Details -->
@@ -682,6 +733,7 @@
                                 <div>
                                     <p><strong>Mobile:</strong> <span v-text="studentData.primary_mobile_number"></span></p>
                                     <p><strong>Program:</strong> <span v-text="selectedProgramName"></span></p>
+                                    <p v-if="studentData.custom_school_id"><strong>School ID:</strong> <span class="font-semibold text-blue-700" v-text="studentData.custom_school_id"></span></p>
                                     <p v-if="isNurseryGrade && studentData.birth_certificate_image"><strong>Birth Certificate:</strong> ✓ Uploaded</p>
                                 </div>
                             </div>
@@ -797,6 +849,11 @@
                         </svg>
                     </div>
                     <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Application Submitted Successfully!</h3>
+                    <div v-if="generatedSchoolId" class="mx-6 mt-3 mb-1 rounded-lg bg-blue-50 border border-blue-200 py-3">
+                        <p class="text-xs uppercase tracking-wide text-blue-500">Generated Student ID</p>
+                        <p class="text-2xl font-bold text-blue-800" v-text="generatedSchoolId"></p>
+                        <p v-if="submittedBranch" class="text-xs text-blue-600 mt-1">Branch: <span v-text="submittedBranch"></span></p>
+                    </div>
                     <div class="mt-2 px-7 py-3">
                         <p class="text-sm text-gray-500">
                             Your application has been submitted with ID: <strong v-text="submittedApplicationId"></strong>
@@ -855,13 +912,20 @@
         createApp({
             data() {
                 return {
-                    currentStep: 1,
+                    currentStep: 0,
                     totalSteps: 5,
                     loading: true,
                     isSubmitting: false,
                     guardianType: 'parent',
                     studentType: 'new',
                     existingSchoolId: '',
+                    schoolIdError: '',
+                    flowChoice: '',
+                    existingDetails: null,
+                    isLoadingExistingDetails: false,
+                    generatedSchoolId: '',
+                    submittedBranch: '',
+                    existingStudent: null,
                     showSuccessModal: false,
                     submittedApplicationId: '',
                     fatherData: {
@@ -1052,13 +1116,8 @@
                                 this.studentData.address_line_1 &&
                                 this.studentData.kebele
                             );
-                        case 3: // Student Type Selection
-                            if (this.studentType === 'new') {
-                                return true;
-                            } else if (this.studentType === 'existing') {
-                                return !!this.existingSchoolId.trim();
-                            }
-                            return false;
+                        case 3: // Confirm (type chosen on the start gate)
+                            return true;
                         case 4: // Student Details
                             const dateValid = this.calendarType === 'ethiopian' ?
                                 (this.ethiopianDate && !this.ethiopianDateError) :
@@ -1232,7 +1291,129 @@
                         this.currentStep--;
                     }
                 },
-                
+
+                // --- Start gate (New vs Existing) ---
+                chooseFlow(choice) {
+                    this.flowChoice = choice;
+                    this.studentType = choice;
+                    if (choice === 'new') {
+                        this.existingDetails = null;
+                        this.existingStudent = null;
+                        this.schoolIdError = '';
+                    }
+                },
+
+                startNewFlow() {
+                    this.studentType = 'new';
+                    this.currentStep = 1;
+                },
+
+                async lookupExistingStudent() {
+                    const schoolId = (this.existingSchoolId || '').trim();
+                    if (!schoolId) return;
+                    this.isLoadingExistingDetails = true;
+                    this.schoolIdError = '';
+                    this.existingDetails = null;
+                    try {
+                        const response = await fetch('/api/method/education.education.api.get_existing_student_details', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ school_id: schoolId })
+                        });
+                        const data = await response.json();
+                        const details = data.message;
+                        if (!details || !details.found) {
+                            this.schoolIdError = (details && details.message) || 'No existing student found with this School ID.';
+                            return;
+                        }
+                        this.existingDetails = details;
+                    } catch (error) {
+                        console.error('Existing student lookup failed:', error);
+                        this.schoolIdError = 'Could not look up the student. Please try again.';
+                    } finally {
+                        this.isLoadingExistingDetails = false;
+                    }
+                },
+
+                startExistingFlow() {
+                    const d = this.existingDetails;
+                    if (!d || !d.can_continue) return;
+                    this.studentType = 'existing';
+                    this.studentData.first_name = d.first_name || '';
+                    this.studentData.middle_name = d.middle_name || '';
+                    this.studentData.last_name = d.last_name || '';
+                    this.studentData.gender = d.gender || '';
+                    this.studentData.date_of_birth = d.date_of_birth || '';
+                    this.studentData.primary_mobile_number = d.student_mobile_number || '';
+                    this.studentData.program = d.next_program || '';
+                    this.studentData.custom_school_id = d.custom_school_id || '';
+                    this.studentData.image = d.image || '';
+                    this.studentData.address_line_1 = d.address_line_1 || '';
+                    this.studentData.sub_city = d.sub_city || '';
+                    this.studentData.kebele = d.kebele || '';
+                    if (d.date_of_birth && this.hasOwnProperty('calendarType')) {
+                        this.calendarType = 'gregorian';
+                    }
+                    this.prefillGuardiansFromExisting(d.guardians || []);
+                    this.existingStudent = {
+                        custom_school_id: d.custom_school_id,
+                        first_name: d.first_name,
+                        middle_name: d.middle_name,
+                        last_name: d.last_name
+                    };
+                    this.currentStep = 1;
+                },
+
+                prefillGuardiansFromExisting(guardians) {
+                    const findByRelation = (rel) => guardians.find(g => (g.relation || '').toLowerCase() === rel);
+                    const father = findByRelation('father');
+                    const mother = findByRelation('mother');
+                    if (father || mother) {
+                        this.guardianType = 'parent';
+                        if (father) this.assignGuardian(this.fatherData, father);
+                        if (mother) this.assignGuardian(this.motherData, mother);
+                    } else if (guardians.length) {
+                        this.guardianType = 'guardian';
+                        this.assignGuardian(this.guardianData, guardians[0]);
+                        this.guardianData.relation = guardians[0].relation || 'Other';
+                    }
+                },
+
+                assignGuardian(target, g) {
+                    target.guardian = g.guardian || '';
+                    target.guardian_name = g.guardian_name || '';
+                    target.mobile_number = (g.mobile_number || '').replace('+251', '');
+                    target.alternate_number = (g.alternate_number || '').replace('+251', '');
+                    target.email_address = g.email_address || '';
+                    target.education = g.education || '';
+                    target.occupation = g.occupation || '';
+                    target.work_address = g.work_address || '';
+                    target.image = g.image || '';
+                },
+
+                buildDetailedGuardians() {
+                    const pack = (data, relation) => ({
+                        guardian: data.guardian || '',
+                        guardian_name: data.guardian_name || '',
+                        relation: relation,
+                        mobile_number: data.mobile_number || '',
+                        alternate_number: data.alternate_number || '',
+                        email_address: data.email_address || '',
+                        education: data.education === 'Other' ? (data.education_other || 'Other') : (data.education || ''),
+                        occupation: data.occupation === 'Other' ? (data.occupation_other || 'Other') : (data.occupation || ''),
+                        work_address: data.work_address || '',
+                        image: data.image || ''
+                    });
+                    const out = [];
+                    if (this.guardianType === 'parent') {
+                        if (this.fatherData.guardian_name) out.push(pack(this.fatherData, 'Father'));
+                        if (this.motherData.guardian_name) out.push(pack(this.motherData, 'Mother'));
+                    } else {
+                        if (this.guardianData.guardian_name) out.push(pack(this.guardianData, this.guardianData.relation || 'Other'));
+                    }
+                    return out;
+                },
+
                 async submitApplication() {
                     // Validate the form first
                     if (!this.validateForm()) {
@@ -1381,13 +1562,8 @@
                                 throw new Error(`Failed to get school ID: ${schoolIdData.exc || 'Unknown error'}`);
                             }
                         } else if (this.studentType === 'existing') {
-                            // No lookup: record as a new applicant flagged "Existing",
-                            // prefixing the entered ID with MB/DD/.
-                            schoolId = 'MB/DD/' + this.existingSchoolId.trim();
-                            // Derive a unique student email from the school ID so the
-                            // unique student_email_id constraint is never violated by
-                            // multiple blank emails.
-                            studentEmailId = schoolId.replace(/[\\/]/g, '').toLowerCase() + '@m.b.s';
+                            // Use the canonical School ID fetched from the Student record.
+                            schoolId = (this.existingDetails && this.existingDetails.custom_school_id) || this.existingSchoolId.trim();
                         }
 
                         // Prepare application data
@@ -1396,36 +1572,65 @@
                             custom_school_id: schoolId,
                             student_email_id: studentEmailId,
                             applicant_type: this.studentType === 'existing' ? 'Existing' : 'New',
+                            branch: 'MBS Dembi Dollo',
                             birth_certificate_image: this.studentData.birth_certificate_image,
                             guardians: guardians,
                             siblings: []
                         };
-                        
-                        // Create application
-                        const applicationResponse = await fetch('/api/method/education.education.api.create_student_application', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                application_data: applicationData
-                            })
-                        });
-                        
-                        if (!applicationResponse.ok) {
-                            const errorData = await applicationResponse.json();
-                            throw new Error(`Failed to create application: ${errorData.message || errorData.exc || applicationResponse.statusText}`);
-                        }
-                        
-                        const applicationResult = await applicationResponse.json();
-                        
-                        if (applicationResult.message) {
-                            this.submittedApplicationId = applicationResult.message;
-                            this.showSuccessModal = true;
+
+                        if (this.studentType === 'existing') {
+                            // Existing student: sync the Student record + guardians, then
+                            // create a fresh applicant for the promoted grade.
+                            applicationData.program = (this.existingDetails && this.existingDetails.next_program) || this.studentData.program;
+                            applicationData.guardians = this.buildDetailedGuardians();
+                            const existingResponse = await fetch('/api/method/education.education.api.submit_existing_student_application', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ application_data: applicationData })
+                            });
+                            if (!existingResponse.ok) {
+                                const errorData = await existingResponse.json();
+                                throw new Error(`Failed to submit application: ${errorData.message || errorData.exc || existingResponse.statusText}`);
+                            }
+                            const existingResult = await existingResponse.json();
+                            const payload = existingResult.message;
+                            if (payload && payload.name) {
+                                this.submittedApplicationId = payload.name;
+                                this.generatedSchoolId = payload.custom_school_id || schoolId;
+                                this.submittedBranch = payload.branch || 'MBS Dembi Dollo';
+                                this.showSuccessModal = true;
+                            } else {
+                                throw new Error(`Failed to submit application: ${existingResult.exc || 'Unknown error'}`);
+                            }
                         } else {
-                            throw new Error(`Failed to create application: ${applicationResult.exc || 'Unknown error'}`);
+                            // Create application (new student)
+                            const applicationResponse = await fetch('/api/method/education.education.api.create_student_application', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    application_data: applicationData
+                                })
+                            });
+
+                            if (!applicationResponse.ok) {
+                                const errorData = await applicationResponse.json();
+                                throw new Error(`Failed to create application: ${errorData.message || errorData.exc || applicationResponse.statusText}`);
+                            }
+
+                            const applicationResult = await applicationResponse.json();
+
+                            if (applicationResult.message) {
+                                this.submittedApplicationId = applicationResult.message;
+                                this.generatedSchoolId = schoolId;
+                                this.submittedBranch = 'MBS Dembi Dollo';
+                                this.showSuccessModal = true;
+                            } else {
+                                throw new Error(`Failed to create application: ${applicationResult.exc || 'Unknown error'}`);
+                            }
                         }
-                        
+
                     } catch (error) {
                         console.error('Error submitting application:', error);
                         
@@ -1667,12 +1872,18 @@
                 
                 resetForm() {
                     this.showSuccessModal = false;
-                    this.currentStep = 1;
+                    this.currentStep = 0;
+                    this.flowChoice = '';
                     this.guardianType = 'parent';
                     this.studentType = 'new';
                     this.existingSchoolId = '';
+                    this.schoolIdError = '';
+                    this.existingDetails = null;
+                    this.existingStudent = null;
+                    this.generatedSchoolId = '';
+                    this.submittedBranch = '';
                     this.submittedApplicationId = '';
-                    
+
                     // Reset all form data
                     this.fatherData = {
                         guardian_name: '',
@@ -1763,7 +1974,11 @@
                 addAnotherChild() {
                     // Preserve guardian and address information, only reset student details
                     this.showSuccessModal = false;
-                    this.currentStep = 3; // Start from student type selection step (now step 3)
+                    this.currentStep = 0; // Back to the New/Existing start gate
+                    this.flowChoice = '';
+                    this.existingDetails = null;
+                    this.generatedSchoolId = '';
+                    this.submittedBranch = '';
                     this.submittedApplicationId = '';
                     
                     // Keep guardian type and data intact (don't reset guardian info)

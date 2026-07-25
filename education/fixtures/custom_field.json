@@ -1,0 +1,29 @@
+[
+ {
+  "doctype": "Custom Field",
+  "name": "Student Applicant-branch",
+  "dt": "Student Applicant",
+  "fieldname": "branch",
+  "label": "Branch",
+  "fieldtype": "Select",
+  "options": "Main\nMBS #2\nMBS Dembi Dollo",
+  "default": "Main",
+  "insert_after": "custom_school_id",
+  "in_list_view": 1,
+  "in_standard_filter": 1,
+  "translatable": 0,
+  "description": "School branch this applicant belongs to. Auto-assigned from the registration page and School ID prefix (MB/DD -> MBS Dembi Dollo, M2 -> MBS #2, otherwise Main)."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Student Applicant-suggested_student_section",
+  "dt": "Student Applicant",
+  "fieldname": "suggested_student_section",
+  "label": "Suggested Student Section",
+  "fieldtype": "Data",
+  "insert_after": "branch",
+  "read_only": 1,
+  "translatable": 0,
+  "description": "System-suggested Student Group for this applicant (gender-balanced round-robin for new applicants; carried forward from the previous section for existing students). A human still does the final enrollment."
+ }
+]
