@@ -173,13 +173,14 @@
    "fieldtype": "Data",
    "label": "Student Email Address",
    "options": "Email",
-   "unique": 1
+   "description": "Not unique: a returning student keeps the same email across their yearly applications."
   },
   {
    "fieldname": "custom_school_id",
    "fieldtype": "Data",
    "label": "School ID",
-   "unique": 1
+   "search_index": 1,
+   "description": "Not unique: a student gets one application record per academic year, all sharing this School ID."
   },
   {
    "fieldname": "student_mobile_number",

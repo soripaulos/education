@@ -1811,11 +1811,13 @@ def search_student_by_school_id(school_id):
 		if student:
 			return student[0]
 		
-		# If not found in Student table, try Student Applicant table
+		# If not found in Student table, try Student Applicant table. A student
+		# has one applicant record per academic year, so take the most recent.
 		applicant = frappe.get_all(
 			"Student Applicant",
 			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin"],
 			filters={"custom_school_id": school_id},
+			order_by="creation desc",
 			limit=1
 		)
 		
@@ -3598,24 +3600,26 @@ def submit_existing_student_application(application_data):
 
         # 3) Record the application for the promoted grade.
         #
-        # Student Applicant carries UNIQUE indexes on custom_school_id and
-        # student_email_id, so a returning student cannot get a second row.
-        # Reuse their existing applicant record and refresh it for the new
-        # academic year instead; only insert when they have no record yet.
+        # A student gets one application record per academic year, so prior
+        # years stay on file as history. Re-submitting for a year that already
+        # has a record refreshes that record instead of duplicating it.
         suggested_section = _suggest_section(next_program, gender=student.gender,
                                              prev_section=current_group)
         new_academic_year = application_data.get("academic_year") or "2019 E.C."
 
         existing_applicant = frappe.db.get_value(
-            "Student Applicant", {"custom_school_id": school_id}, ["name", "academic_year"], as_dict=True
+            "Student Applicant",
+            {"custom_school_id": school_id, "academic_year": new_academic_year},
+            "name",
         )
         if existing_applicant:
-            app_doc = frappe.get_doc("Student Applicant", existing_applicant.name)
+            # Idempotent re-submission for the same year: update in place and
+            # leave `paid` alone, since the fee for this year may already be paid.
+            app_doc = frappe.get_doc("Student Applicant", existing_applicant)
             is_reused = True
-            # A genuinely new academic year means a new application to pay for.
-            if (existing_applicant.academic_year or "") != new_academic_year:
-                app_doc.paid = 0
         else:
+            # A new academic year is a new application, filed alongside the
+            # student's earlier ones. `paid` starts at 0 so the parent pays for it.
             app_doc = frappe.new_doc("Student Applicant")
             is_reused = False
 
