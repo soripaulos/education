@@ -623,20 +623,22 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Gender</label>
-                                <select v-model="studentData.gender" class="input-field">
+                                <label class="block text-sm font-medium text-gray-700">Gender *</label>
+                                <select v-model="studentData.gender" class="input-field" required>
                                     <option value="">Select Gender</option>
                                     <option value="Male">Male</option>
                                     <option value="Female">Female</option>
                                 </select>
+                                <div v-if="!studentData.gender" class="text-xs text-gray-500 mt-1">Gender is required.</div>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Primary Mobile Number</label>
-                                <select v-model="studentData.primary_mobile_number" class="input-field">
+                                <label class="block text-sm font-medium text-gray-700">Primary Mobile Number *</label>
+                                <select v-model="studentData.primary_mobile_number" class="input-field" required>
                                     <option value="">Select Primary Mobile Number</option>
                                     <option v-for="number in guardianMobileNumbers" :key="number.number" :value="number.number" v-text="number.label"></option>
                                 </select>
+                                <div v-if="!studentData.primary_mobile_number" class="text-xs text-gray-500 mt-1">Primary mobile number is required.</div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">National ID FIN (Optional but Preferred)</label>
@@ -1135,6 +1137,8 @@
                                 this.studentData.middle_name &&
                                 this.studentData.last_name &&
                                 dateValid &&
+                                this.studentData.gender &&
+                                this.studentData.primary_mobile_number &&
                                 this.studentData.program &&
                                 this.studentData.image
                             );
@@ -2129,6 +2133,12 @@
                     }
                     if (!this.studentData.last_name) {
                         errors.student_last_name = 'Grandfather\'s Name is required';
+                    }
+                    if (!this.studentData.gender) {
+                        errors.student_gender = 'Student\'s gender is required';
+                    }
+                    if (!this.studentData.primary_mobile_number) {
+                        errors.student_primary_mobile = 'Primary mobile number is required';
                     }
                     // Date of birth validation based on calendar type
                     if (this.calendarType === 'ethiopian') {
