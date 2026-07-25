@@ -1157,9 +1157,16 @@
                             });
                         }
                     }
+                    // Keep an existing student's stored primary number selectable even
+                    // when it does not match a guardian number, so the prefilled
+                    // selection persists instead of showing blank.
+                    const current = this.studentData.primary_mobile_number;
+                    if (current && !numbers.some(n => n.number === current)) {
+                        numbers.push({ number: current, label: `Current: ${current}` });
+                    }
                     return numbers;
                 },
-                
+
                 canProceed() {
                     switch (this.currentStep) {
                         case 1: // Guardian Information
@@ -1450,12 +1457,15 @@
                     this.studentData.last_name = d.last_name || '';
                     this.studentData.gender = d.gender || '';
                     this.studentData.date_of_birth = d.date_of_birth || '';
-                    this.studentData.primary_mobile_number = d.student_mobile_number || '';
+                    this.studentData.primary_mobile_number = this.normalizePhone(d.student_mobile_number);
                     this.studentData.program = d.next_program || '';
                     this.studentData.custom_school_id = d.custom_school_id || '';
                     this.studentData.image = d.image || '';
                     this.studentData.address_line_1 = d.address_line_1 || '';
+                    // Populate the kebele options for the prefilled sub-city *without*
+                    // clearing the kebele (onSubCityChange resets it, so it can't be used here).
                     this.studentData.sub_city = d.sub_city || '';
+                    this.availableKebeles = this.kebeleSubCityData[this.studentData.sub_city] || [];
                     this.studentData.kebele = d.kebele || '';
                     // Keep the gregorian date path for prefilled existing students.
                     if (d.date_of_birth) {
@@ -1473,6 +1483,16 @@
                         last_name: d.last_name
                     };
                     this.currentStep = 1;
+                },
+
+                // Normalise a stored number to the +251XXXXXXXXX form the
+                // Primary Mobile Number options use, so the prefilled value
+                // matches an option instead of rendering blank.
+                normalizePhone(value) {
+                    const digits = (value || '').replace(/\D/g, '');
+                    if (!digits) return '';
+                    const local = digits.slice(-9);
+                    return local ? ('+251' + local) : '';
                 },
 
                 prefillGuardiansFromExisting(guardians) {

@@ -262,7 +262,8 @@ fixtures = [
 				"in",
 				[
 					"Student Applicant-branch",
-					"Student Applicant-suggested_student_section"
+					"Student Applicant-suggested_student_section",
+					"Student Applicant-last_application_submitted_on"
 				]
 			]
 		]

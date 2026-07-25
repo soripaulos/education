@@ -2130,6 +2130,9 @@ def create_student_application(application_data):
 		except Exception:
 			app_doc.suggested_student_section = ""
 
+		# Consumed by the 30-minute accountant notification.
+		app_doc.last_application_submitted_on = frappe.utils.now()
+
 		app_doc.insert()
 		return app_doc.name
 
@@ -3593,15 +3596,34 @@ def submit_existing_student_application(application_data):
                     row.relation = g["relation"]
         student.save(ignore_permissions=True)
 
-        # 3) Create a fresh Student Applicant for the promoted grade.
+        # 3) Record the application for the promoted grade.
+        #
+        # Student Applicant carries UNIQUE indexes on custom_school_id and
+        # student_email_id, so a returning student cannot get a second row.
+        # Reuse their existing applicant record and refresh it for the new
+        # academic year instead; only insert when they have no record yet.
         suggested_section = _suggest_section(next_program, gender=student.gender,
                                              prev_section=current_group)
-        app_doc = frappe.new_doc("Student Applicant")
+        new_academic_year = application_data.get("academic_year") or "2019 E.C."
+
+        existing_applicant = frappe.db.get_value(
+            "Student Applicant", {"custom_school_id": school_id}, ["name", "academic_year"], as_dict=True
+        )
+        if existing_applicant:
+            app_doc = frappe.get_doc("Student Applicant", existing_applicant.name)
+            is_reused = True
+            # A genuinely new academic year means a new application to pay for.
+            if (existing_applicant.academic_year or "") != new_academic_year:
+                app_doc.paid = 0
+        else:
+            app_doc = frappe.new_doc("Student Applicant")
+            is_reused = False
+
         app_doc.first_name = application_data.get("first_name") or student.first_name
         app_doc.middle_name = application_data.get("middle_name") or student.middle_name
         app_doc.last_name = application_data.get("last_name") or student.last_name
         app_doc.program = next_program
-        app_doc.academic_year = application_data.get("academic_year") or "2019 E.C."
+        app_doc.academic_year = new_academic_year
         app_doc.custom_school_id = school_id
         app_doc.student_email_id = student.student_email_id or application_data.get("student_email_id") or ""
         app_doc.date_of_birth = application_data.get("date_of_birth") or student.date_of_birth
@@ -3626,13 +3648,23 @@ def submit_existing_student_application(application_data):
             if value not in (None, ""):
                 setattr(app_doc, field, value)
 
+        # Rewrite the applicant's guardian table to match the edited set.
+        app_doc.set("guardians", [])
         for g in synced_guardians:
             row = app_doc.append("guardians")
             row.guardian = g["guardian"]
             row.guardian_name = g["guardian_name"]
             row.relation = g.get("relation")
 
-        app_doc.insert(ignore_permissions=True)
+        # Marks this as freshly submitted so the 30-minute accountant
+        # notification picks up re-registrations, not just brand-new rows.
+        app_doc.last_application_submitted_on = frappe.utils.now()
+        app_doc.application_date = frappe.utils.today()
+
+        if is_reused:
+            app_doc.save(ignore_permissions=True)
+        else:
+            app_doc.insert(ignore_permissions=True)
         frappe.db.commit()
 
         return {
@@ -3641,6 +3673,7 @@ def submit_existing_student_application(application_data):
             "branch": app_doc.branch,
             "program": next_program,
             "suggested_section": suggested_section,
+            "reused_existing_record": is_reused,
         }
     except Exception as e:
         frappe.db.rollback()
@@ -3760,12 +3793,20 @@ def notify_accountants_of_new_applicants():
     import io
 
     cutoff = frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=-30)
+    fields = ["name", "first_name", "middle_name", "last_name", "custom_school_id",
+              "gender", "program", "branch", "applicant_type",
+              "suggested_student_section", "student_mobile_number", "creation"]
+
+    # Existing students re-register onto their existing applicant record (the
+    # doctype's unique School ID index allows only one row per student), so
+    # match on the submission timestamp as well as on creation.
     applicants = frappe.get_all(
         "Student Applicant",
-        filters={"creation": [">=", cutoff]},
-        fields=["name", "first_name", "middle_name", "last_name", "custom_school_id",
-                "gender", "program", "branch", "applicant_type",
-                "suggested_student_section", "student_mobile_number", "creation"],
+        or_filters={
+            "last_application_submitted_on": [">=", cutoff],
+            "creation": [">=", cutoff],
+        },
+        fields=fields,
         order_by="applicant_type asc, branch asc, creation asc",
     )
     if not applicants:
