@@ -1,6 +1,10 @@
 import frappe
 from frappe import _
 
+from education.education.doctype.student_application_page_settings.student_application_page_settings import (
+    get_page_html_override,
+)
+
 # Serve fresh every time; this is a gated, data-entry tool, not a cacheable page.
 no_cache = 1
 
@@ -65,5 +69,21 @@ def get_context(context):
         default_academic_year = recent[0].name if recent else "2018 E.C."
 
     context.default_academic_year = default_academic_year
+
+    # Optional Desk-managed version of this page. The login + role checks above
+    # have already run, so overriding the HTML never bypasses access control.
+    #
+    # Render it through Jinja with the same context the file gets, so a copy of
+    # the deployed page keeps working: {{ default_academic_year }} is still
+    # substituted, while Vue's {{ }} bindings are left untouched (Frappe's Jinja
+    # preserves undefined expressions).
+    override = get_page_html_override("apply_dd")
+    if override:
+        try:
+            override = frappe.render_template(override, dict(context))
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "apply_dd Desk override render failed")
+            override = ""
+    context.html_override = override
 
     return context

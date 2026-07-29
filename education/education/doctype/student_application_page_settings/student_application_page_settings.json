@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-29 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "intro_html",
+  "mbreg_section",
+  "mbreg1825_override_enabled",
+  "mbreg1825_html",
+  "apply_dd_section",
+  "apply_dd_override_enabled",
+  "apply_dd_html"
+ ],
+ "fields": [
+  {
+   "fieldname": "intro_html",
+   "fieldtype": "HTML",
+   "options": "<div style='padding:12px;border-left:4px solid #f59e0b;background:#fffbeb;border-radius:6px'><b>Edit the registration pages without deploying.</b><br>Turn on an override below and the HTML stored here is served instead of the deployed file. Leave it off (or clear the field) and the deployed file is used, exactly as before.<br><br><b>Important:</b> content saved here lives in the database, not in the code repository. While an override is on, deploying new code will <i>not</i> change that page &mdash; switch the override off to go back to the deployed version. Use <b>Load current page HTML</b> to start from a copy of the deployed file rather than a blank box.</div>"
+  },
+  {
+   "fieldname": "mbreg_section",
+   "fieldtype": "Section Break",
+   "label": "MBReg1825 — /mbreg1825"
+  },
+  {
+   "default": "0",
+   "fieldname": "mbreg1825_override_enabled",
+   "fieldtype": "Check",
+   "label": "Serve the Desk version for /mbreg1825",
+   "description": "When ticked and the HTML below is not empty, /mbreg1825 renders that HTML instead of the deployed file."
+  },
+  {
+   "depends_on": "mbreg1825_override_enabled",
+   "fieldname": "mbreg1825_html",
+   "fieldtype": "Code",
+   "label": "MBReg1825 Page HTML",
+   "options": "HTML"
+  },
+  {
+   "fieldname": "apply_dd_section",
+   "fieldtype": "Section Break",
+   "label": "MBS Dembi Dollo — /apply-dd"
+  },
+  {
+   "default": "0",
+   "fieldname": "apply_dd_override_enabled",
+   "fieldtype": "Check",
+   "label": "Serve the Desk version for /apply-dd",
+   "description": "When ticked and the HTML below is not empty, /apply-dd renders that HTML instead of the deployed file. The login and \"DD Student Registrar\" role check still apply."
+  },
+  {
+   "depends_on": "apply_dd_override_enabled",
+   "fieldname": "apply_dd_html",
+   "fieldtype": "Code",
+   "label": "Apply DD Page HTML",
+   "options": "HTML"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Student Application Page Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
