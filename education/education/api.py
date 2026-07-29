@@ -3383,14 +3383,16 @@ def get_existing_student_details(school_id):
     suggested_section = _suggest_section(next_program, gender=student.get("gender"),
                                          prev_section=current_group)
 
-    can_continue = is_promoted and not is_restricted
+    # Only a restriction blocks re-application. A student who was not promoted
+    # still applies, with their grade locked to the one they are repeating.
+    can_continue = not is_restricted
 
     block_reason = ""
     if is_restricted:
         block_reason = student.get("reason_for_restriction") or "This student is restricted."
     elif not is_promoted:
         block_reason = (not_promoted.get("reason")
-                        or "This student was not promoted and cannot re-apply online.")
+                        or "Not promoted - the grade is locked to the current grade.")
 
     return {
         "found": True,
@@ -3561,11 +3563,15 @@ def submit_existing_student_application(application_data):
             frappe.throw(_("This student is restricted and cannot re-apply: {0}")
                          .format(student.get("reason_for_restriction") or ""))
         not_promoted = _get_not_promoted_record(school_id)
-        if not_promoted:
-            frappe.throw(_("This student was not promoted and cannot re-apply online."))
 
         current_program, current_group = _get_student_current_enrollment(student_name)
-        next_program = application_data.get("program") or _compute_next_program(current_program)
+        if not_promoted:
+            # Not promoted: the student repeats their current grade rather than
+            # being turned away. The grade is pinned here rather than taken from
+            # the form, so a tampered or stale client cannot advance them a year.
+            next_program = current_program
+        else:
+            next_program = application_data.get("program") or _compute_next_program(current_program)
         if not next_program:
             frappe.throw(_("This student has graduated; no next grade to apply for."))
 

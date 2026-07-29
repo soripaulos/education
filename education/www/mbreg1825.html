@@ -264,8 +264,11 @@
                                     <div v-if="existingDetails.is_restricted" class="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-800">
                                         <strong>Restricted:</strong> <span v-text="existingDetails.block_reason"></span>
                                     </div>
-                                    <div v-else-if="!existingDetails.is_promoted" class="bg-yellow-50 border-l-4 border-yellow-500 p-3 text-sm text-yellow-800">
-                                        <strong>Not Promoted:</strong> <span v-text="existingDetails.block_reason"></span>
+                                    <div v-else-if="!existingDetails.is_promoted" class="bg-amber-50 border-l-4 border-amber-500 p-3 text-sm text-amber-800">
+                                        <strong>Not promoted &mdash; repeating <span v-text="existingDetails.current_program"></span>.</strong>
+                                        The application can continue, but the grade is locked to
+                                        <strong v-text="existingDetails.current_program"></strong> and cannot be changed.
+                                        <span v-if="existingDetails.block_reason" class="block mt-1 text-xs" v-text="existingDetails.block_reason"></span>
                                     </div>
                                     <div v-else class="bg-green-50 border-l-4 border-green-500 p-3 text-sm text-green-800">
                                         <strong>Promoted.</strong> This student will be registered for
@@ -287,14 +290,14 @@
                                     </div>
 
                                     <button
-                                        v-if="existingDetails.can_continue"
+                                        v-if="!existingDetails.is_restricted"
                                         @click="startExistingFlow"
                                         class="btn-primary w-full"
                                     >
                                         Continue Application →
                                     </button>
                                     <p v-else class="text-sm text-red-600 text-center">
-                                        This student cannot re-apply online. Please contact the school office.
+                                        This student is restricted and cannot re-apply online. Please contact the school office.
                                     </p>
                                 </div>
                             </div>
@@ -699,10 +702,16 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Grade *</label>
-                                <select v-model="studentData.program" class="input-field" required>
-                                    <option value="">Select Grade</option>
-                                    <option v-for="program in programs" :key="program.name" :value="program.name" v-text="program.program_name"></option>
+                                <select v-model="studentData.program" class="input-field" required
+                                        :disabled="gradeLocked"
+                                        :class="gradeLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''">
+                                    <option v-if="!gradeLocked" value="">Select Grade</option>
+                                    <option v-for="program in selectableGrades" :key="program.name" :value="program.name" v-text="program.program_name"></option>
                                 </select>
+                                <div v-if="gradeLocked" class="text-xs text-amber-700 mt-1">
+                                    This student was not promoted, so the grade is locked to
+                                    <strong v-text="studentData.program"></strong> and cannot be changed.
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Student Photo *</label>
@@ -1128,6 +1137,22 @@
             },
             
             computed: {
+                // A student who was not promoted repeats their current grade:
+                // the grade select is locked to it rather than blocking them.
+                gradeLocked() {
+                    return this.studentType === 'existing'
+                        && !!this.existingDetails
+                        && this.existingDetails.found
+                        && !this.existingDetails.is_promoted;
+                },
+                selectableGrades() {
+                    if (!this.gradeLocked) return this.programs;
+                    const locked = this.studentData.program
+                        || (this.existingDetails && this.existingDetails.current_program) || '';
+                    const match = this.programs.filter(p => p.name === locked);
+                    if (match.length) return match;
+                    return locked ? [{ name: locked, program_name: locked }] : this.programs;
+                },
                 selectedProgramName() {
                     const program = this.programs.find(p => p.name === this.studentData.program);
                     return program ? program.program_name : this.studentData.program;
@@ -1453,7 +1478,7 @@
 
                 startExistingFlow() {
                     const d = this.existingDetails;
-                    if (!d || !d.can_continue) return;
+                    if (!d || d.is_restricted) return;
                     this.studentType = 'existing';
 
                     // Prefill student data (editable in later steps).
@@ -1463,7 +1488,7 @@
                     this.studentData.gender = d.gender || '';
                     this.studentData.date_of_birth = d.date_of_birth || '';
                     this.studentData.primary_mobile_number = this.normalizePhone(d.student_mobile_number);
-                    this.studentData.program = d.next_program || '';
+                    this.studentData.program = (d.is_promoted ? d.next_program : (d.current_program || d.next_program)) || '';
                     this.studentData.custom_school_id = d.custom_school_id || '';
                     this.studentData.image = d.image || '';
                     this.studentData.address_line_1 = d.address_line_1 || '';
