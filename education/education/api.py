@@ -3737,7 +3737,8 @@ def get_generated_ids(search=None, branch=None, applicant_type=None, limit=200):
         fields=["name", "first_name", "middle_name", "last_name", "custom_school_id",
                 "program", "branch", "applicant_type", "application_status", "paid",
                 "gender", "student_mobile_number", "suggested_student_section",
-                "academic_year", "creation"],
+                "academic_year", "date_of_birth", "kebele", "sub_city",
+                "address_line_1", "address_line_2", "creation"],
         order_by="creation desc",
         limit_page_length=cint(limit) or 200,
     )

@@ -131,16 +131,24 @@
                         <div class="flex items-center">
                             <h1 class="text-2xl font-bold text-gray-900">MBS Dembi Dollo Student Registration Page</h1>
                         </div>
-                        <div v-if="currentStep >= 1" class="flex items-center space-x-4">
-                            <div class="text-sm text-gray-500">
-                                Step {{ currentStep }} of {{ totalSteps }}
-                            </div>
-                            <div class="w-48 bg-gray-200 rounded-full h-2">
-                                <div
-                                    class="bg-blue-600 h-2 rounded-full step-indicator"
-                                    :style="{ width: `${(currentStep / totalSteps) * 100}%` }"
-                                ></div>
-                            </div>
+                        <div class="flex items-center space-x-4">
+                            <button
+                                @click="openApplicantsModal"
+                                class="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                                See Applicants
+                            </button>
+                            <template v-if="currentStep >= 1">
+                                <div class="text-sm text-gray-500">
+                                    Step {{ currentStep }} of {{ totalSteps }}
+                                </div>
+                                <div class="w-48 bg-gray-200 rounded-full h-2">
+                                    <div
+                                        class="bg-blue-600 h-2 rounded-full step-indicator"
+                                        :style="{ width: `${(currentStep / totalSteps) * 100}%` }"
+                                    ></div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -183,7 +191,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                                 <p class="text-lg font-medium">Existing Student</p>
-                                <p class="text-sm text-gray-500">Already has a school ID</p>
+                                <p class="text-sm text-gray-500">Returning student (School ID auto-generated)</p>
                             </button>
                         </div>
 
@@ -195,70 +203,12 @@
                             <button @click="startNewFlow" class="btn-primary w-full">Continue as New Student →</button>
                         </div>
 
-                        <!-- Existing Student: school ID lookup + rich detail -->
-                        <div v-if="flowChoice === 'existing'" class="space-y-4 border-t border-gray-200 pt-6">
-                            <label class="block text-sm font-medium text-gray-700">Enter the student's School ID</label>
-                            <div class="flex space-x-2">
-                                <input
-                                    v-model="existingSchoolId"
-                                    type="text"
-                                    class="input-field flex-1"
-                                    placeholder="e.g., MB/DD/12345/19"
-                                    :disabled="isLoadingExistingDetails"
-                                    @keydown.enter="lookupExistingStudent"
-                                >
-                                <button
-                                    @click="lookupExistingStudent"
-                                    :disabled="isLoadingExistingDetails || !existingSchoolId.trim()"
-                                    :class="[
-                                        'px-4 py-2 rounded-md font-medium transition-colors',
-                                        isLoadingExistingDetails || !existingSchoolId.trim() ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
-                                    ]"
-                                >
-                                    <span v-if="isLoadingExistingDetails">Checking...</span>
-                                    <span v-else>Fetch Details</span>
-                                </button>
+                        <!-- Existing Student: same flow as New, flagged as Existing -->
+                        <div v-if="flowChoice === 'existing'" class="border-t border-gray-200 pt-6">
+                            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                                <p class="text-sm text-blue-800">A School ID will be generated automatically in the format <strong>MB/DD/#####/19</strong> on submission, and the application will be flagged as an <strong>Existing Student</strong>.</p>
                             </div>
-                            <div v-if="schoolIdError" class="text-red-600 text-sm" v-text="schoolIdError"></div>
-
-                            <div v-if="existingDetails && existingDetails.found" class="rounded-lg border border-gray-200 overflow-hidden">
-                                <div class="bg-gray-50 p-5 flex items-start space-x-4">
-                                    <img v-if="existingDetails.image" :src="existingDetails.image" alt="Student" class="h-24 w-24 rounded-lg object-cover border border-gray-300">
-                                    <div v-else class="h-24 w-24 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 text-xs">No Photo</div>
-                                    <div class="flex-1">
-                                        <h3 class="text-lg font-semibold text-gray-900" v-text="existingDetails.student_name"></h3>
-                                        <p class="text-sm text-gray-600">School ID: <strong v-text="existingDetails.custom_school_id"></strong></p>
-                                        <p class="text-sm text-gray-600">Phone: <span v-text="existingDetails.student_mobile_number || '—'"></span></p>
-                                        <p class="text-sm text-gray-600">Current Grade: <span v-text="existingDetails.current_program || '—'"></span></p>
-                                        <p class="text-sm text-gray-600">Branch: <span v-text="existingDetails.branch"></span></p>
-                                    </div>
-                                </div>
-                                <div class="p-5 space-y-3">
-                                    <div v-if="existingDetails.is_restricted" class="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-800">
-                                        <strong>Restricted:</strong> <span v-text="existingDetails.block_reason"></span>
-                                    </div>
-                                    <div v-else-if="!existingDetails.is_promoted" class="bg-yellow-50 border-l-4 border-yellow-500 p-3 text-sm text-yellow-800">
-                                        <strong>Not Promoted:</strong> <span v-text="existingDetails.block_reason"></span>
-                                    </div>
-                                    <div v-else class="bg-green-50 border-l-4 border-green-500 p-3 text-sm text-green-800">
-                                        <strong>Promoted.</strong> This student will be registered for <strong v-text="existingDetails.next_program"></strong>.
-                                        <span v-if="existingDetails.suggested_section">Suggested section: <strong v-text="existingDetails.suggested_section"></strong>.</span>
-                                    </div>
-                                    <div v-if="existingDetails.guardians && existingDetails.guardians.length" class="text-sm text-gray-700">
-                                        <p class="font-medium mb-1">Parent / Guardian(s) on record:</p>
-                                        <ul class="list-disc ml-5">
-                                            <li v-for="g in existingDetails.guardians" :key="g.guardian">
-                                                <span v-text="g.guardian_name"></span>
-                                                <span class="text-gray-500" v-text="g.relation ? '(' + g.relation + ')' : ''"></span>
-                                                — <span v-text="g.mobile_number"></span>
-                                            </li>
-                                        </ul>
-                                        <p class="text-xs text-gray-500 mt-1">You'll be able to review and edit parent details in the next steps.</p>
-                                    </div>
-                                    <button v-if="existingDetails.can_continue" @click="startExistingFlow" class="btn-primary w-full">Continue Application →</button>
-                                    <p v-else class="text-sm text-red-600 text-center">This student cannot re-apply online. Please contact the school office.</p>
-                                </div>
-                            </div>
+                            <button @click="startExistingFlow" class="btn-primary w-full">Continue as Existing Student →</button>
                         </div>
                     </div>
 
@@ -540,11 +490,8 @@
                             <template v-if="studentType === 'new'">
                                 <p class="text-gray-600">A new School ID (MB/DD/#####/19) will be generated on submission.</p>
                             </template>
-                            <template v-if="studentType === 'existing' && existingDetails">
-                                <p><strong>Student:</strong> <span v-text="existingDetails.student_name"></span></p>
-                                <p><strong>School ID:</strong> <span v-text="existingDetails.custom_school_id"></span></p>
-                                <p><strong>Applying For:</strong> <span v-text="existingDetails.next_program"></span> <span class="text-gray-500">(promoted from <span v-text="existingDetails.current_program"></span>)</span></p>
-                                <p v-if="existingDetails.suggested_section"><strong>Suggested Section:</strong> <span v-text="existingDetails.suggested_section"></span></p>
+                            <template v-if="studentType === 'existing'">
+                                <p class="text-gray-600">A School ID (MB/DD/#####/19) will be generated on submission and the application will be flagged as an Existing Student.</p>
                             </template>
                         </div>
                         <p class="text-xs text-gray-500 text-center">To change this, use "Start New Application".</p>
@@ -902,6 +849,100 @@
                 </div>
             </div>
         </div>
+
+        <!-- See Applicants Modal (read-only, MBS Dembi Dollo only) -->
+        <div
+            v-if="showApplicantsModal"
+            class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[10000]"
+            @click.self="closeApplicantsModal"
+        >
+            <div class="relative top-10 mx-auto mb-10 p-5 border w-11/12 max-w-3xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center border-b border-gray-200 pb-3 mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">MBS Dembi Dollo Applicants</h3>
+                    <button
+                        @click="closeApplicantsModal"
+                        class="text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                        <span class="sr-only">Close</span>
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div v-if="applicantsLoading" class="text-center py-10">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading applicants...</p>
+                </div>
+
+                <div v-else-if="applicantsError" class="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-800" v-text="applicantsError"></div>
+
+                <div v-else-if="!applicantsList.length" class="text-center py-10 text-sm text-gray-500">
+                    No applicants found for MBS Dembi Dollo.
+                </div>
+
+                <div v-else class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
+                                <th class="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                                <th class="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Age</th>
+                                <th class="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                                <th class="px-4 py-2"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template v-for="applicant in applicantsList" :key="applicant.name">
+                                <tr>
+                                    <td class="px-4 py-2 text-gray-900" v-text="applicant.full_name"></td>
+                                    <td class="px-4 py-2 text-gray-600" v-text="applicant.student_mobile_number || '—'"></td>
+                                    <td class="px-4 py-2 text-gray-600" v-text="applicantAge(applicant.date_of_birth)"></td>
+                                    <td class="px-4 py-2 text-gray-600" v-text="applicant.program || '—'"></td>
+                                    <td class="px-4 py-2 text-right">
+                                        <button
+                                            @click="toggleApplicantRow(applicant.name)"
+                                            class="text-blue-600 hover:text-blue-800 font-medium text-xs"
+                                            v-text="expandedApplicant === applicant.name ? 'Show less' : 'Show more'"
+                                        ></button>
+                                    </td>
+                                </tr>
+                                <tr v-if="expandedApplicant === applicant.name">
+                                    <td colspan="5" class="px-4 py-3 bg-gray-50">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-700">
+                                            <p><strong>School ID:</strong> <span v-text="applicant.custom_school_id || '—'"></span></p>
+                                            <p><strong>Gender:</strong> <span v-text="applicant.gender || '—'"></span></p>
+                                            <p><strong>Kebele:</strong> <span v-text="applicant.kebele || '—'"></span></p>
+                                            <p><strong>Sub City:</strong> <span v-text="applicant.sub_city || '—'"></span></p>
+                                            <p><strong>Address Line 1:</strong> <span v-text="applicant.address_line_1 || '—'"></span></p>
+                                            <p><strong>Address Line 2:</strong> <span v-text="applicant.address_line_2 || '—'"></span></p>
+                                            <p><strong>Applicant Type:</strong> <span v-text="applicant.applicant_type || '—'"></span></p>
+                                            <p><strong>Academic Year:</strong> <span v-text="applicant.academic_year || '—'"></span></p>
+                                            <p><strong>Status:</strong> <span v-text="applicant.application_status || '—'"></span></p>
+                                            <p>
+                                                <strong>Payment:</strong>
+                                                <span
+                                                    v-if="applicant.paid"
+                                                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                                                >Paid</span>
+                                                <span
+                                                    v-else
+                                                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+                                                >Unpaid</span>
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="border-t border-gray-200 pt-3 mt-4 text-right">
+                    <button @click="closeApplicantsModal" class="btn-secondary">Close</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -921,16 +962,17 @@
                     isSubmitting: false,
                     guardianType: 'parent',
                     studentType: 'new',
-                    existingSchoolId: '',
-                    schoolIdError: '',
                     flowChoice: '',
-                    existingDetails: null,
-                    isLoadingExistingDetails: false,
                     generatedSchoolId: '',
                     submittedBranch: '',
-                    existingStudent: null,
                     showSuccessModal: false,
                     submittedApplicationId: '',
+                    // See Applicants modal (read-only DD applicants list)
+                    showApplicantsModal: false,
+                    applicantsList: [],
+                    applicantsLoading: false,
+                    applicantsError: '',
+                    expandedApplicant: null,
                     fatherData: {
                         guardian_name: '',
                         email_address: '',
@@ -1175,6 +1217,12 @@
                 this.updateEthiopianDays();
                 await this.loadInitialData();
                 this.loading = false;
+                // Dismiss the See Applicants modal with the Escape key
+                window.addEventListener('keydown', this.handleEscKey);
+            },
+
+            beforeUnmount() {
+                window.removeEventListener('keydown', this.handleEscKey);
             },
             
             methods: {
@@ -1308,11 +1356,6 @@
                 chooseFlow(choice) {
                     this.flowChoice = choice;
                     this.studentType = choice;
-                    if (choice === 'new') {
-                        this.existingDetails = null;
-                        this.existingStudent = null;
-                        this.schoolIdError = '';
-                    }
                 },
 
                 startNewFlow() {
@@ -1320,123 +1363,70 @@
                     this.currentStep = 1;
                 },
 
-                async lookupExistingStudent() {
-                    const schoolId = (this.existingSchoolId || '').trim();
-                    if (!schoolId) return;
-                    this.isLoadingExistingDetails = true;
-                    this.schoolIdError = '';
-                    this.existingDetails = null;
-                    try {
-                        const response = await fetch('/api/method/education.education.api.get_existing_student_details', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ school_id: schoolId })
-                        });
-                        const data = await response.json();
-                        const details = data.message;
-                        if (!details || !details.found) {
-                            this.schoolIdError = (details && details.message) || 'No existing student found with this School ID.';
-                            return;
-                        }
-                        this.existingDetails = details;
-                    } catch (error) {
-                        console.error('Existing student lookup failed:', error);
-                        this.schoolIdError = 'Could not look up the student. Please try again.';
-                    } finally {
-                        this.isLoadingExistingDetails = false;
-                    }
-                },
-
                 startExistingFlow() {
-                    const d = this.existingDetails;
-                    if (!d || !d.can_continue) return;
+                    // Same steps as the New flow; only the applicant_type
+                    // flag differs ('Existing') and the ID is auto-generated.
                     this.studentType = 'existing';
-                    this.studentData.first_name = d.first_name || '';
-                    this.studentData.middle_name = d.middle_name || '';
-                    this.studentData.last_name = d.last_name || '';
-                    this.studentData.gender = d.gender || '';
-                    this.studentData.date_of_birth = d.date_of_birth || '';
-                    this.studentData.primary_mobile_number = this.normalizePhone(d.student_mobile_number);
-                    this.studentData.program = d.next_program || '';
-                    this.studentData.custom_school_id = d.custom_school_id || '';
-                    this.studentData.image = d.image || '';
-                    this.studentData.address_line_1 = d.address_line_1 || '';
-                    // Populate the kebele options for the prefilled sub-city *without*
-                    // clearing the kebele (onSubCityChange resets it, so it can't be used here).
-                    this.studentData.sub_city = d.sub_city || '';
-                    this.availableKebeles = this.kebeleSubCityData[this.studentData.sub_city] || [];
-                    this.studentData.kebele = d.kebele || '';
-                    if (d.date_of_birth && this.hasOwnProperty('calendarType')) {
-                        this.calendarType = 'gregorian';
-                    }
-                    this.prefillGuardiansFromExisting(d.guardians || []);
-                    this.existingStudent = {
-                        custom_school_id: d.custom_school_id,
-                        first_name: d.first_name,
-                        middle_name: d.middle_name,
-                        last_name: d.last_name
-                    };
                     this.currentStep = 1;
                 },
 
-                // Normalise a stored number to the +251XXXXXXXXX form the
-                // Primary Mobile Number options use, so the prefilled value
-                // matches an option instead of rendering blank.
-                normalizePhone(value) {
-                    const digits = (value || '').replace(/\D/g, '');
-                    if (!digits) return '';
-                    const local = digits.slice(-9);
-                    return local ? ('+251' + local) : '';
+                // --- See Applicants modal (read-only, MBS Dembi Dollo) ---
+                openApplicantsModal() {
+                    this.showApplicantsModal = true;
+                    this.expandedApplicant = null;
+                    this.fetchDdApplicants();
                 },
 
-                prefillGuardiansFromExisting(guardians) {
-                    const findByRelation = (rel) => guardians.find(g => (g.relation || '').toLowerCase() === rel);
-                    const father = findByRelation('father');
-                    const mother = findByRelation('mother');
-                    if (father || mother) {
-                        this.guardianType = 'parent';
-                        if (father) this.assignGuardian(this.fatherData, father);
-                        if (mother) this.assignGuardian(this.motherData, mother);
-                    } else if (guardians.length) {
-                        this.guardianType = 'guardian';
-                        this.assignGuardian(this.guardianData, guardians[0]);
-                        this.guardianData.relation = guardians[0].relation || 'Other';
+                closeApplicantsModal() {
+                    this.showApplicantsModal = false;
+                    this.expandedApplicant = null;
+                },
+
+                handleEscKey(event) {
+                    if (event.key === 'Escape' && this.showApplicantsModal) {
+                        this.closeApplicantsModal();
                     }
                 },
 
-                assignGuardian(target, g) {
-                    target.guardian = g.guardian || '';
-                    target.guardian_name = g.guardian_name || '';
-                    target.mobile_number = (g.mobile_number || '').replace('+251', '');
-                    target.alternate_number = (g.alternate_number || '').replace('+251', '');
-                    target.email_address = g.email_address || '';
-                    target.education = g.education || '';
-                    target.occupation = g.occupation || '';
-                    target.work_address = g.work_address || '';
-                    target.image = g.image || '';
+                async fetchDdApplicants() {
+                    this.applicantsLoading = true;
+                    this.applicantsError = '';
+                    try {
+                        const response = await fetch('/api/method/education.education.api.get_generated_ids', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ branch: 'MBS Dembi Dollo', limit: 200 })
+                        });
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || errorData.exc || response.statusText);
+                        }
+                        const data = await response.json();
+                        this.applicantsList = data.message || [];
+                    } catch (error) {
+                        console.error('Failed to load applicants:', error);
+                        this.applicantsError = 'Could not load applicants. Please try again.';
+                        this.applicantsList = [];
+                    } finally {
+                        this.applicantsLoading = false;
+                    }
                 },
 
-                buildDetailedGuardians() {
-                    const pack = (data, relation) => ({
-                        guardian: data.guardian || '',
-                        guardian_name: data.guardian_name || '',
-                        relation: relation,
-                        mobile_number: data.mobile_number || '',
-                        alternate_number: data.alternate_number || '',
-                        email_address: data.email_address || '',
-                        education: data.education === 'Other' ? (data.education_other || 'Other') : (data.education || ''),
-                        occupation: data.occupation === 'Other' ? (data.occupation_other || 'Other') : (data.occupation || ''),
-                        work_address: data.work_address || '',
-                        image: data.image || ''
-                    });
-                    const out = [];
-                    if (this.guardianType === 'parent') {
-                        if (this.fatherData.guardian_name) out.push(pack(this.fatherData, 'Father'));
-                        if (this.motherData.guardian_name) out.push(pack(this.motherData, 'Mother'));
-                    } else {
-                        if (this.guardianData.guardian_name) out.push(pack(this.guardianData, this.guardianData.relation || 'Other'));
+                toggleApplicantRow(name) {
+                    this.expandedApplicant = this.expandedApplicant === name ? null : name;
+                },
+
+                applicantAge(dob) {
+                    if (!dob) return '—';
+                    const birth = new Date(dob);
+                    if (isNaN(birth.getTime())) return '—';
+                    const today = new Date();
+                    let age = today.getFullYear() - birth.getFullYear();
+                    const m = today.getMonth() - birth.getMonth();
+                    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+                        age--;
                     }
-                    return out;
+                    return age >= 0 ? String(age) : '—';
                 },
 
                 async submitApplication() {
@@ -1565,30 +1555,26 @@
                         // Handle school ID based on student type
                         let schoolId = '';
                         let studentEmailId = '';
-                        if (this.studentType === 'new') {
-                            // Auto-generate a new Dembi Dollo school ID: MB/DD/#####/19
-                            const schoolIdResponse = await fetch('/api/method/education.education.api.generate_dd_school_id', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({})
-                            });
+                        // Both New and Existing students get an auto-generated
+                        // Dembi Dollo school ID: MB/DD/#####/19
+                        const schoolIdResponse = await fetch('/api/method/education.education.api.generate_dd_school_id', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({})
+                        });
 
-                            if (!schoolIdResponse.ok) {
-                                const errorData = await schoolIdResponse.json();
-                                throw new Error(`Failed to generate school ID: ${errorData.message || errorData.exc || schoolIdResponse.statusText}`);
-                            }
+                        if (!schoolIdResponse.ok) {
+                            const errorData = await schoolIdResponse.json();
+                            throw new Error(`Failed to generate school ID: ${errorData.message || errorData.exc || schoolIdResponse.statusText}`);
+                        }
 
-                            const schoolIdData = await schoolIdResponse.json();
-                            if (schoolIdData.message) {
-                                schoolId = schoolIdData.message;
-                            } else {
-                                throw new Error(`Failed to get school ID: ${schoolIdData.exc || 'Unknown error'}`);
-                            }
-                        } else if (this.studentType === 'existing') {
-                            // Use the canonical School ID fetched from the Student record.
-                            schoolId = (this.existingDetails && this.existingDetails.custom_school_id) || this.existingSchoolId.trim();
+                        const schoolIdData = await schoolIdResponse.json();
+                        if (schoolIdData.message) {
+                            schoolId = schoolIdData.message;
+                        } else {
+                            throw new Error(`Failed to get school ID: ${schoolIdData.exc || 'Unknown error'}`);
                         }
 
                         // Prepare application data
@@ -1603,57 +1589,32 @@
                             siblings: []
                         };
 
-                        if (this.studentType === 'existing') {
-                            // Existing student: sync the Student record + guardians, then
-                            // create a fresh applicant for the promoted grade.
-                            applicationData.program = (this.existingDetails && this.existingDetails.next_program) || this.studentData.program;
-                            applicationData.guardians = this.buildDetailedGuardians();
-                            const existingResponse = await fetch('/api/method/education.education.api.submit_existing_student_application', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ application_data: applicationData })
-                            });
-                            if (!existingResponse.ok) {
-                                const errorData = await existingResponse.json();
-                                throw new Error(`Failed to submit application: ${errorData.message || errorData.exc || existingResponse.statusText}`);
-                            }
-                            const existingResult = await existingResponse.json();
-                            const payload = existingResult.message;
-                            if (payload && payload.name) {
-                                this.submittedApplicationId = payload.name;
-                                this.generatedSchoolId = payload.custom_school_id || schoolId;
-                                this.submittedBranch = payload.branch || 'MBS Dembi Dollo';
-                                this.showSuccessModal = true;
-                            } else {
-                                throw new Error(`Failed to submit application: ${existingResult.exc || 'Unknown error'}`);
-                            }
+                        // Create application (same endpoint for New and Existing;
+                        // only applicant_type differs)
+                        const applicationResponse = await fetch('/api/method/education.education.api.create_student_application', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                application_data: applicationData
+                            })
+                        });
+
+                        if (!applicationResponse.ok) {
+                            const errorData = await applicationResponse.json();
+                            throw new Error(`Failed to create application: ${errorData.message || errorData.exc || applicationResponse.statusText}`);
+                        }
+
+                        const applicationResult = await applicationResponse.json();
+
+                        if (applicationResult.message) {
+                            this.submittedApplicationId = applicationResult.message;
+                            this.generatedSchoolId = schoolId;
+                            this.submittedBranch = 'MBS Dembi Dollo';
+                            this.showSuccessModal = true;
                         } else {
-                            // Create application (new student)
-                            const applicationResponse = await fetch('/api/method/education.education.api.create_student_application', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    application_data: applicationData
-                                })
-                            });
-
-                            if (!applicationResponse.ok) {
-                                const errorData = await applicationResponse.json();
-                                throw new Error(`Failed to create application: ${errorData.message || errorData.exc || applicationResponse.statusText}`);
-                            }
-
-                            const applicationResult = await applicationResponse.json();
-
-                            if (applicationResult.message) {
-                                this.submittedApplicationId = applicationResult.message;
-                                this.generatedSchoolId = schoolId;
-                                this.submittedBranch = 'MBS Dembi Dollo';
-                                this.showSuccessModal = true;
-                            } else {
-                                throw new Error(`Failed to create application: ${applicationResult.exc || 'Unknown error'}`);
-                            }
+                            throw new Error(`Failed to create application: ${applicationResult.exc || 'Unknown error'}`);
                         }
 
                     } catch (error) {
@@ -1901,10 +1862,6 @@
                     this.flowChoice = '';
                     this.guardianType = 'parent';
                     this.studentType = 'new';
-                    this.existingSchoolId = '';
-                    this.schoolIdError = '';
-                    this.existingDetails = null;
-                    this.existingStudent = null;
                     this.generatedSchoolId = '';
                     this.submittedBranch = '';
                     this.submittedApplicationId = '';
@@ -2001,7 +1958,6 @@
                     this.showSuccessModal = false;
                     this.currentStep = 0; // Back to the New/Existing start gate
                     this.flowChoice = '';
-                    this.existingDetails = null;
                     this.generatedSchoolId = '';
                     this.submittedBranch = '';
                     this.submittedApplicationId = '';
@@ -2026,7 +1982,6 @@
                     
                     // Reset student type for new student
                     this.studentType = 'new';
-                    this.existingSchoolId = '';
                     
                     // Reset validation errors
                     this.validationErrors = {};
