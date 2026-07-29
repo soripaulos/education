@@ -3782,6 +3782,52 @@ def get_paid_applicants(search=None, branch=None, limit=200):
     return rows
 
 
+@frappe.whitelist()
+def get_dd_applied_students(search=None, limit=300):
+    """Read-only status list for the /apply-dd page: applicants filed so far
+    for the MBS Dembi Dollo branch, with basic info and payment status.
+
+    Gated the same as the other staff dashboards (includes "DD Student
+    Registrar", so the person filling out the apply-dd form can view it).
+    """
+    _require_staff()
+    filters = {"branch": "MBS Dembi Dollo"}
+
+    or_filters = None
+    if search:
+        search = f"%{search}%"
+        or_filters = {
+            "custom_school_id": ["like", search],
+            "first_name": ["like", search],
+            "middle_name": ["like", search],
+            "last_name": ["like", search],
+            "student_mobile_number": ["like", search],
+        }
+
+    rows = frappe.get_all(
+        "Student Applicant",
+        filters=filters,
+        or_filters=or_filters,
+        fields=["name", "first_name", "middle_name", "last_name", "custom_school_id",
+                "program", "applicant_type", "application_status", "paid",
+                "gender", "student_mobile_number", "date_of_birth", "image",
+                "academic_year", "creation"],
+        order_by="creation desc",
+        limit_page_length=cint(limit) or 300,
+    )
+    today = frappe.utils.getdate()
+    for r in rows:
+        r["full_name"] = " ".join([p for p in [r.get("first_name"), r.get("middle_name"),
+                                                r.get("last_name")] if p])
+        dob = r.get("date_of_birth")
+        if dob:
+            dob = frappe.utils.getdate(dob)
+            r["age"] = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        else:
+            r["age"] = None
+    return rows
+
+
 # ================================================================
 # 30-MINUTE ACCOUNTANT NOTIFICATION (CRON)
 # ================================================================
