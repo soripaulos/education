@@ -190,9 +190,9 @@
   {
    "fieldname": "national_id_fin",
    "fieldtype": "Data",
-   "label": "National ID FIN",
-   "length": 12,
-   "description": "12-digit numeric identifier for official records (optional but preferred)"
+   "label": "National ID FAN",
+   "length": 16,
+   "description": "16-digit numeric identifier for official records (optional but preferred). Records created before the switch to FAN may still hold a 12-digit FIN."
   },
   {
    "fieldname": "applicant_type",

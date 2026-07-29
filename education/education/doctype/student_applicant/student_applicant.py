@@ -18,9 +18,15 @@ class StudentApplicant(Document):
 		self.set_title()
 		self.validate_dates()
 		self.validate_term()
-		# National ID FIN validation (optional, must be 12 digits if present)
-		if self.national_id_fin and (not self.national_id_fin.isdigit() or len(self.national_id_fin) != 12):
-			frappe.throw(_("National ID FIN must be a 12-digit number."))
+		# National ID FAN validation (optional, must be 16 digits if present).
+		# Only enforced when the value is set or changed, so the legacy 12-digit
+		# FIN values already on file keep saving without being re-keyed.
+		if (
+			self.national_id_fin
+			and self.has_value_changed("national_id_fin")
+			and (not self.national_id_fin.isdigit() or len(self.national_id_fin) != 16)
+		):
+			frappe.throw(_("National ID FAN must be a 16-digit number."))
 		if self.student_admission and self.program and self.date_of_birth:
 			self.validation_from_student_admission()
 

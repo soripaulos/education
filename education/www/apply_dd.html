@@ -641,9 +641,9 @@
                                 <div v-if="!studentData.primary_mobile_number" class="text-xs text-gray-500 mt-1">Primary mobile number is required.</div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">National ID FIN (Optional but Preferred)</label>
-                                <input v-model="studentData.national_id_fin" type="text" class="input-field" placeholder="12-digit numeric ID" maxlength="12" pattern="[0-9]{12}" @blur="validateNationalId">
-                                <div class="text-xs text-gray-600 mt-1">12-digit numeric identifier for official records</div>
+                                <label class="block text-sm font-medium text-gray-700">National ID FAN (Optional but Preferred)</label>
+                                <input v-model="studentData.national_id_fin" type="text" class="input-field" placeholder="16-digit numeric ID" maxlength="16" pattern="[0-9]{16}" @blur="validateNationalId">
+                                <div class="text-xs text-gray-600 mt-1">16-digit numeric identifier for official records</div>
                                 <div v-if="nationalIdError" class="error-message" v-text="nationalIdError"></div>
                             </div>
                             <div>
@@ -2152,9 +2152,9 @@
                             errors.student_dob = 'Student\'s date of birth is required';
                         }
                     }
-                    // National ID FIN validation (optional but must be 12 digits if present)
-                    if (this.studentData.national_id_fin && !/^[0-9]{12}$/.test(this.studentData.national_id_fin)) {
-                        errors.national_id_fin = 'National ID FIN must be a 12-digit number';
+                    // National ID FAN validation (optional but must be 16 digits if present)
+                    if (this.studentData.national_id_fin && !/^[0-9]{16}$/.test(this.studentData.national_id_fin)) {
+                        errors.national_id_fin = 'National ID FAN must be a 16-digit number';
                     }
                     // Guardian relation validation
                     if (this.guardianType === 'guardian' && !this.guardianData.relation) {
@@ -2423,8 +2423,8 @@
                         return;
                     }
                     const val = this.studentData.national_id_fin;
-                    if (!/^[0-9]{12}$/.test(val)) {
-                        this.nationalIdError = 'National ID FIN must be a 12-digit number';
+                    if (!/^[0-9]{16}$/.test(val)) {
+                        this.nationalIdError = 'National ID FAN must be a 16-digit number';
                     } else {
                         this.nationalIdError = '';
                     }
