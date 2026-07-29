@@ -1803,7 +1803,7 @@ def search_student_by_school_id(school_id):
 		# First try to search in Student table
 		student = frappe.get_all(
 			"Student",
-			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin", "restricted", "reason_for_restriction"],
+			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin", "national_id_fan", "restricted", "reason_for_restriction"],
 			filters={"custom_school_id": school_id},
 			limit=1
 		)
@@ -1815,7 +1815,7 @@ def search_student_by_school_id(school_id):
 		# has one applicant record per academic year, so take the most recent.
 		applicant = frappe.get_all(
 			"Student Applicant",
-			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin"],
+			fields=["name", "first_name", "middle_name", "last_name", "custom_school_id", "student_email_id", "national_id_fin", "national_id_fan"],
 			filters={"custom_school_id": school_id},
 			order_by="creation desc",
 			limit=1
@@ -2082,6 +2082,7 @@ def create_student_application(application_data):
 		app_doc.gender = application_data.get("gender")
 		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
 		app_doc.national_id_fin = application_data.get("national_id_fin")
+		app_doc.national_id_fan = application_data.get("national_id_fan")
 		app_doc.applicant_type = application_data.get("applicant_type", "New")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
@@ -2184,6 +2185,7 @@ def update_student_application(application_id, application_data):
 		app_doc.student_email_id = application_data.get("student_email_id")
 		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
 		app_doc.national_id_fin = application_data.get("national_id_fin")
+		app_doc.national_id_fan = application_data.get("national_id_fan")
 		app_doc.applicant_type = application_data.get("applicant_type", "New")
 		app_doc.nationality = application_data.get("nationality", "Ethiopian")
 		
@@ -3405,6 +3407,7 @@ def get_existing_student_details(school_id):
         "student_mobile_number": student.student_mobile_number or "",
         "student_email_id": student.student_email_id or "",
         "national_id_fin": student.get("national_id_fin") or "",
+        "national_id_fan": student.get("national_id_fan") or "",
         "nationality": student.get("nationality") or "Ethiopian",
         "address_line_1": student.get("address_line_1") or "",
         "address_line_2": student.get("address_line_2") or "",
@@ -3578,7 +3581,7 @@ def submit_existing_student_application(application_data):
 
         # 2) Update the Student doc in place with any changed core info.
         for field in ("first_name", "middle_name", "last_name", "date_of_birth",
-                      "gender", "nationality", "national_id_fin", "student_mobile_number",
+                      "gender", "nationality", "national_id_fan", "student_mobile_number",
                       "address_line_1", "address_line_2", "kebele", "sub_city",
                       "city", "state", "country", "pincode"):
             value = application_data.get(field)
@@ -3635,7 +3638,8 @@ def submit_existing_student_application(application_data):
         app_doc.student_mobile_number = (application_data.get("primary_mobile_number")
                                          or application_data.get("student_mobile_number")
                                          or student.student_mobile_number)
-        app_doc.national_id_fin = application_data.get("national_id_fin") or student.get("national_id_fin")
+        app_doc.national_id_fin = student.get("national_id_fin")
+        app_doc.national_id_fan = application_data.get("national_id_fan") or student.get("national_id_fan")
         app_doc.applicant_type = "Existing"
         app_doc.nationality = application_data.get("nationality") or student.get("nationality") or "Ethiopian"
         app_doc.branch = _derive_branch(school_id, application_data.get("branch"))

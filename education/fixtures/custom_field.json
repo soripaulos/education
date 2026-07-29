@@ -28,6 +28,30 @@
  },
  {
   "doctype": "Custom Field",
+  "name": "Student Applicant-national_id_fan",
+  "dt": "Student Applicant",
+  "fieldname": "national_id_fan",
+  "label": "National ID FAN",
+  "fieldtype": "Data",
+  "length": 16,
+  "insert_after": "national_id_fin",
+  "translatable": 0,
+  "description": "16-digit Fayda FAN number. Separate from the legacy 12-digit National ID FIN; the two are never interchanged."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Student-national_id_fan",
+  "dt": "Student",
+  "fieldname": "national_id_fan",
+  "label": "National ID FAN",
+  "fieldtype": "Data",
+  "length": 16,
+  "insert_after": "national_id_fin",
+  "translatable": 0,
+  "description": "16-digit Fayda FAN number. Separate from the legacy 12-digit National ID FIN; the two are never interchanged."
+ },
+ {
+  "doctype": "Custom Field",
   "name": "Student Applicant-last_application_submitted_on",
   "dt": "Student Applicant",
   "fieldname": "last_application_submitted_on",

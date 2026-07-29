@@ -643,7 +643,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">National ID FAN (Optional but Preferred)</label>
-                                <input v-model="studentData.national_id_fin" type="text" class="input-field" placeholder="16-digit numeric ID" maxlength="16" pattern="[0-9]{16}" @blur="validateNationalId">
+                                <input v-model="studentData.national_id_fan" type="text" class="input-field" placeholder="16-digit numeric ID" maxlength="16" pattern="[0-9]{16}" @blur="validateNationalId">
                                 <div class="text-xs text-gray-600 mt-1">16-digit numeric identifier for official records</div>
                                 <div v-if="nationalIdError" class="error-message" v-text="nationalIdError"></div>
                             </div>
@@ -1958,7 +1958,7 @@
                         nationality: 'Ethiopian',
                         academic_year: (window.DD_DEFAULT_ACADEMIC_YEAR || '2018 E.C.'),
                         custom_school_id: '',
-                        national_id_fin: '',
+                        national_id_fan: '',
                         student_email_id: '',
                         applicant_type: 'New', // 'New' or 'Existing'
                         birth_certificate_image: '',
@@ -2018,7 +2018,7 @@
                     this.studentData.program = '';
                     this.studentData.primary_mobile_number = '';
                     this.studentData.custom_school_id = '';
-                    this.studentData.national_id_fin = '';
+                    this.studentData.national_id_fan = '';
                     this.studentData.student_email_id = '';
                     this.studentData.applicant_type = 'New';
                     this.studentData.birth_certificate_image = '';
@@ -2154,8 +2154,8 @@
                         }
                     }
                     // National ID FAN validation (optional but must be 16 digits if present)
-                    if (this.studentData.national_id_fin && !/^[0-9]{16}$/.test(this.studentData.national_id_fin)) {
-                        errors.national_id_fin = 'National ID FAN must be a 16-digit number';
+                    if (this.studentData.national_id_fan && !/^[0-9]{16}$/.test(this.studentData.national_id_fan)) {
+                        errors.national_id_fan = 'National ID FAN must be a 16-digit number';
                     }
                     // Guardian relation validation
                     if (this.guardianType === 'guardian' && !this.guardianData.relation) {
@@ -2419,11 +2419,11 @@
                     }
                 },
                 validateNationalId() {
-                    if (!this.studentData.national_id_fin) {
+                    if (!this.studentData.national_id_fan) {
                         this.nationalIdError = '';
                         return;
                     }
-                    const val = this.studentData.national_id_fin;
+                    const val = this.studentData.national_id_fan;
                     if (!/^[0-9]{16}$/.test(val)) {
                         this.nationalIdError = 'National ID FAN must be a 16-digit number';
                     } else {

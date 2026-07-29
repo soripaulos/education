@@ -263,7 +263,9 @@ fixtures = [
 				[
 					"Student Applicant-branch",
 					"Student Applicant-suggested_student_section",
-					"Student Applicant-last_application_submitted_on"
+					"Student Applicant-last_application_submitted_on",
+					"Student Applicant-national_id_fan",
+					"Student-national_id_fan"
 				]
 			]
 		]
