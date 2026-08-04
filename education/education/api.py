@@ -1963,38 +1963,23 @@ def _school_email(school_id):
 	return f"{school_id}{SCHOOL_EMAIL_DOMAIN}" if school_id else ""
 
 
-def _owns_email(school_id, email):
-	"""True when ``email`` is an accepted spelling of this school ID's address.
-
-	The canonical slash form and the older slash-less form both count, so a
-	record that already carries a valid address is never rewritten.
-	"""
-	school_id = (school_id or "").strip()
-	email = (email or "").strip()
-	if not school_id or not email:
-		return False
-	return email.lower() in {
-		f"{school_id}{SCHOOL_EMAIL_DOMAIN}".lower(),
-		f"{school_id.replace('/', '')}{SCHOOL_EMAIL_DOMAIN}".lower(),
-	}
-
-
 def _resolve_student_email(school_id, current_email=""):
 	"""Pick the address a record should carry for ``school_id``.
 
-	An address that already belongs to the student is kept - either spelling of
-	their own school ID, or an external mailbox such as a personal Gmail - and
-	anything else is replaced with the canonical one. This is what stops a
-	school address minted for a *discarded* ID from following a student around
+	A school-issued address is always normalised onto the canonical form, so a
+	record cannot drift back to the slash-less spelling that used to be
+	generated (``m15712618@m.b.s`` for ``M1/57126/18``). That also stops an
+	address minted for a *discarded* school ID from following a student around
 	and handing them a username that is not theirs.
+
+	An address outside the school domain belongs to the family and is left
+	alone, as is the current value when there is no school ID to derive from.
 	"""
 	current_email = (current_email or "").strip()
-	if _owns_email(school_id, current_email):
-		return current_email
 	if current_email and not current_email.lower().endswith(SCHOOL_EMAIL_DOMAIN):
 		# Supplied by the family; not ours to overwrite.
 		return current_email
-	return _school_email(school_id)
+	return _school_email(school_id) or current_email
 
 
 @frappe.whitelist(allow_guest=True)
