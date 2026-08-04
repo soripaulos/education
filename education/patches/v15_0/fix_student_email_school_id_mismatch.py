@@ -64,7 +64,7 @@ def execute():
 def fix_students(users):
 	students = frappe.db.sql(
 		"""
-		SELECT name, custom_school_id, student_email_id, user
+		SELECT name, custom_school_id, student_email_id, user, first_name
 		FROM `tabStudent`
 		WHERE student_email_id LIKE %s
 		""",
@@ -98,10 +98,12 @@ def fix_students(users):
 			# Reuse the account that already carries the correct school ID and
 			# retire the duplicate this record was pointing at.
 			updates["user"] = users[target.lower()]
-			if current_user:
+			# Only a User that really exists is retired; a dangling link is just
+			# dropped by re-pointing the Student above.
+			if current_user and current_user.lower() in users:
 				referenced_by.get(current_user.lower(), set()).discard(row.name)
 				if not referenced_by.get(current_user.lower()):
-					retire_duplicate_user(current_user)
+					retire_duplicate_user(users[current_user.lower()])
 		elif current_user and current_user.lower() in users:
 			# Nothing to merge into: rename the stale account into shape so its
 			# roles and history follow the student.
