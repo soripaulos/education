@@ -99,6 +99,11 @@ def enroll_student(source_name):
 		},
 		ignore_permissions=True,
 	)
+	# The applicant's address is mapped across verbatim; re-derive it from the
+	# school ID before saving, because saving is what mints the login.
+	student.student_email_id = _resolve_student_email(
+		student.get("custom_school_id"), student.get("student_email_id")
+	)
 	student.save()
 
 	student_applicant = frappe.db.get_value(
@@ -1948,6 +1953,50 @@ def generate_dd_school_id():
 
 	return f"MB/DD/{new_num:05d}/19"
 
+
+SCHOOL_EMAIL_DOMAIN = "@m.b.s"
+
+
+def _school_email(school_id):
+	"""The canonical school address for a school ID: ``M1/6134/14@m.b.s``."""
+	school_id = (school_id or "").strip()
+	return f"{school_id}{SCHOOL_EMAIL_DOMAIN}" if school_id else ""
+
+
+def _owns_email(school_id, email):
+	"""True when ``email`` is an accepted spelling of this school ID's address.
+
+	The canonical slash form and the older slash-less form both count, so a
+	record that already carries a valid address is never rewritten.
+	"""
+	school_id = (school_id or "").strip()
+	email = (email or "").strip()
+	if not school_id or not email:
+		return False
+	return email.lower() in {
+		f"{school_id}{SCHOOL_EMAIL_DOMAIN}".lower(),
+		f"{school_id.replace('/', '')}{SCHOOL_EMAIL_DOMAIN}".lower(),
+	}
+
+
+def _resolve_student_email(school_id, current_email=""):
+	"""Pick the address a record should carry for ``school_id``.
+
+	An address that already belongs to the student is kept - either spelling of
+	their own school ID, or an external mailbox such as a personal Gmail - and
+	anything else is replaced with the canonical one. This is what stops a
+	school address minted for a *discarded* ID from following a student around
+	and handing them a username that is not theirs.
+	"""
+	current_email = (current_email or "").strip()
+	if _owns_email(school_id, current_email):
+		return current_email
+	if current_email and not current_email.lower().endswith(SCHOOL_EMAIL_DOMAIN):
+		# Supplied by the family; not ours to overwrite.
+		return current_email
+	return _school_email(school_id)
+
+
 @frappe.whitelist(allow_guest=True)
 def create_guardian(guardian_data):
 	"""Create a new guardian record"""
@@ -2066,16 +2115,11 @@ def create_student_application(application_data):
 		# optional explicit override passed from the form (second-branch choice).
 		app_doc.branch = _derive_branch(school_id, application_data.get("branch"))
 
-		# Handle student email based on applicant type
-		if application_data.get("applicant_type") == "Existing":
-			# For existing students, use their existing email if available
-			app_doc.student_email_id = application_data.get("student_email_id") or ""
-		else:
-			# Generate student email automatically from school ID for new students
-			# Format: schoolid@m.b.s (e.g., M1/12345/19@m.b.s)
-			# Clean the school ID to make it email-friendly
-			email_prefix = school_id.replace("/", "").replace("\\", "").lower()
-			app_doc.student_email_id = f"{email_prefix}@m.b.s"
+		# Student email is derived from the school ID it is filed under, so the
+		# two can never drift apart. A family-supplied address is preserved.
+		app_doc.student_email_id = _resolve_student_email(
+			school_id, application_data.get("student_email_id")
+		)
 		
 		# Personal details
 		app_doc.date_of_birth = application_data.get("date_of_birth")
@@ -3638,7 +3682,12 @@ def submit_existing_student_application(application_data):
         app_doc.program = next_program
         app_doc.academic_year = new_academic_year
         app_doc.custom_school_id = school_id
-        app_doc.student_email_id = student.student_email_id or application_data.get("student_email_id") or ""
+        # Never copy the Student's address blindly: if that record still holds
+        # an address minted for a school ID it no longer uses, the applicant -
+        # and the Student created from it - would inherit the wrong username.
+        app_doc.student_email_id = _resolve_student_email(
+            school_id, student.student_email_id or application_data.get("student_email_id")
+        )
         app_doc.date_of_birth = application_data.get("date_of_birth") or student.date_of_birth
         app_doc.gender = application_data.get("gender") or student.gender
         app_doc.student_mobile_number = (application_data.get("primary_mobile_number")

@@ -21,3 +21,4 @@ education.patches.v15_0.enhance_result_calculation_tool
 education.patches.v15_0.create_dd_registration_user
 education.patches.v15_0.consolidate_report_remark_fields
 education.patches.v15_0.student_applicant_allow_yearly_applications
+education.patches.v15_0.fix_student_email_school_id_mismatch
