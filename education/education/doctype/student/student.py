@@ -16,6 +16,7 @@ from education.education.utils import check_content_completion, check_quiz_compl
 class Student(Document):
 	def validate(self):
 		self.set_title()
+		self.set_school_email()
 		self.validate_dates()
 		self.validate_user()
 		# National ID FIN validation (optional, must be 12 digits if present)
@@ -92,26 +93,65 @@ class Student(Document):
 			return 0.0
 		return round(age_in_years, 1)
 
-	def validate_user(self):
-		"""Create a website user for student creation if not already exists"""
-		if not frappe.db.get_single_value(
-			"Education Settings", "user_creation_skip"
-		) and not frappe.db.exists("User", self.student_email_id):
-			student_user = frappe.get_doc(
-				{
-					"doctype": "User",
-					"first_name": self.first_name,
-					"last_name": self.last_name,
-					"email": self.student_email_id,
-					"gender": self.gender,
-					"send_welcome_email": 1,
-					"user_type": "Website User",
-				}
-			)
-			student_user.add_roles("Student")
-			student_user.save(ignore_permissions=True)
+	def set_school_email(self):
+		"""Keep the school address on the canonical form of the school ID.
 
-			self.user = student_user.name
+		Written here rather than only at the registration endpoints so that a
+		corrected school ID drags the address along with it on any save, and a
+		record can never settle on the slash-less spelling that used to be
+		generated (``m15712618@m.b.s`` for ``M1/57126/18``). Addresses outside
+		the school domain belong to the family and are left alone.
+		"""
+		# Imported lazily: api imports doctype controllers in places, and this
+		# only runs on save.
+		from education.education.api import _resolve_student_email
+
+		if self.custom_school_id:
+			self.student_email_id = _resolve_student_email(
+				self.custom_school_id, self.student_email_id
+			)
+
+	def validate_user(self):
+		"""Point the student at the account matching their school address.
+
+		The link used to be set only when a brand new account was minted, so a
+		student whose address was corrected kept pointing at the account for
+		the address they no longer use. The account matching the current
+		address is now always adopted.
+
+		A login somebody actually signs in with is never taken away: if the
+		matching account does not exist yet and the current one has been used,
+		the record is left as it is for a human to reconcile rather than being
+		handed a freshly minted duplicate.
+		"""
+		if frappe.db.get_single_value("Education Settings", "user_creation_skip"):
+			return
+		if not self.student_email_id:
+			return
+
+		matching_user = frappe.db.exists("User", self.student_email_id)
+		if matching_user:
+			self.user = matching_user
+			return
+
+		if self.user and frappe.db.get_value("User", self.user, "last_login"):
+			return
+
+		student_user = frappe.get_doc(
+			{
+				"doctype": "User",
+				"first_name": self.first_name,
+				"last_name": self.last_name,
+				"email": self.student_email_id,
+				"gender": self.gender,
+				"send_welcome_email": 1,
+				"user_type": "Website User",
+			}
+		)
+		student_user.add_roles("Student")
+		student_user.save(ignore_permissions=True)
+
+		self.user = student_user.name
 
 	def check_unique(self):
 		"""Validates if the Student Applicant is Unique"""

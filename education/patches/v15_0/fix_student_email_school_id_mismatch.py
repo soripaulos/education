@@ -110,17 +110,20 @@ def fix_students(users):
 		if is_ours(email) or not email:
 			updates["student_email_id"] = target
 
+		superseded = None
 		if user.lower() == target.lower():
 			stats["email_only"] += 1
 		elif target.lower() in users:
 			# Reuse the account already carrying the correct school ID and
-			# retire the one this record was pointing at.
+			# retire the one this record was pointing at. The retirement is
+			# deferred until after the Student row is rewritten below, because
+			# Frappe refuses to delete a User a Student still links to.
 			updates["user"] = users[target.lower()]
 			stats["relinked"] += 1
 			if user and user.lower() in users:
 				referenced_by.get(user.lower(), set()).discard(row.name)
 				if not referenced_by.get(user.lower()):
-					retire_superseded_user(users[user.lower()])
+					superseded = users[user.lower()]
 		elif user and user.lower() in users:
 			if frappe.db.get_value("User", users[user.lower()], "last_login"):
 				# Somebody signs in with this; renaming it would take their
@@ -139,6 +142,10 @@ def fix_students(users):
 		# Written straight to the table: this is a surgical correction and must
 		# not re-run Student.validate(), which would try to mint users again.
 		frappe.db.set_value("Student", row.name, updates, update_modified=False)
+
+		# Only now that nothing links to it can the old account be retired.
+		if superseded:
+			retire_superseded_user(superseded)
 
 	if skipped:
 		frappe.log_error(

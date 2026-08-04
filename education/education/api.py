@@ -2211,7 +2211,9 @@ def update_student_application(application_id, application_data):
 		# Update personal details
 		app_doc.date_of_birth = application_data.get("date_of_birth")
 		app_doc.gender = application_data.get("gender")
-		app_doc.student_email_id = application_data.get("student_email_id")
+		app_doc.student_email_id = _resolve_student_email(
+			app_doc.custom_school_id, application_data.get("student_email_id")
+		)
 		app_doc.student_mobile_number = application_data.get("primary_mobile_number") or application_data.get("student_mobile_number")
 		app_doc.national_id_fin = application_data.get("national_id_fin")
 		app_doc.national_id_fan = application_data.get("national_id_fan")
