@@ -1,29 +1,36 @@
-"""Repair students whose `student_email_id` encodes someone else's school ID.
+"""Bring student school addresses and logins onto their own school ID.
 
 Background
 ----------
-The registration pages derive a student's school email from the school ID by
-stripping the slashes: ``M1/46478/18`` -> ``m14647818@m.b.s``. When a student
-who already attended the school was registered through the *New* path, a fresh
-``/18`` school ID was generated and that derived email (and the User created
-from it) was stored on the record. Correcting ``custom_school_id`` afterwards
-left ``student_email_id`` - and often the linked ``user`` - pointing at the
-discarded ID, so the student showed up under a username that was not theirs.
+The registration pages used to derive a student's school address by stripping
+the slashes out of the school ID: ``M1/57126/18`` -> ``m15712618@m.b.s``. Two
+problems came out of that.
 
-The canonical form is the school ID with the domain appended verbatim:
+1. A returning student registered through the *New* path was issued a fresh
+   ``/18`` school ID, and the address (plus the User minted from it) stuck to
+   the record even after ``custom_school_id`` was corrected back to the real
+   ID. The student then appeared under a username belonging to an ID nobody
+   holds, and every later application copied that stale address forward.
 
-    M1/6134/14  ->  M1/6134/14@m.b.s
+2. Even where the address did encode the student's own ID, the slash-less
+   spelling left the record disagreeing with the ``M1/57126/18@m.b.s`` form
+   used everywhere else.
 
-This patch only touches records whose email matches *neither* accepted spelling
-of their own school ID (with or without slashes); records that merely use the
-slash-less spelling of their own ID are left alone, as are external addresses
-such as personal Gmail accounts.
+The canonical form is the school ID with the domain appended verbatim::
 
-User records are reconciled as follows:
+    M1/57126/18  ->  M1/57126/18@m.b.s
+
+Accounts are reconciled conservatively:
   * the canonical User already exists -> the Student is linked to it and the
-    now-unreferenced duplicate is removed (or disabled if it cannot be deleted);
-  * no canonical User exists -> the stale one is renamed to the canonical name,
-    which preserves its roles, links and login history.
+    superseded account is removed once nothing references it;
+  * no canonical User exists and the current one has never been signed into ->
+    it is renamed, which carries its roles and links across;
+  * no canonical User exists but the current one is **in active use** -> the
+    record is left alone and reported, because renaming it would change a
+    login somebody is relying on.
+
+Addresses supplied by the family (anything outside ``@m.b.s``) are never
+rewritten.
 """
 
 import frappe
@@ -40,7 +47,7 @@ def canonical_email(school_id):
 
 
 def own_spellings(school_id):
-	"""The addresses that legitimately belong to this school ID."""
+	"""Addresses that encode this school ID, in either spelling."""
 	school_id = (school_id or "").strip()
 	return {
 		f"{school_id}{DOMAIN}".lower(),
@@ -48,15 +55,20 @@ def own_spellings(school_id):
 	}
 
 
+def is_ours(address):
+	"""True for a school-issued address, false for a family mailbox."""
+	return (address or "").strip().lower().endswith(DOMAIN)
+
+
 def execute():
-	users = {
-		name.lower(): name for (name,) in frappe.db.sql("SELECT name FROM `tabUser`")
-	}
-	repaired = fix_students(users)
-	fix_applicants()
+	users = {name.lower(): name for (name,) in frappe.db.sql("SELECT name FROM `tabUser`")}
+	stats = fix_students(users)
+	stats["applicants"] = fix_applicants()
 	frappe.db.commit()
+
+	summary = ", ".join(f"{key}={value}" for key, value in sorted(stats.items()))
 	frappe.log_error(
-		message=f"Repaired {repaired} Student record(s) with a mismatched school email.",
+		message=f"Student school-address repair complete: {summary}",
 		title="fix_student_email_school_id_mismatch",
 	)
 
@@ -66,68 +78,85 @@ def fix_students(users):
 		"""
 		SELECT name, custom_school_id, student_email_id, user, first_name
 		FROM `tabStudent`
-		WHERE student_email_id LIKE %s
+		WHERE custom_school_id IS NOT NULL AND custom_school_id != ''
 		""",
-		(f"%{DOMAIN}",),
 		as_dict=True,
 	)
 
-	# Which Students point at a given User, so a duplicate is only dropped once
+	# Which Students point at a given User, so an account is only retired once
 	# nothing references it any more.
 	referenced_by = {}
 	for row in students:
 		if row.user:
 			referenced_by.setdefault(row.user.lower(), set()).add(row.name)
 
-	repaired = 0
+	stats = {"email_only": 0, "relinked": 0, "renamed": 0, "created": 0, "skipped_in_use": 0}
+	skipped = []
+
 	for row in students:
 		school_id = (row.custom_school_id or "").strip()
-		if not school_id:
-			continue
-		if (row.student_email_id or "").lower() in own_spellings(school_id):
-			continue
-
 		target = canonical_email(school_id)
-		current_user = (row.user or "").strip()
-		updates = {"student_email_id": target}
+		email = (row.student_email_id or "").strip()
+		user = (row.user or "").strip()
 
-		if current_user.lower() == target.lower():
-			# The login is already right; only the email field drifted.
-			pass
+		# A school address that does not encode this student's ID, or a login
+		# that is not the canonical spelling of it, is what needs correcting.
+		email_wrong = is_ours(email) and email.lower() not in own_spellings(school_id)
+		user_wrong = is_ours(user) and user.lower() != target.lower()
+		if not (email_wrong or user_wrong):
+			continue
+
+		updates = {}
+		if is_ours(email) or not email:
+			updates["student_email_id"] = target
+
+		if user.lower() == target.lower():
+			stats["email_only"] += 1
 		elif target.lower() in users:
-			# Reuse the account that already carries the correct school ID and
-			# retire the duplicate this record was pointing at.
+			# Reuse the account already carrying the correct school ID and
+			# retire the one this record was pointing at.
 			updates["user"] = users[target.lower()]
-			# Only a User that really exists is retired; a dangling link is just
-			# dropped by re-pointing the Student above.
-			if current_user and current_user.lower() in users:
-				referenced_by.get(current_user.lower(), set()).discard(row.name)
-				if not referenced_by.get(current_user.lower()):
-					retire_duplicate_user(users[current_user.lower()])
-		elif current_user and current_user.lower() in users:
-			# Nothing to merge into: rename the stale account into shape so its
-			# roles and history follow the student.
-			rename_user(users[current_user.lower()], target, users)
+			stats["relinked"] += 1
+			if user and user.lower() in users:
+				referenced_by.get(user.lower(), set()).discard(row.name)
+				if not referenced_by.get(user.lower()):
+					retire_superseded_user(users[user.lower()])
+		elif user and user.lower() in users:
+			if frappe.db.get_value("User", users[user.lower()], "last_login"):
+				# Somebody signs in with this; renaming it would take their
+				# login away. Leave the record for a human to decide on.
+				skipped.append(f"{school_id} (uses {user})")
+				stats["skipped_in_use"] += 1
+				continue
+			rename_user(users[user.lower()], target, users)
 			updates["user"] = target
+			stats["renamed"] += 1
 		else:
 			updates["user"] = create_user(row, target)
 			users[target.lower()] = target
+			stats["created"] += 1
 
 		# Written straight to the table: this is a surgical correction and must
 		# not re-run Student.validate(), which would try to mint users again.
 		frappe.db.set_value("Student", row.name, updates, update_modified=False)
-		repaired += 1
 
-	return repaired
+	if skipped:
+		frappe.log_error(
+			message="Left alone because their current login is in active use:\n"
+			+ "\n".join(skipped),
+			title="fix_student_email_school_id_mismatch: in-use logins",
+		)
+
+	return stats
 
 
 def fix_applicants():
 	"""Re-point Student Applicant rows at their own school ID.
 
-	Scoped to existing students re-applying for the current intake, whose email
-	was copied off the Student record wholesale. Earlier academic years are
-	left as filed: those applications are closed history, and rewriting them
-	would edit the record of what was actually submitted at the time.
+	Scoped to existing students re-applying for the current intake, whose
+	address was copied off the Student record wholesale. Earlier academic years
+	are left as filed: those applications are closed history, and rewriting
+	them would edit the record of what was actually submitted at the time.
 	"""
 	applicants = frappe.db.sql(
 		"""
@@ -141,6 +170,7 @@ def fix_applicants():
 		as_dict=True,
 	)
 
+	fixed = 0
 	for row in applicants:
 		school_id = (row.custom_school_id or "").strip()
 		if not school_id:
@@ -153,6 +183,9 @@ def fix_applicants():
 			{"student_email_id": canonical_email(school_id)},
 			update_modified=False,
 		)
+		fixed += 1
+
+	return fixed
 
 
 def rename_user(current, target, users):
@@ -184,16 +217,14 @@ def create_user(student, target):
 	return user.name
 
 
-def retire_duplicate_user(name):
+def retire_superseded_user(name):
 	"""Drop a student account nothing points at any more.
 
-	Deletion is attempted first so the address is free for reuse; accounts that
-	are still referenced elsewhere (comments, versions, logins) are disabled
-	instead, which is enough to stop them being handed out again.
+	Deletion is attempted so the address is free for reuse; an account that is
+	still referenced elsewhere is disabled instead, which is enough to stop it
+	being handed out again.
 	"""
 	if frappe.db.get_value("User", name, "last_login"):
-		# Somebody has actually signed in with this account - keep it, just
-		# take it out of circulation rather than destroying the audit trail.
 		frappe.db.set_value("User", name, "enabled", 0, update_modified=False)
 		return
 
@@ -205,5 +236,5 @@ def retire_duplicate_user(name):
 		frappe.db.set_value("User", name, "enabled", 0, update_modified=False)
 		frappe.log_error(
 			message=frappe.get_traceback(),
-			title=f"Could not delete duplicate User {name}; disabled instead",
+			title=f"Could not delete superseded User {name}; disabled instead",
 		)
