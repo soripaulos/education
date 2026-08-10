@@ -463,10 +463,23 @@ and slow on mobile data.
 
 ## 9. Known bugs and traps in the current system
 
-### 9.1 Existing-student submission is broken right now
+### 9.1 The audit-log system can abort registrations (one instance fixed)
 
-Every existing-student submission on `/mbreg1825` fails. 33 occurrences logged;
-the message never reaches the user because of the swallowing described in §7.
+A `Student Data Change Log` doctype and nine `SDCL - *` Server Scripts were added
+on 2026-08-09 to record every change to student-related doctypes. They are
+`After Save` / `After Insert` hooks that insert a log row.
+
+**None of the ten scripts wrap their insert in `try`/`except`.** A log row that
+fails to validate therefore raises inside the parent document's `on_update`, and
+the entire transaction — the registration — rolls back. An audit log that can
+veto the thing it is auditing is worth designing out of the replacement: log
+failures should be swallowed and reported, never propagated.
+
+This bit hard once already. `SDCL - Student Diff` emitted three activity types
+(`Guardian Added`, `Guardian Removed`, `Reversal Recorded`) that were missing
+from the `activity_type` Select, so **every existing-student submission failed**
+— 33 logged occurrences, and the reason never reached the user because of the
+swallowing described in §7:
 
 ```
 File "education/api.py", line 3654, in submit_existing_student_application
@@ -476,14 +489,21 @@ File "education/api.py", line 3654, in submit_existing_student_application
 ValidationError: Activity Type cannot be "Guardian Added".
 ```
 
-`Student Data Change Log.activity_type` is a Select whose options do **not**
-include `Guardian Added`. The whole transaction rolls back.
+`Student Data Change Log.activity_type` is a Select, and those three values were
+not among its options.
 
-Fix either by adding `Guardian Added` to that Select's options, or by changing
-the Server Script to use an allowed value. **This is a backend bug and will
-affect the new app identically** — fix it in Frappe before porting.
+**Resolved 2026-08-10** by adding `Guardian Added`, `Guardian Removed` and
+`Reversal Recorded` to the Select (now 32 options). Registration writes Students,
+which fires these hooks, so the new app is exposed to exactly the same class of
+failure: whenever an `SDCL` script gains a new activity type, add the option at
+the same time, or a whole registration path dies with a message the user never
+sees.
 
-Allowed values today: `Restriction Applied`, `Restriction Cleared`,
+The related `Restriction Hooks` script (Student / Before Save) was investigated
+and is **not** implicated — it contains no `frappe.throw` or `raise`, and is a
+no-op unless `restricted` is set.
+
+Allowed values (after the fix): `Restriction Applied`, `Restriction Cleared`,
 `Restriction Reason Changed`, `Student Enabled`, `Student Disabled`,
 `Date of Leaving Set`, `Reason for Leaving Changed`, `Name Changed`,
 `School ID Changed`, `Student Category Changed`, `Joining Date Changed`,
@@ -493,7 +513,8 @@ Allowed values today: `Restriction Applied`, `Restriction Cleared`,
 `Program Enrollment Updated`, `Program Unenrolled`, `Discipline Incident Filed`,
 `Discipline Incident Resolved`, `Leave Application Submitted`,
 `Leave Application Approved`, `Leave Application Rejected`, `Applicant Approved`,
-`Student Deleted`, `Manual Entry`.
+`Student Deleted`, `Manual Entry`, `Guardian Added`, `Guardian Removed`,
+`Reversal Recorded`.
 
 ### 9.2 The Desk override trap
 
