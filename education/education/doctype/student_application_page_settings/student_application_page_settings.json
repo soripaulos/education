@@ -7,18 +7,34 @@
  "engine": "InnoDB",
  "field_order": [
   "intro_html",
+  "override_status_html",
   "mbreg_section",
   "mbreg1825_override_enabled",
   "mbreg1825_html",
+  "mbreg1825_source_hash",
+  "mbreg1825_inject_section",
+  "mbreg1825_css",
+  "mbreg1825_js",
+  "mbreg1825_context_script",
   "apply_dd_section",
   "apply_dd_override_enabled",
-  "apply_dd_html"
+  "apply_dd_html",
+  "apply_dd_source_hash",
+  "apply_dd_inject_section",
+  "apply_dd_css",
+  "apply_dd_js",
+  "apply_dd_context_script"
  ],
  "fields": [
   {
    "fieldname": "intro_html",
    "fieldtype": "HTML",
    "options": "<div style='padding:12px;border-left:4px solid #f59e0b;background:#fffbeb;border-radius:6px'><b>Edit the registration pages without deploying.</b><br>Turn on an override below and the HTML stored here is served instead of the deployed file. Leave it off (or clear the field) and the deployed file is used, exactly as before.<br><br><b>Important:</b> content saved here lives in the database, not in the code repository. While an override is on, deploying new code will <i>not</i> change that page &mdash; switch the override off to go back to the deployed version. Use <b>Load current page HTML</b> to start from a copy of the deployed file rather than a blank box.</div>"
+  },
+  {
+   "fieldname": "override_status_html",
+   "fieldtype": "HTML",
+   "read_only": 1
   },
   {
    "fieldname": "mbreg_section",
@@ -40,6 +56,41 @@
    "options": "HTML"
   },
   {
+   "fieldname": "mbreg1825_source_hash",
+   "fieldtype": "Data",
+   "label": "MBReg1825 Source Fingerprint",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "description": "SHA-256 of the deployed page when this HTML was loaded. Used to detect that the override has fallen behind the deployed file."
+  },
+  {
+   "fieldname": "mbreg1825_inject_section",
+   "fieldtype": "Section Break",
+   "label": "MBReg1825 — Inject (applies to the deployed page)"
+  },
+  {
+   "fieldname": "mbreg1825_css",
+   "fieldtype": "Code",
+   "label": "MBReg1825 Extra CSS",
+   "options": "CSS",
+   "description": "Added as a &lt;style&gt; block. Applies whether or not the override above is on, so deploys keep reaching the page."
+  },
+  {
+   "fieldname": "mbreg1825_js",
+   "fieldtype": "Code",
+   "label": "MBReg1825 Extra JavaScript",
+   "options": "JS",
+   "description": "Added as a &lt;script&gt; block at the end of the page."
+  },
+  {
+   "fieldname": "mbreg1825_context_script",
+   "fieldtype": "Link",
+   "label": "MBReg1825 Context Script",
+   "options": "Server Script",
+   "description": "Server Script that builds a <code>context</code> dict; its keys are merged into the page context. Runs sandboxed."
+  },
+  {
    "fieldname": "apply_dd_section",
    "fieldtype": "Section Break",
    "label": "MBS Dembi Dollo — /apply-dd"
@@ -57,6 +108,41 @@
    "fieldtype": "Code",
    "label": "Apply DD Page HTML",
    "options": "HTML"
+  },
+  {
+   "fieldname": "apply_dd_source_hash",
+   "fieldtype": "Data",
+   "label": "Apply DD Source Fingerprint",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "description": "SHA-256 of the deployed page when this HTML was loaded. Used to detect that the override has fallen behind the deployed file."
+  },
+  {
+   "fieldname": "apply_dd_inject_section",
+   "fieldtype": "Section Break",
+   "label": "Apply DD — Inject (applies to the deployed page)"
+  },
+  {
+   "fieldname": "apply_dd_css",
+   "fieldtype": "Code",
+   "label": "Apply DD Extra CSS",
+   "options": "CSS",
+   "description": "Added as a &lt;style&gt; block. Applies whether or not the override above is on, so deploys keep reaching the page."
+  },
+  {
+   "fieldname": "apply_dd_js",
+   "fieldtype": "Code",
+   "label": "Apply DD Extra JavaScript",
+   "options": "JS",
+   "description": "Added as a &lt;script&gt; block at the end of the page."
+  },
+  {
+   "fieldname": "apply_dd_context_script",
+   "fieldtype": "Link",
+   "label": "Apply DD Context Script",
+   "options": "Server Script",
+   "description": "Server Script that builds a <code>context</code> dict; its keys are merged into the page context. Runs sandboxed."
   }
  ],
  "index_web_pages_for_search": 0,
@@ -82,5 +168,5 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1
+ "track_changes": 0
 }

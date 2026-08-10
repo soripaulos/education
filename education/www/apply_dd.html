@@ -113,6 +113,7 @@
             transition: transform 0.3s ease;
         }
     </style>
+    {{ page_extra_head | safe }}
 </head>
 <body class="bg-gray-50">
     <div id="app">
@@ -2440,6 +2441,7 @@
             }
         }).mount('#app');
     </script>
+    {{ page_extra_body | safe }}
 </body>
 </html>
 {%- endif -%}
