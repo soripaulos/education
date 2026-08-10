@@ -1954,6 +1954,34 @@ def generate_dd_school_id():
 	return f"MB/DD/{new_num:05d}/19"
 
 
+def _log_and_throw(title, exc, payload=None):
+	"""Record the traceback and surface a reason the registrar can act on.
+
+	The registration endpoints used to translate every failure into "please try
+	again", which left whoever was filling the form with nothing to report and
+	nothing to search for. The real reason is passed through, along with the
+	Error Log id holding the full traceback.
+	"""
+	reference = ""
+	try:
+		message = frappe.get_traceback()
+		if payload is not None:
+			message = f"{message}\n\nPayload:\n{payload}"
+		log = frappe.log_error(message=message, title=title)
+		reference = getattr(log, "name", "") or ""
+	except Exception:
+		# Logging must never mask the failure it is describing.
+		pass
+
+	reason = str(exc).strip() or exc.__class__.__name__
+	if reference:
+		frappe.throw(
+			_("{0}: {1} (Error Log {2})").format(_(title), reason, reference),
+			title=_(title),
+		)
+	frappe.throw(_("{0}: {1}").format(_(title), reason), title=_(title))
+
+
 SCHOOL_EMAIL_DOMAIN = "@m.b.s"
 
 
@@ -2169,20 +2197,7 @@ def create_student_application(application_data):
 		return app_doc.name
 
 	except Exception as e:
-		error_msg = str(e)
-		frappe.log_error(message=f"Student application creation failed: {error_msg}\nData: {application_data}", title="Student Application Creation Error")
-		
-		# Provide user-friendly error messages
-		if "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
-			user_error = "An application with this email or school ID already exists."
-		elif "validation" in error_msg.lower():
-			user_error = "Please check your form data and try again."
-		elif "permission" in error_msg.lower():
-			user_error = "Permission error. Please refresh the page and try again."
-		else:
-			user_error = "Failed to create application. Please try again."
-		
-		frappe.throw(_(user_error))
+		_log_and_throw("Student Application Creation Error", e, application_data)
 
 @frappe.whitelist(allow_guest=True)
 def get_application_by_id(application_id):

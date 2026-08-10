@@ -842,29 +842,58 @@
             </div>
         </div>
 
+        <!-- Last failure, in full. Notifications disappear; this stays until
+             dismissed so the reason can actually be read and passed on. -->
+        <div v-if="lastError" class="fixed bottom-4 left-4 right-4 sm:right-auto sm:max-w-xl" style="z-index: 10020;">
+            <div class="bg-white border-l-4 border-red-500 shadow-xl rounded-lg p-4">
+                <div class="flex items-start justify-between mb-2">
+                    <h4 class="text-sm font-semibold text-red-800">Error details</h4>
+                    <div class="flex items-center space-x-3">
+                        <button type="button" @click="copyError" class="text-xs text-blue-600 hover:text-blue-800 underline">Copy</button>
+                        <button type="button" @click="dismissError" class="text-xs text-gray-500 hover:text-gray-700 underline">Dismiss</button>
+                    </div>
+                </div>
+                <pre class="text-xs text-gray-800 whitespace-pre-wrap break-words max-h-48 overflow-auto bg-gray-50 p-2 rounded" v-text="lastError"></pre>
+                <p class="text-xs text-gray-500 mt-2">The full traceback is in Desk under <strong>Error Log</strong>.</p>
+            </div>
+        </div>
+
         <!-- Applied Students Status (read-only) -->
-        <div v-if="showAppliedList" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[10000] p-4">
-            <div class="relative mx-auto max-w-5xl bg-white rounded-lg shadow-lg mt-10">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <!-- Explicit inline z-index and a flex column with a capped height: the
+             panel must scroll on both axes no matter how many rows come back. -->
+        <div v-if="showAppliedList"
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-start justify-center p-4 overflow-y-auto"
+             style="z-index: 10000;">
+            <div class="w-full max-w-6xl bg-white rounded-lg shadow-lg my-8 flex flex-col" style="max-height: 85vh;">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Applied Students — MBS Dembi Dollo</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Applied Students &mdash; MBS Dembi Dollo</h3>
                         <p class="text-xs text-gray-500">Read-only status of applications submitted so far.</p>
                     </div>
                     <button @click="closeAppliedList" class="text-gray-400 hover:text-gray-600">
                         <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                     </button>
                 </div>
-                <div class="px-6 py-4">
+
+                <div class="px-6 pt-4 flex-shrink-0">
                     <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                         <input v-model="appliedListSearch" @keydown.enter="loadAppliedList" type="text" placeholder="Search name / phone / School ID" class="input-field flex-1">
                         <button @click="loadAppliedList" class="btn-primary">Search</button>
                         <span class="text-sm text-gray-500 whitespace-nowrap" v-text="appliedList.length + ' applicant(s)'"></span>
                     </div>
+                </div>
+
+                <!-- min-height:0 lets this flex child actually shrink, which is
+                     what makes the inner overflow scroll instead of the panel
+                     growing past the viewport. -->
+                <div class="px-6 pb-4 flex-1 overflow-auto" style="min-height: 0;">
                     <div class="overflow-x-auto border border-gray-200 rounded-lg">
-                        <table class="min-w-full text-sm">
-                            <thead class="bg-gray-50 text-gray-600">
+                        <table class="min-w-full text-sm whitespace-nowrap">
+                            <thead class="bg-gray-50 text-gray-600 sticky top-0">
                                 <tr>
                                     <th class="text-left px-4 py-2 font-medium">Name</th>
+                                    <th class="text-left px-4 py-2 font-medium">School ID</th>
+                                    <th class="text-left px-4 py-2 font-medium">Type</th>
                                     <th class="text-left px-4 py-2 font-medium">Phone</th>
                                     <th class="text-left px-4 py-2 font-medium">Age</th>
                                     <th class="text-left px-4 py-2 font-medium">Grade Applying</th>
@@ -873,52 +902,67 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-if="appliedListLoading"><td colspan="6" class="px-4 py-6 text-center text-gray-400">Loading…</td></tr>
-                                <tr v-else-if="!appliedList.length"><td colspan="6" class="px-4 py-6 text-center text-gray-400">No applicants found.</td></tr>
+                                <tr v-if="appliedListLoading"><td colspan="8" class="px-4 py-6 text-center text-gray-400">Loading&hellip;</td></tr>
+                                <tr v-else-if="!appliedList.length"><td colspan="8" class="px-4 py-6 text-center text-gray-400">No applicants found.</td></tr>
                                 <tr v-for="r in appliedList" :key="r.name" class="border-t border-gray-100 hover:bg-gray-50">
                                     <td class="px-4 py-2" v-text="r.full_name"></td>
-                                    <td class="px-4 py-2" v-text="r.student_mobile_number || '—'"></td>
-                                    <td class="px-4 py-2" v-text="r.age !== null && r.age !== undefined ? r.age : '—'"></td>
-                                    <td class="px-4 py-2" v-text="r.program"></td>
+                                    <td class="px-4 py-2 font-medium text-blue-700" v-text="r.custom_school_id || '\u2014'"></td>
                                     <td class="px-4 py-2">
-                                        <span :class="r.paid ? 'text-green-700 bg-green-50 border border-green-200' : 'text-red-700 bg-red-50 border border-red-200'" class="px-2 py-0.5 rounded-full text-xs font-medium" v-text="r.paid ? 'Paid' : 'Not Paid'"></span>
+                                        <span :class="r.applicant_type === 'Existing' ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-blue-700 bg-blue-50 border-blue-200'"
+                                              class="px-2 py-0.5 rounded-full text-xs font-medium border"
+                                              v-text="r.applicant_type || 'New'"></span>
+                                    </td>
+                                    <td class="px-4 py-2" v-text="r.student_mobile_number || '\u2014'"></td>
+                                    <td class="px-4 py-2" v-text="(r.age !== null && r.age !== undefined) ? r.age : '\u2014'"></td>
+                                    <td class="px-4 py-2" v-text="r.program || '\u2014'"></td>
+                                    <td class="px-4 py-2">
+                                        <span :class="r.paid ? 'text-green-700 bg-green-50 border-green-200' : 'text-red-700 bg-red-50 border-red-200'"
+                                              class="px-2 py-0.5 rounded-full text-xs font-medium border"
+                                              v-text="r.paid ? 'Paid' : 'Not Paid'"></span>
                                     </td>
                                     <td class="px-4 py-2 text-right">
-                                        <button @click="viewAppliedDetail(r)" class="text-blue-600 hover:text-blue-800 text-sm font-medium">More Details</button>
+                                        <button type="button" @click.stop="viewAppliedDetail(r)" class="text-blue-600 hover:text-blue-800 text-sm font-medium underline">View Details</button>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <p v-if="appliedListError" class="text-red-600 text-sm mt-3" v-text="appliedListError"></p>
+                    <p v-if="appliedListError" class="text-red-600 text-sm mt-3 whitespace-pre-wrap" v-text="appliedListError"></p>
                 </div>
             </div>
+        </div>
 
-            <!-- Detail sub-modal -->
-            <div v-if="appliedListDetail" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[10001] p-4" @click.self="appliedListDetail = null">
-                <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
-                    <div class="flex items-start space-x-4 mb-4">
-                        <img v-if="appliedListDetail.image" :src="appliedListDetail.image" class="h-20 w-20 rounded-lg object-cover border border-gray-300">
-                        <div v-else class="h-20 w-20 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 text-xs">No Photo</div>
-                        <div class="flex-1">
-                            <h4 class="text-lg font-semibold text-gray-900" v-text="appliedListDetail.full_name"></h4>
-                            <p class="text-sm text-gray-500">School ID: <strong v-text="appliedListDetail.custom_school_id || '—'"></strong></p>
-                        </div>
+        <!-- Applicant detail. A sibling of the list rather than a child, so it
+             can never be clipped or stacked underneath it. -->
+        <div v-if="appliedListDetail"
+             class="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 overflow-y-auto"
+             style="z-index: 10010;"
+             @click.self="appliedListDetail = null">
+            <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 my-8">
+                <div class="flex items-start space-x-4 mb-4">
+                    <img v-if="appliedListDetail.image" :src="appliedListDetail.image" alt="" class="h-20 w-20 rounded-lg object-cover border border-gray-300">
+                    <div v-else class="h-20 w-20 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">No Photo</div>
+                    <div class="flex-1">
+                        <h4 class="text-lg font-semibold text-gray-900" v-text="appliedListDetail.full_name"></h4>
+                        <p class="text-sm text-gray-500">School ID: <strong v-text="appliedListDetail.custom_school_id || '\u2014'"></strong></p>
                     </div>
-                    <div class="grid grid-cols-2 gap-3 text-sm text-gray-700">
-                        <p><strong>Gender:</strong> <span v-text="appliedListDetail.gender || '—'"></span></p>
-                        <p><strong>Age:</strong> <span v-text="appliedListDetail.age !== null && appliedListDetail.age !== undefined ? appliedListDetail.age : '—'"></span></p>
-                        <p><strong>Grade:</strong> <span v-text="appliedListDetail.program || '—'"></span></p>
-                        <p><strong>Type:</strong> <span v-text="appliedListDetail.applicant_type || '—'"></span></p>
-                        <p><strong>Phone:</strong> <span v-text="appliedListDetail.student_mobile_number || '—'"></span></p>
-                        <p><strong>Status:</strong> <span v-text="appliedListDetail.application_status || '—'"></span></p>
-                        <p class="col-span-2"><strong>Payment:</strong>
-                            <span :class="appliedListDetail.paid ? 'text-green-700' : 'text-red-700'" class="font-medium" v-text="appliedListDetail.paid ? 'Paid' : 'Not Paid'"></span>
-                        </p>
-                        <p class="col-span-2"><strong>Applied On:</strong> <span v-text="(appliedListDetail.creation || '').substring(0, 16)"></span></p>
-                    </div>
-                    <button @click="appliedListDetail = null" class="btn-secondary w-full mt-4">Close</button>
                 </div>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-700">
+                    <div><dt class="text-gray-500">Type</dt><dd class="font-medium" v-text="appliedListDetail.applicant_type || 'New'"></dd></div>
+                    <div><dt class="text-gray-500">Gender</dt><dd class="font-medium" v-text="appliedListDetail.gender || '\u2014'"></dd></div>
+                    <div><dt class="text-gray-500">Age</dt><dd class="font-medium" v-text="(appliedListDetail.age !== null && appliedListDetail.age !== undefined) ? appliedListDetail.age : '\u2014'"></dd></div>
+                    <div><dt class="text-gray-500">Grade Applying</dt><dd class="font-medium" v-text="appliedListDetail.program || '\u2014'"></dd></div>
+                    <div><dt class="text-gray-500">Phone</dt><dd class="font-medium" v-text="appliedListDetail.student_mobile_number || '\u2014'"></dd></div>
+                    <div><dt class="text-gray-500">Academic Year</dt><dd class="font-medium" v-text="appliedListDetail.academic_year || '\u2014'"></dd></div>
+                    <div><dt class="text-gray-500">Application Status</dt><dd class="font-medium" v-text="appliedListDetail.application_status || '\u2014'"></dd></div>
+                    <div><dt class="text-gray-500">Payment</dt>
+                        <dd :class="appliedListDetail.paid ? 'text-green-700' : 'text-red-700'" class="font-medium" v-text="appliedListDetail.paid ? 'Paid' : 'Not Paid'"></dd>
+                    </div>
+                    <div class="col-span-2"><dt class="text-gray-500">Applied On</dt>
+                        <dd class="font-medium" v-text="(appliedListDetail.creation || '').toString().substring(0, 16)"></dd>
+                    </div>
+                </dl>
+                <button type="button" @click="appliedListDetail = null" class="btn-secondary w-full mt-5">Close</button>
             </div>
         </div>
     </div>
@@ -945,6 +989,10 @@
                     submittedBranch: '',
                     showSuccessModal: false,
                     submittedApplicationId: '',
+                    // Full text of the last failure, kept on screen so whoever
+                    // is filling the form can read or copy the actual reason
+                    // instead of only seeing "please try again".
+                    lastError: '',
                     showAppliedList: false,
                     appliedListLoading: false,
                     appliedListError: '',
@@ -1344,6 +1392,74 @@
                     this.currentStep = 1;
                 },
 
+                // --- Error reporting ---
+                // Frappe returns a thrown message in _server_messages (a JSON
+                // array of JSON strings) and the traceback in exception/exc.
+                // Dig the most specific one out rather than discarding it.
+                extractServerError(data, fallback) {
+                    if (!data) return fallback;
+                    try {
+                        if (data._server_messages) {
+                            const messages = JSON.parse(data._server_messages)
+                                .map(entry => {
+                                    try { return JSON.parse(entry).message; }
+                                    catch (e) { return entry; }
+                                })
+                                .filter(Boolean);
+                            if (messages.length) {
+                                return messages.join('\n').replace(/<[^>]+>/g, '');
+                            }
+                        }
+                    } catch (e) { /* fall through to the other shapes below */ }
+                    if (typeof data.exception === 'string' && data.exception) return data.exception;
+                    if (typeof data.message === 'string' && data.message) return data.message;
+                    if (data.exc) {
+                        try {
+                            const frames = JSON.parse(data.exc);
+                            if (frames.length) return String(frames[frames.length - 1]).trim();
+                        } catch (e) { return String(data.exc); }
+                    }
+                    return fallback;
+                },
+
+                // Read a failed fetch() and raise an Error carrying the real reason.
+                async raiseFromResponse(step, response) {
+                    let data = null;
+                    try { data = await response.json(); } catch (e) { /* not JSON */ }
+                    const detail = this.extractServerError(
+                        data, `${response.status} ${response.statusText}`
+                    );
+                    const error = new Error(`${step}: ${detail}`);
+                    error.serverDetail = detail;
+                    error.httpStatus = response.status;
+                    throw error;
+                },
+
+                recordError(context, error) {
+                    const reason = (error && error.message) ? error.message : String(error);
+                    console.error(context, error);
+                    this.lastError = [
+                        `${context}`,
+                        reason,
+                        error && error.httpStatus ? `HTTP status: ${error.httpStatus}` : '',
+                        `Time: ${new Date().toLocaleString()}`,
+                    ].filter(Boolean).join('\n');
+                    this.showNotification(reason, 'error', 12000);
+                },
+
+                dismissError() {
+                    this.lastError = '';
+                },
+
+                async copyError() {
+                    try {
+                        await navigator.clipboard.writeText(this.lastError);
+                        this.showNotification('Error details copied.', 'success', 3000);
+                    } catch (e) {
+                        this.showNotification('Could not copy - select the text manually.', 'warning');
+                    }
+                },
+
                 // --- Applied Students Status (read-only) ---
                 openAppliedList() {
                     this.showAppliedList = true;
@@ -1365,14 +1481,15 @@
                             method: 'GET',
                             headers: { 'Accept': 'application/json' }
                         });
-                        const data = await response.json();
                         if (!response.ok) {
-                            throw new Error((data && (data.message || data.exc)) || 'Failed to load applicants');
+                            await this.raiseFromResponse('Could not load applicants', response);
                         }
+                        const data = await response.json();
                         this.appliedList = data.message || [];
                     } catch (error) {
                         console.error('Failed to load applied students:', error);
-                        this.appliedListError = 'Could not load applicants: ' + error.message;
+                        this.appliedListError = (error && error.message) || String(error);
+                        this.recordError('Could not load applicants', error);
                     } finally {
                         this.appliedListLoading = false;
                     }
@@ -1420,8 +1537,7 @@
                             });
                             
                             if (!fatherResponse.ok) {
-                                const errorData = await fatherResponse.json();
-                                throw new Error(`Failed to create father guardian: ${errorData.message || errorData.exc || fatherResponse.statusText}`);
+                                await this.raiseFromResponse('Failed to create father guardian', fatherResponse);
                             }
                             
                             const fatherData = await fatherResponse.json();
@@ -1454,8 +1570,7 @@
                             });
                             
                             if (!motherResponse.ok) {
-                                const errorData = await motherResponse.json();
-                                throw new Error(`Failed to create mother guardian: ${errorData.message || errorData.exc || motherResponse.statusText}`);
+                                await this.raiseFromResponse('Failed to create mother guardian', motherResponse);
                             }
                             
                             const motherData = await motherResponse.json();
@@ -1488,8 +1603,7 @@
                             });
                             
                             if (!guardianResponse.ok) {
-                                const errorData = await guardianResponse.json();
-                                throw new Error(`Failed to create guardian: ${errorData.message || errorData.exc || guardianResponse.statusText}`);
+                                await this.raiseFromResponse('Failed to create guardian', guardianResponse);
                             }
                             
                             const guardianData = await guardianResponse.json();
@@ -1518,8 +1632,7 @@
                         });
 
                         if (!schoolIdResponse.ok) {
-                            const errorData = await schoolIdResponse.json();
-                            throw new Error(`Failed to generate school ID: ${errorData.message || errorData.exc || schoolIdResponse.statusText}`);
+                            await this.raiseFromResponse('Failed to generate school ID', schoolIdResponse);
                         }
 
                         const schoolIdData = await schoolIdResponse.json();
@@ -1555,8 +1668,7 @@
                         });
 
                         if (!applicationResponse.ok) {
-                            const errorData = await applicationResponse.json();
-                            throw new Error(`Failed to create application: ${errorData.message || errorData.exc || applicationResponse.statusText}`);
+                            await this.raiseFromResponse('Failed to create application', applicationResponse);
                         }
 
                         const applicationResult = await applicationResponse.json();
@@ -1571,23 +1683,10 @@
                         }
 
                     } catch (error) {
-                        console.error('Error submitting application:', error);
-                        
-                        // Show user-friendly error message
-                        let errorMessage = 'Failed to submit application. ';
-                        if (error.message) {
-                            if (error.message.includes('network') || error.message.includes('fetch')) {
-                                errorMessage += 'Please check your internet connection and try again.';
-                            } else if (error.message.includes('validation')) {
-                                errorMessage += 'Please check your form data and try again.';
-                            } else {
-                                errorMessage += 'Please try again in a moment.';
-                            }
-                        } else {
-                            errorMessage += 'Please try again.';
-                        }
-                        
-                        this.showNotification(errorMessage, 'error', 8000);
+                        // The reason is reported verbatim: a canned "please try
+                        // again" leaves the registrar with nothing to act on or
+                        // pass to whoever can fix it.
+                        this.recordError('Failed to submit application', error);
                     } finally {
                         this.isSubmitting = false;
                     }
