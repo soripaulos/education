@@ -3834,37 +3834,29 @@ def get_paid_applicants(search=None, branch=None, limit=200):
 
 
 @frappe.whitelist()
-def get_dd_applied_students(search=None, limit=300):
+def get_dd_applied_students(search=None, limit=2000):
     """Read-only status list for the /apply-dd page: applicants filed so far
     for the MBS Dembi Dollo branch, with basic info and payment status.
+
+    The page loads the whole branch in one call and filters in the browser, so
+    the limit is a ceiling rather than a page size. ``search`` is still honoured
+    for callers that would rather narrow server-side; each word is matched
+    independently, so a full name typed in one go matches across the separate
+    first/middle/last fields.
 
     Gated the same as the other staff dashboards (includes "DD Student
     Registrar", so the person filling out the apply-dd form can view it).
     """
     _require_staff()
-    filters = {"branch": "MBS Dembi Dollo"}
-
-    or_filters = None
-    if search:
-        search = f"%{search}%"
-        or_filters = {
-            "custom_school_id": ["like", search],
-            "first_name": ["like", search],
-            "middle_name": ["like", search],
-            "last_name": ["like", search],
-            "student_mobile_number": ["like", search],
-        }
-
     rows = frappe.get_all(
         "Student Applicant",
-        filters=filters,
-        or_filters=or_filters,
+        filters={"branch": "MBS Dembi Dollo"},
         fields=["name", "first_name", "middle_name", "last_name", "custom_school_id",
                 "program", "applicant_type", "application_status", "paid",
                 "gender", "student_mobile_number", "date_of_birth", "image",
                 "academic_year", "creation"],
         order_by="creation desc",
-        limit_page_length=cint(limit) or 300,
+        limit_page_length=cint(limit) or 2000,
     )
     today = frappe.utils.getdate()
     for r in rows:
@@ -3876,6 +3868,22 @@ def get_dd_applied_students(search=None, limit=300):
             r["age"] = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
         else:
             r["age"] = None
+
+    # Matched here rather than in SQL so a name typed in one go ("Abebe Kebede")
+    # matches across the separate first/middle/last columns, which an
+    # or_filters LIKE per column cannot do. Each word must match something.
+    terms = (search or "").lower().split()
+    if terms:
+        def matches(r):
+            haystack = " ".join(str(v).lower() for v in (
+                r.get("full_name"), r.get("custom_school_id"),
+                r.get("student_mobile_number"), r.get("program"),
+                r.get("applicant_type"), r.get("gender"),
+            ) if v)
+            return all(term in haystack for term in terms)
+
+        rows = [r for r in rows if matches(r)]
+
     return rows
 
 
