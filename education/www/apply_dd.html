@@ -94,6 +94,19 @@
             margin-top: 0.25rem;
         }
         
+        /* Applied-students table. The header sticks to the top of the scroll box
+           while rows move under it. Sticky is set on the cells, not on <thead>:
+           with the collapsed borders Tailwind's reset applies, a sticky <thead>
+           is ignored by Safari. The inset shadow draws the header's bottom rule,
+           because a collapsed border scrolls away with the rows. */
+        .applicants-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background-color: #F9FAFB;
+            box-shadow: inset 0 -1px 0 #E5E7EB;
+        }
+
         /* Notification animations */
         .notification-enter-active, .notification-leave-active {
             transition: all 0.3s ease;
@@ -729,7 +742,13 @@
             </main>
         </div>
         
-        <!-- Notification System -->
+        <!-- Notification System.
+             This container is pointer-events:none so toasts never block the
+             form underneath, and only the toast cards themselves take clicks.
+             Everything below it - the modals - must stay a *sibling*: an
+             unclosed tag in here makes the HTML parser adopt them as children,
+             and they inherit pointer-events:none. They still look right, they
+             just stop accepting clicks, typing and scrolling. -->
         <div class="fixed top-4 right-4 z-[9999] space-y-2 max-w-sm w-full sm:max-w-md pointer-events-none">
             <transition-group name="notification" tag="div" class="space-y-2">
                 <div
@@ -779,9 +798,10 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </transition-group>
         </div>
-        
+
         <!-- Success Modal -->
         <div v-if="showSuccessModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[10000]">
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -861,10 +881,13 @@
 
         <!-- Applied Students Status (read-only) -->
         <!-- Explicit inline z-index and a flex column with a capped height: the
-             panel must scroll on both axes no matter how many rows come back. -->
+             panel must scroll on both axes no matter how many rows come back.
+             pointer-events is stated outright so the panel stays usable even if
+             an ancestor ever turns them off again. -->
         <div v-if="showAppliedList"
              class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-start justify-center p-4 overflow-y-auto"
-             style="z-index: 10000;">
+             style="z-index: 10000; pointer-events: auto;"
+             @click.self="closeAppliedList">
             <div class="w-full max-w-6xl bg-white rounded-lg shadow-lg my-8 flex flex-col" style="max-height: 85vh;">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
@@ -878,19 +901,44 @@
 
                 <div class="px-6 pt-4 flex-shrink-0">
                     <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-                        <input v-model="appliedListSearch" @keydown.enter="loadAppliedList" type="text" placeholder="Search name / phone / School ID" class="input-field flex-1">
-                        <button @click="loadAppliedList" class="btn-primary">Search</button>
-                        <span class="text-sm text-gray-500 whitespace-nowrap" v-text="appliedList.length + ' applicant(s)'"></span>
+                        <!-- Filtering is done here in the browser over the rows
+                             already loaded, so it narrows as you type and a
+                             full name typed in one go ("Abebe Kebede") matches
+                             across the separate name fields. -->
+                        <div class="relative flex-1">
+                            <input v-model="appliedListSearch" type="text" ref="appliedSearchInput"
+                                   placeholder="Search name / phone / School ID / grade"
+                                   class="input-field" style="padding-right: 2rem;">
+                            <button v-if="appliedListSearch" type="button" @click="appliedListSearch = ''"
+                                    class="absolute inset-y-0 right-2 flex items-center text-gray-400 hover:text-gray-600"
+                                    title="Clear search">&times;</button>
+                        </div>
+                        <button @click="loadAppliedList" :disabled="appliedListLoading" class="btn-secondary whitespace-nowrap"
+                                :class="{ 'opacity-50 cursor-not-allowed': appliedListLoading }"
+                                title="Reload from the server">
+                            <span v-if="appliedListLoading">Loading&hellip;</span>
+                            <span v-else>Refresh</span>
+                        </button>
+                        <span class="text-sm text-gray-500 whitespace-nowrap"
+                              v-text="appliedListSearch ? (filteredAppliedList.length + ' of ' + appliedList.length + ' applicant(s)') : (appliedList.length + ' applicant(s)')"></span>
                     </div>
+                    <p v-if="appliedListTruncated" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+                        Only the most recent <strong v-text="appliedList.length"></strong> applications were loaded, so the search covers those. Older ones are not listed.
+                    </p>
+                    <p v-if="appliedListError" class="text-red-600 text-sm mb-3 whitespace-pre-wrap" v-text="appliedListError"></p>
                 </div>
 
-                <!-- min-height:0 lets this flex child actually shrink, which is
-                     what makes the inner overflow scroll instead of the panel
-                     growing past the viewport. -->
-                <div class="px-6 pb-4 flex-1 overflow-auto" style="min-height: 0;">
-                    <div class="overflow-x-auto border border-gray-200 rounded-lg">
-                        <table class="min-w-full text-sm whitespace-nowrap">
-                            <thead class="bg-gray-50 text-gray-600 sticky top-0">
+                <!-- One scroll box for both axes, rather than a vertical
+                     scroller wrapped around a horizontal one: nested that way,
+                     the horizontal scrollbar sits at the foot of the full-height
+                     table, thousands of pixels below the viewport, so nobody can
+                     reach it. min-height:0 lets this flex child shrink, which is
+                     what makes it scroll instead of growing past the panel. -->
+                <div class="px-6 pb-4 flex-1 flex flex-col" style="min-height: 0;">
+                    <div class="flex-1 overflow-auto border border-gray-200 rounded-lg"
+                         style="min-height: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;">
+                        <table class="applicants-table min-w-full text-sm whitespace-nowrap">
+                            <thead class="text-gray-600">
                                 <tr>
                                     <th class="text-left px-4 py-2 font-medium">Name</th>
                                     <th class="text-left px-4 py-2 font-medium">School ID</th>
@@ -905,7 +953,9 @@
                             <tbody>
                                 <tr v-if="appliedListLoading"><td colspan="8" class="px-4 py-6 text-center text-gray-400">Loading&hellip;</td></tr>
                                 <tr v-else-if="!appliedList.length"><td colspan="8" class="px-4 py-6 text-center text-gray-400">No applicants found.</td></tr>
-                                <tr v-for="r in appliedList" :key="r.name" class="border-t border-gray-100 hover:bg-gray-50">
+                                <tr v-else-if="!filteredAppliedList.length"><td colspan="8" class="px-4 py-6 text-center text-gray-400">No applicant matches &ldquo;<span v-text="appliedListSearch"></span>&rdquo;.</td></tr>
+                                <tr v-for="r in filteredAppliedList" :key="r.name" @click="viewAppliedDetail(r)"
+                                    class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer">
                                     <td class="px-4 py-2" v-text="r.full_name"></td>
                                     <td class="px-4 py-2 font-medium text-blue-700" v-text="r.custom_school_id || '\u2014'"></td>
                                     <td class="px-4 py-2">
@@ -928,7 +978,6 @@
                             </tbody>
                         </table>
                     </div>
-                    <p v-if="appliedListError" class="text-red-600 text-sm mt-3 whitespace-pre-wrap" v-text="appliedListError"></p>
                 </div>
             </div>
         </div>
@@ -937,9 +986,9 @@
              can never be clipped or stacked underneath it. -->
         <div v-if="appliedListDetail"
              class="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 overflow-y-auto"
-             style="z-index: 10010;"
+             style="z-index: 10010; pointer-events: auto;"
              @click.self="appliedListDetail = null">
-            <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 my-8">
+            <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 my-8 overflow-y-auto" style="max-height: 85vh;">
                 <div class="flex items-start space-x-4 mb-4">
                     <img v-if="appliedListDetail.image" :src="appliedListDetail.image" alt="" class="h-20 w-20 rounded-lg object-cover border border-gray-300">
                     <div v-else class="h-20 w-20 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">No Photo</div>
@@ -1000,6 +1049,11 @@
                     appliedList: [],
                     appliedListSearch: '',
                     appliedListDetail: null,
+                    // The whole branch is held in the browser so searching is
+                    // instant. The cap only stops an unexpectedly large branch
+                    // pulling an unbounded response; the panel says when it bites.
+                    appliedListLimit: 2000,
+                    appliedListTruncated: false,
                     fatherData: {
                         guardian_name: '',
                         email_address: '',
@@ -1126,6 +1180,24 @@
             },
             
             computed: {
+                // Applied-students search, run over the loaded rows so results
+                // narrow as the registrar types. Terms are matched
+                // independently against one joined haystack, so word order and
+                // the split between first/middle/last name do not matter.
+                filteredAppliedList() {
+                    const query = (this.appliedListSearch || '').trim().toLowerCase();
+                    if (!query) return this.appliedList;
+                    const terms = query.split(/\s+/);
+                    return this.appliedList.filter(row => {
+                        const haystack = [
+                            row.full_name, row.custom_school_id, row.student_mobile_number,
+                            row.program, row.applicant_type, row.gender,
+                            row.application_status, row.paid ? 'paid' : 'not paid'
+                        ].filter(Boolean).join(' ').toLowerCase();
+                        return terms.every(term => haystack.indexOf(term) !== -1);
+                    });
+                },
+
                 selectedProgramName() {
                     const program = this.programs.find(p => p.name === this.studentData.program);
                     return program ? program.program_name : this.studentData.program;
@@ -1242,8 +1314,13 @@
                     this.ethiopianYears.push(y);
                 }
                 this.updateEthiopianDays();
+                document.addEventListener('keydown', this.handleAppliedListEscape);
                 await this.loadInitialData();
                 this.loading = false;
+            },
+
+            unmounted() {
+                document.removeEventListener('keydown', this.handleAppliedListEscape);
             },
             
             methods: {
@@ -1465,7 +1542,12 @@
                 openAppliedList() {
                     this.showAppliedList = true;
                     this.appliedListDetail = null;
+                    this.appliedListSearch = '';
                     this.loadAppliedList();
+                    this.$nextTick(() => {
+                        const input = this.$refs.appliedSearchInput;
+                        if (input && input.focus) input.focus();
+                    });
                 },
 
                 closeAppliedList() {
@@ -1477,7 +1559,8 @@
                     this.appliedListLoading = true;
                     this.appliedListError = '';
                     try {
-                        const params = new URLSearchParams({ search: this.appliedListSearch || '' });
+                        const limit = this.appliedListLimit;
+                        const params = new URLSearchParams({ limit: String(limit) });
                         const response = await fetch('/api/method/education.education.api.get_dd_applied_students?' + params.toString(), {
                             method: 'GET',
                             headers: { 'Accept': 'application/json' }
@@ -1487,8 +1570,11 @@
                         }
                         const data = await response.json();
                         this.appliedList = data.message || [];
+                        this.appliedListTruncated = this.appliedList.length >= limit;
                     } catch (error) {
                         console.error('Failed to load applied students:', error);
+                        this.appliedList = [];
+                        this.appliedListTruncated = false;
                         this.appliedListError = (error && error.message) || String(error);
                         this.recordError('Could not load applicants', error);
                     } finally {
@@ -1498,6 +1584,17 @@
 
                 viewAppliedDetail(row) {
                     this.appliedListDetail = row;
+                },
+
+                // Escape backs out one layer at a time: the applicant detail
+                // first, then the list itself.
+                handleAppliedListEscape(event) {
+                    if (event.key !== 'Escape') return;
+                    if (this.appliedListDetail) {
+                        this.appliedListDetail = null;
+                    } else if (this.showAppliedList) {
+                        this.closeAppliedList();
+                    }
                 },
 
                 async submitApplication() {
