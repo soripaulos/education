@@ -45,6 +45,7 @@
                             <tr>
                                 <th class="text-left px-4 py-2 font-medium">School ID</th>
                                 <th class="text-left px-4 py-2 font-medium">Name</th>
+                                <th class="text-left px-4 py-2 font-medium">Academic Year</th>
                                 <th class="text-left px-4 py-2 font-medium">Program</th>
                                 <th class="text-left px-4 py-2 font-medium">Branch</th>
                                 <th class="text-left px-4 py-2 font-medium">Type</th>
@@ -55,11 +56,12 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="loading"><td colspan="9" class="px-4 py-6 text-center text-gray-400">Loading…</td></tr>
-                            <tr v-else-if="!rows.length"><td colspan="9" class="px-4 py-6 text-center text-gray-400">No records found.</td></tr>
+                            <tr v-if="loading"><td colspan="10" class="px-4 py-6 text-center text-gray-400">Loading…</td></tr>
+                            <tr v-else-if="!rows.length"><td colspan="10" class="px-4 py-6 text-center text-gray-400">No records found.</td></tr>
                             <tr v-for="r in rows" :key="r.name" class="border-t border-gray-100 hover:bg-gray-50">
                                 <td class="px-4 py-2 font-semibold text-blue-700">{{ r.custom_school_id }}</td>
                                 <td class="px-4 py-2">{{ r.full_name }}</td>
+                                <td class="px-4 py-2">{{ r.academic_year }}</td>
                                 <td class="px-4 py-2">{{ r.program }}</td>
                                 <td class="px-4 py-2">{{ r.branch }}</td>
                                 <td class="px-4 py-2">{{ r.applicant_type }}</td>
