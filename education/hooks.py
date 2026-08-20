@@ -302,13 +302,13 @@ before_tests = "education.education.test_utils.before_tests"
 # user_data_fields = [
 # 	{
 # 		"doctype": "{doctype_1}",
-# 		"filter_by": "{filter_1}",
+# 		"filter_by": "{filter_by}",
 # 		"redact_fields": ["{field_1}", "{field_2}"],
 # 		"partial": 1,
 # 	},
 # 	{
 # 		"doctype": "{doctype_2}",
-# 		"filter_by": "{filter_2}",
+# 		"filter_by": "{filter_by}",
 # 		"partial": 1,
 # 	},
 # 	{
