@@ -25,5 +25,41 @@
   "read_only": 1,
   "translatable": 0,
   "description": "System-suggested Student Group for this applicant (gender-balanced round-robin for new applicants; carried forward from the previous section for existing students). A human still does the final enrollment."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Student Applicant-national_id_fan",
+  "dt": "Student Applicant",
+  "fieldname": "national_id_fan",
+  "label": "National ID FAN",
+  "fieldtype": "Data",
+  "length": 16,
+  "insert_after": "national_id_fin",
+  "translatable": 0,
+  "description": "16-digit Fayda FAN number. Separate from the legacy 12-digit National ID FIN; the two are never interchanged."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Student-national_id_fan",
+  "dt": "Student",
+  "fieldname": "national_id_fan",
+  "label": "National ID FAN",
+  "fieldtype": "Data",
+  "length": 16,
+  "insert_after": "national_id_fin",
+  "translatable": 0,
+  "description": "16-digit Fayda FAN number. Separate from the legacy 12-digit National ID FIN; the two are never interchanged."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Student Applicant-last_application_submitted_on",
+  "dt": "Student Applicant",
+  "fieldname": "last_application_submitted_on",
+  "label": "Last Application Submitted On",
+  "fieldtype": "Datetime",
+  "insert_after": "suggested_student_section",
+  "read_only": 1,
+  "translatable": 0,
+  "description": "Timestamp of the most recent application submission (new or existing-student re-registration). Used by the 30-minute accountant notification."
  }
 ]
