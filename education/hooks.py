@@ -262,7 +262,10 @@ fixtures = [
 				"in",
 				[
 					"Student Applicant-branch",
-					"Student Applicant-suggested_student_section"
+					"Student Applicant-suggested_student_section",
+					"Student Applicant-last_application_submitted_on",
+					"Student Applicant-national_id_fan",
+					"Student-national_id_fan"
 				]
 			]
 		]
@@ -299,13 +302,13 @@ before_tests = "education.education.test_utils.before_tests"
 # user_data_fields = [
 # 	{
 # 		"doctype": "{doctype_1}",
-# 		"filter_by": "{filter_by}",
+# 		"filter_by": "{filter_1}",
 # 		"redact_fields": ["{field_1}", "{field_2}"],
 # 		"partial": 1,
 # 	},
 # 	{
 # 		"doctype": "{doctype_2}",
-# 		"filter_by": "{filter_by}",
+# 		"filter_by": "{filter_2}",
 # 		"partial": 1,
 # 	},
 # 	{
