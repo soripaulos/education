@@ -19,6 +19,7 @@
   "student_email_id",
   "custom_school_id",
   "student_admission",
+  "student_group",
   "student_category",
   "image",
   "birth_certificate_image",
@@ -131,6 +132,15 @@
    "fieldtype": "Link",
    "label": "Student Admission",
    "options": "Student Admission"
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "in_filter": 1,
+   "in_standard_filter": 1,
+   "label": "Student Group",
+   "options": "Student Group",
+   "description": "Applications for a group can be opened or closed per academic year in Student Applicant Group Settings."
   },
   {
    "fieldname": "image",
@@ -330,7 +340,7 @@
  "filters": [],
  "image_field": "image",
  "links": [],
- "modified": "2023-12-06 16:27:13.360469",
+ "modified": "2026-08-20 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Education",
  "name": "Student Applicant",

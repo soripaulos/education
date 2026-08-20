@@ -18,6 +18,7 @@ class StudentApplicant(Document):
 		self.set_title()
 		self.validate_dates()
 		self.validate_term()
+		self.validate_student_group_open()
 		# National ID FIN validation (optional, must be 12 digits if present)
 		if self.national_id_fin and (not self.national_id_fin.isdigit() or len(self.national_id_fin) != 12):
 			frappe.throw(_("National ID FIN must be a 12-digit number."))
@@ -49,6 +50,25 @@ class StudentApplicant(Document):
 						self.academic_term, self.academic_year
 					)
 				)
+
+	def validate_student_group_open(self):
+		# Block new applications for groups closed in Student Applicant Group
+		# Settings for the applicant's academic year. Groups without a settings
+		# record are open by default.
+		if not (self.student_group and self.academic_year):
+			return
+		from education.education.doctype.student_applicant_group_settings.student_applicant_group_settings import (
+			is_student_group_open,
+		)
+
+		is_open, closed_message = is_student_group_open(self.student_group, self.academic_year)
+		if not is_open:
+			frappe.throw(
+				closed_message
+				or _("Applications are currently closed for Student Group {0} in Academic Year {1}.").format(
+					self.student_group, self.academic_year
+				)
+			)
 
 	def validation_from_student_admission(self):
 
