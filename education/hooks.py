@@ -257,13 +257,21 @@ scheduler_events = {
 	],
 }
 
-# Students may only read the App Notifications that were addressed to them.
+# A student login (also used by parents) only sees records about that
+# student: notifications addressed to them, their own teacher messages,
+# evaluations and incident reports. Staff are unaffected.
 permission_query_conditions = {
 	"App Notification": "education.education.doctype.app_notification.app_notification.get_permission_query_conditions",
+	"Teacher Parent Message": "education.education.student_scope.teacher_parent_message_query",
+	"Student Hub Evaluation": "education.education.student_scope.hub_evaluation_query",
+	"Student Discipline Incident": "education.education.student_scope.discipline_incident_query",
 }
 
 has_permission = {
 	"App Notification": "education.education.doctype.app_notification.app_notification.has_permission",
+	"Teacher Parent Message": "education.education.student_scope.teacher_parent_message_permission",
+	"Student Hub Evaluation": "education.education.student_scope.hub_evaluation_permission",
+	"Student Discipline Incident": "education.education.student_scope.discipline_incident_permission",
 }
 
 # Fixtures - custom fields added to core doctypes so they travel with the app.

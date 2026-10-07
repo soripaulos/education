@@ -15,17 +15,6 @@ EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
 EXPO_SEND_BATCH = 100
 EXPO_RECEIPT_BATCH = 1000
 
-# Roles that see every App Notification. Anyone else who is linked to a Student
-# record only sees the notifications that were actually addressed to them.
-STAFF_ROLES = {
-    "System Manager",
-    "Administrator",
-    "Academics User",
-    "Education Manager",
-    "Director",
-    "Instructor",
-}
-
 
 class AppNotification(Document):
     def validate(self):
@@ -127,7 +116,7 @@ class AppNotification(Document):
             if s.enabled and s.user:
                 user_to_students.setdefault(s.user, []).append(s.name)
 
-        tokens_by_user = get_owned_push_tokens(list(user_to_students))
+        tokens_by_user = get_active_push_tokens(list(user_to_students))
 
         deliveries = []
         for student in students:
@@ -158,17 +147,7 @@ class AppNotification(Document):
             for token in tokens:
                 deliveries.append({**base, "push_token": token, "status": "Pending"})
 
-        # Two students can share a login; never push the same message twice
-        # to the same device.
-        seen = set()
-        unique = []
-        for d in deliveries:
-            if d["push_token"]:
-                if d["push_token"] in seen:
-                    continue
-                seen.add(d["push_token"])
-            unique.append(d)
-        return unique
+        return deliveries
 
     # ------------------------------------------------------------------
     # sending
@@ -273,20 +252,20 @@ class AppNotification(Document):
         frappe.db.bulk_insert("App Notification Delivery", fields=fields, values=values)
 
     def _failed_deliveries_for_retry(self) -> List[Dict[str, Any]]:
-        """Failed rows whose device still belongs to the student's account."""
+        """Failed rows whose device is still registered to the student's account."""
         rows = frappe.get_all(
             "App Notification Delivery",
             filters={"notification": self.name, "status": "Failed", "push_token": ("is", "set"), "user": ("is", "set")},
             fields=["name", "student", "user", "push_token"],
         )
-        owned = get_owned_push_tokens(list({r.user for r in rows}))
+        active = get_active_push_tokens(list({r.user for r in rows}))
         retry = []
         for r in rows:
-            if r.push_token not in (owned.get(r.user) or []):
+            if r.push_token not in (active.get(r.user) or []):
                 frappe.db.set_value(
                     "App Notification Delivery",
                     r.name,
-                    {"status": "No Device", "error": "Device is now signed in to a different account", "updated_on": now()},
+                    {"status": "No Device", "error": "Device is no longer registered to this account", "updated_on": now()},
                 )
                 continue
             retry.append({
@@ -329,42 +308,25 @@ def apply_ticket(d: Dict[str, Any], ticket: Dict[str, Any]):
         frappe.db.set_value("Push Token", {"push_token": d["push_token"]}, "is_active", 0)
 
 
-def get_owned_push_tokens(users: List[str]) -> Dict[str, List[str]]:
-    """Active push tokens per user, keeping only the devices each user still owns.
+def get_active_push_tokens(users: List[str]) -> Dict[str, List[str]]:
+    """Active push tokens per user.
 
-    A device token can be registered under many accounts (everyone who ever
-    signed in on that phone). The phone belongs to whoever registered it most
-    recently; older registrations are ignored so that sending to one student
-    does not reach a phone now used by somebody else.
+    A phone signed in to several accounts (a parent with a login per child) is
+    registered under each of them, so it gets every one of those accounts'
+    notifications. That is intended.
     """
     if not users:
         return {}
-
-    candidate_tokens = frappe.get_all(
-        "Push Token",
-        filters={"user": ("in", users), "is_active": 1},
-        pluck="push_token",
-    )
-    if not candidate_tokens:
-        return {}
-
     rows = frappe.get_all(
         "Push Token",
-        filters={"push_token": ("in", list(set(candidate_tokens))), "is_active": 1},
-        fields=["push_token", "user", "last_used", "modified"],
+        filters={"user": ("in", users), "is_active": 1},
+        fields=["push_token", "user"],
     )
-    owner: Dict[str, Any] = {}
-    for row in rows:
-        stamp = get_datetime(row.last_used or row.modified)
-        current = owner.get(row.push_token)
-        if current is None or stamp > current[1]:
-            owner[row.push_token] = (row.user, stamp)
-
-    wanted = set(users)
     result: Dict[str, List[str]] = {}
-    for token, (user, _stamp) in owner.items():
-        if user in wanted:
-            result.setdefault(user, []).append(token)
+    for row in rows:
+        tokens = result.setdefault(row.user, [])
+        if row.push_token not in tokens:
+            tokens.append(row.push_token)
     return result
 
 
@@ -482,17 +444,10 @@ def check_recent_receipts():
 # permissions: students only see what was addressed to them
 # ----------------------------------------------------------------------
 
-def _student_for_user(user):
-    if not user or user in ("Administrator", "Guest"):
-        return None
-    if STAFF_ROLES.intersection(frappe.get_roles(user)):
-        return None
-    return frappe.db.get_value("Student", {"user": user}, "name")
-
-
 def get_permission_query_conditions(user=None):
-    user = user or frappe.session.user
-    student = _student_for_user(user)
+    from education.education.student_scope import student_for_user
+
+    student = student_for_user(user or frappe.session.user)
     if not student:
         return ""
     s = frappe.db.escape(student)
@@ -509,8 +464,9 @@ def get_permission_query_conditions(user=None):
 
 
 def has_permission(doc, ptype=None, user=None):
-    user = user or frappe.session.user
-    student = _student_for_user(user)
+    from education.education.student_scope import student_for_user
+
+    student = student_for_user(user or frappe.session.user)
     if not student:
         return True
     if doc.docstatus != 1:
@@ -595,7 +551,7 @@ def get_recipient_preview(student_groups=None, students=None, send_to_all_studen
         filters={"name": ("in", recipients or [""]), "enabled": 1, "user": ("is", "set")},
         pluck="user",
     )
-    with_device = len(get_owned_push_tokens(users))
+    with_device = len(get_active_push_tokens(users))
     return {"students": len(recipients), "with_device": with_device}
 
 

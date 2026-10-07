@@ -23,4 +23,3 @@ education.patches.v15_0.consolidate_report_remark_fields
 education.patches.v15_0.student_applicant_allow_yearly_applications
 education.patches.v15_0.fix_student_email_school_id_mismatch
 education.patches.v15_0.purge_superseded_student_accounts
-education.patches.v15_0.release_shared_push_tokens

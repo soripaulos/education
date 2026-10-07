@@ -21,33 +21,16 @@ class PushToken(Document):
                 "is_active",
                 0
             )
-            # A device token addresses one physical phone. Whoever signed in on
-            # it last owns it; every other account that once used the phone
-            # must stop receiving pushes on it, or that phone gets their
-            # notifications too.
-            release_token_from_other_users(self.push_token, self.user, exclude_name=self.name)
-
         # Update last used timestamp
         self.last_used = now()
 
 
-def release_token_from_other_users(push_token, user_id, exclude_name=None):
-    """Deactivate every row for `push_token` that belongs to a user other than `user_id`."""
-    if not push_token:
-        return
-    filters = {"push_token": push_token, "user": ("!=", user_id), "is_active": 1}
-    if exclude_name:
-        filters["name"] = ("!=", exclude_name)
-    frappe.db.set_value("Push Token", filters, "is_active", 0)
-
-
 def claim_push_token(push_token, user_id, device_type="android", app_version=None, device_model=None):
-    """Make `user_id` the only active owner of `push_token`.
+    """Register `push_token` for `user_id`, keeping it active for other accounts too.
 
-    The phone a token belongs to may have been used to sign in to many accounts
-    (a parent with several children, a staff phone used at registration). Only
-    the account signed in last should receive pushes on it, otherwise sending to
-    one student notifies the phone of every other student who ever used it.
+    One phone may be signed in to several accounts (a parent with a login per
+    child) and keeps receiving each account's notifications, so each
+    user+token pair is its own row.
     """
     existing = frappe.db.exists("Push Token", {"push_token": push_token, "user": user_id})
 
@@ -80,10 +63,12 @@ def claim_push_token(push_token, user_id, device_type="android", app_version=Non
 def register_push_token(push_token, user_id=None, device_type="android", app_version=None, device_model=None):
     """Register or update push token for a user.
 
-    The same device may be signed in to several accounts over time. Rows are kept
-    per user+token for history, but only the most recent user's row stays active.
+    The same push_token string may be registered to multiple users simultaneously
+    (e.g. a shared device used by parent and student accounts).  Each
+    user+token pair is stored as a separate record.
     """
-    if not user_id or user_id != frappe.session.user and "System Manager" not in frappe.get_roles():
+    # Only an admin may register a device for someone else's account.
+    if not user_id or (user_id != frappe.session.user and "System Manager" not in frappe.get_roles()):
         user_id = frappe.session.user
 
     claim_push_token(push_token, user_id, device_type, app_version, device_model)

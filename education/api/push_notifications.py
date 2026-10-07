@@ -17,8 +17,8 @@ def register_device_token(push_token, device_type="android", app_version=None, d
         
         from education.education.doctype.push_token.push_token import claim_push_token
 
-        # Only the account signed in last on a device keeps its token active,
-        # so one phone never receives pushes meant for other accounts.
+        # One row per user+token: a phone signed in to several accounts keeps
+        # receiving each account's notifications.
         claim_push_token(push_token, user_id, device_type, app_version, device_model)
         
         return {
