@@ -2185,7 +2185,7 @@ def create_student_application(application_data):
 		# a human still does the final enrollment.
 		try:
 			app_doc.suggested_student_section = _suggest_section(
-				app_doc.program, gender=app_doc.gender
+				app_doc.program, gender=app_doc.gender, branch=app_doc.branch
 			)
 		except Exception:
 			app_doc.suggested_student_section = ""
@@ -2922,7 +2922,10 @@ def _get_promotion_decision(year_average, current_program):
     Sequences: Nursery -> LKG -> UKG -> Grade 1 -> ... -> Grade 12
     Suffixes (AO, NS, SS, etc.) are preserved.
     """
-    if year_average is None or year_average < 60:
+    from education.education.lifecycle.setup import get_setting
+
+    pass_mark = flt(get_setting("promotion_pass_mark")) or 60
+    if year_average is None or year_average < pass_mark:
         return "Detained"
 
     program = current_program or ""
@@ -3349,26 +3352,59 @@ def get_next_program(current_program, school_id=None, academic_year=None):
     }
 
 
-def _get_student_current_enrollment(student_name):
-    """Return (program, student_group) for a Student's most recent enrollment."""
+def _latest_academic_year():
+    """The newest Academic Year: the one registration is filling."""
     rows = frappe.get_all(
-        "Program Enrollment",
-        filters={"student": student_name},
-        fields=["name", "program", "academic_year"],
-        order_by="creation desc",
-        limit=1,
+        "Academic Year", order_by="year_start_date desc", limit=1, pluck="name",
         ignore_permissions=True,
     )
-    if not rows:
-        return None, None
-    program = rows[0].program
-    group = frappe.db.get_value(
-        "Student Group Student",
-        {"student": student_name},
-        "parent",
-        order_by="creation desc",
+    return rows[0] if rows else None
+
+
+def _get_latest_enrollment(student_name, before_year=None):
+    """A Student's most recent (non-cancelled) enrollment.
+
+    With ``before_year``, only enrollments in years that start before it are
+    considered: when applying for 2019 the grade to promote from is the 2018
+    one, even if a 2019 enrollment already exists. Returns a dict with name,
+    program, academic_year and student_group (the section recorded on the
+    enrollment, when there is one), or None.
+    """
+    has_section = frappe.get_meta("Program Enrollment").has_field("student_group")
+    section_col = "pe.student_group" if has_section else "NULL"
+    before_start = (
+        frappe.db.get_value("Academic Year", before_year, "year_start_date") if before_year else None
     )
-    return program, group
+    rows = frappe.db.sql(
+        f"""
+        SELECT pe.name, pe.program, pe.academic_year, {section_col} AS student_group
+        FROM `tabProgram Enrollment` pe
+        LEFT JOIN `tabAcademic Year` ay ON ay.name = pe.academic_year
+        WHERE pe.student = %(student)s AND pe.docstatus < 2
+          AND (%(before)s IS NULL OR ay.year_start_date < %(before)s)
+        ORDER BY ay.year_start_date DESC, pe.docstatus DESC, pe.creation DESC
+        LIMIT 1
+        """,
+        {"student": student_name, "before": before_start},
+        as_dict=True,
+    )
+    return rows[0] if rows else None
+
+
+def _get_student_current_enrollment(student_name, before_year=None):
+    """Return (program, student_group) for a Student's most recent enrollment."""
+    enrollment = _get_latest_enrollment(student_name, before_year=before_year)
+    if not enrollment:
+        return None, None
+    group = enrollment.student_group
+    if not group:
+        group = frappe.db.get_value(
+            "Student Group Student",
+            {"student": student_name, "parenttype": "Student Group"},
+            "parent",
+            order_by="active desc, creation desc",
+        )
+    return enrollment.program, group
 
 
 def _guardian_details(guardian_name):
@@ -3419,15 +3455,23 @@ def get_existing_student_details(school_id):
             details["relation"] = row.get("relation") or ""
             guardians.append(details)
 
-    current_program, current_group = _get_student_current_enrollment(student_name)
+    application_year = _latest_academic_year()
+    enrollment = _get_latest_enrollment(student_name, before_year=application_year)
+    current_program, current_group = _get_student_current_enrollment(
+        student_name, before_year=application_year
+    )
 
-    # Promotion decision
-    not_promoted = _get_not_promoted_record(school_id)
+    # Promotion decision: the Not Promoted list of the year being promoted
+    # from, so an old repeat decision does not pin the student again.
+    not_promoted = _get_not_promoted_record(
+        school_id, enrollment.academic_year if enrollment else None
+    )
     is_promoted = not bool(not_promoted)
     is_restricted = bool(student.get("restricted"))
     next_program = current_program if not is_promoted else _compute_next_program(current_program)
     suggested_section = _suggest_section(next_program, gender=student.get("gender"),
-                                         prev_section=current_group)
+                                         prev_section=current_group,
+                                         branch=_derive_branch(school_id))
 
     # Only a restriction blocks re-application. A student who was not promoted
     # still applies, with their grade locked to the one they are repeating.
@@ -3477,25 +3521,35 @@ def get_existing_student_details(school_id):
     }
 
 
-def _suggest_section(program, gender=None, prev_section=None):
+def _suggest_section(program, gender=None, prev_section=None, branch=None):
     """Suggest a Student Group for an applicant.
 
     - Existing students (prev_section given): carry the section letter forward,
       e.g. "Grade 7 A" -> the "... A" group of the next program when it exists.
     - New students: gender-balanced round-robin across the program's active
       groups (fewest members first, then fewest of the same gender).
+    - With ``branch``, only that branch's sections are considered: a Dembi
+      Dollo or second-branch student is never suggested a main-campus class.
     Returns a Student Group name, or "" when none can be suggested.
     """
     if not program:
         return ""
 
+    from education.education.lifecycle.common import branch_of_section
+
+    has_branch = frappe.get_meta("Student Group").has_field("branch")
     active_groups = frappe.get_all(
         "Student Group",
         filters={"program": program, "disabled": 0},
-        fields=["name"],
+        fields=["name", "branch"] if has_branch else ["name"],
         order_by="name asc",
         ignore_permissions=True,
     )
+    if branch:
+        active_groups = [
+            g for g in active_groups
+            if branch_of_section(g.name, g.get("branch") if has_branch else None) == branch
+        ]
     group_names = [g.name for g in active_groups]
     if not group_names:
         return ""
@@ -3534,9 +3588,9 @@ def _suggest_section(program, gender=None, prev_section=None):
 
 
 @frappe.whitelist(allow_guest=True)
-def suggest_student_section(program, gender=None, prev_section=None):
+def suggest_student_section(program, gender=None, prev_section=None, branch=None):
     """Whitelisted wrapper around :func:`_suggest_section`."""
-    return _suggest_section(program, gender=gender, prev_section=prev_section)
+    return _suggest_section(program, gender=gender, prev_section=prev_section, branch=branch)
 
 
 def _sync_guardian(guardian_data):
@@ -3608,9 +3662,15 @@ def submit_existing_student_application(application_data):
         if student.get("restricted"):
             frappe.throw(_("This student is restricted and cannot re-apply: {0}")
                          .format(student.get("reason_for_restriction") or ""))
-        not_promoted = _get_not_promoted_record(school_id)
+        new_academic_year = application_data.get("academic_year") or _latest_academic_year()
+        enrollment = _get_latest_enrollment(student_name, before_year=new_academic_year)
+        not_promoted = _get_not_promoted_record(
+            school_id, enrollment.academic_year if enrollment else None
+        )
 
-        current_program, current_group = _get_student_current_enrollment(student_name)
+        current_program, current_group = _get_student_current_enrollment(
+            student_name, before_year=new_academic_year
+        )
         if not_promoted:
             # Not promoted: the student repeats their current grade rather than
             # being turned away. The grade is pinned here rather than taken from
@@ -3659,8 +3719,8 @@ def submit_existing_student_application(application_data):
         # years stay on file as history. Re-submitting for a year that already
         # has a record refreshes that record instead of duplicating it.
         suggested_section = _suggest_section(next_program, gender=student.gender,
-                                             prev_section=current_group)
-        new_academic_year = application_data.get("academic_year") or "2019 E.C."
+                                             prev_section=current_group,
+                                             branch=_derive_branch(school_id, application_data.get("branch")))
 
         existing_applicant = frappe.db.get_value(
             "Student Applicant",

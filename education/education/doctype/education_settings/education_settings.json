@@ -13,6 +13,11 @@
   "validate_course",
   "academic_term_reqd",
   "user_creation_skip",
+  "student_lifecycle_section",
+  "promotion_pass_mark",
+  "column_break_lifecycle",
+  "regional_exam_pass_mark",
+  "national_exam_pass_mark",
   "accounting_section",
   "create_so",
   "column_break_aimg",
@@ -90,6 +95,36 @@
    "fieldname": "user_creation_skip",
    "fieldtype": "Check",
    "label": "Skip User creation for new Student"
+  },
+  {
+   "fieldname": "student_lifecycle_section",
+   "fieldtype": "Section Break",
+   "label": "Promotion & Exams"
+  },
+  {
+   "fieldname": "promotion_pass_mark",
+   "fieldtype": "Float",
+   "label": "Promotion Pass Mark (Year Average)",
+   "default": "60",
+   "description": "Year average below which a promoted student is flagged for review in the enrollment tool and diagnostics. Report cards use the same mark to suggest Detained."
+  },
+  {
+   "fieldname": "column_break_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "regional_exam_pass_mark",
+   "fieldtype": "Percent",
+   "label": "Regional Exam Pass Mark (Grade 6 / 8)",
+   "default": "50",
+   "description": "Default pass mark for Grade 6 and Grade 8 regional exam results."
+  },
+  {
+   "fieldname": "national_exam_pass_mark",
+   "fieldtype": "Percent",
+   "label": "National Exam Pass Mark (Grade 12)",
+   "default": "50",
+   "description": "Default pass mark for Grade 12 national exam results."
   },
   {
    "default": "0",
@@ -178,7 +213,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2024-03-27 15:05:41.058873",
+ "modified": "2026-10-07 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Education",
  "name": "Education Settings",

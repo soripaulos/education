@@ -1,0 +1,297 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"sl_intro\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>Each new year:</b> 1) collect applications &nbsp;2) check <i>Enrollment Diagnostics</i> &nbsp;3) enroll with the <i>Program Enrollment Tool</i> (upload the section roster) &nbsp;4) roll over Student Groups &nbsp;5) create logins with the <i>Student User Creation Tool</i> &nbsp;6) record leavers and graduates as <i>Student Exits</i>.\",\"col\":12}},{\"id\":\"sl_head1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Tools &amp; Records</b></span>\",\"col\":12}},{\"id\":\"sl_sc0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Program Enrollment Tool\",\"col\":3}},{\"id\":\"sl_sc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Student User Creation Tool\",\"col\":3}},{\"id\":\"sl_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Enrollment Diagnostics\",\"col\":3}},{\"id\":\"sl_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Enrollment Statistics\",\"col\":3}},{\"id\":\"sl_sc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Student Applicant\",\"col\":3}},{\"id\":\"sl_sc5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Student Exit\",\"col\":3}},{\"id\":\"sl_sc6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Not Promoted Student\",\"col\":3}},{\"id\":\"sl_sc7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"External Exam Result\",\"col\":3}},{\"id\":\"sl_sp\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"sl_head2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Everything Else</b></span>\",\"col\":12}},{\"id\":\"sl_card0\",\"type\":\"card\",\"data\":{\"card_name\":\"Enrolling a New Year\",\"col\":4}},{\"id\":\"sl_card1\",\"type\":\"card\",\"data\":{\"card_name\":\"Accounts\",\"col\":4}},{\"id\":\"sl_card2\",\"type\":\"card\",\"data\":{\"card_name\":\"Leaving & Exams\",\"col\":4}},{\"id\":\"sl_card3\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"sl_card4\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "creation": "2026-10-07 12:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "education",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Student Lifecycle",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Enrolling a New Year",
+   "link_count": 5,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Program Enrollment Tool",
+   "link_count": 0,
+   "link_to": "Program Enrollment Tool",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Student Applicant",
+   "link_count": 0,
+   "link_to": "Student Applicant",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Not Promoted Student",
+   "link_count": 0,
+   "link_to": "Not Promoted Student",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Program Enrollment",
+   "link_count": 0,
+   "link_to": "Program Enrollment",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Student Group",
+   "link_count": 0,
+   "link_to": "Student Group",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Accounts",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Student User Creation Tool",
+   "link_count": 0,
+   "link_to": "Student User Creation Tool",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Student",
+   "link_count": 0,
+   "link_to": "Student",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Leaving & Exams",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Student Exit",
+   "link_count": 0,
+   "link_to": "Student Exit",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "External Exam Result",
+   "link_count": 0,
+   "link_to": "External Exam Result",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 3,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Enrollment Diagnostics",
+   "link_count": 0,
+   "link_to": "Enrollment Diagnostics",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Enrollment Statistics",
+   "link_count": 0,
+   "link_to": "Enrollment Statistics",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "External Exam Analysis",
+   "link_count": 0,
+   "link_to": "External Exam Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Education Settings",
+   "link_count": 0,
+   "link_to": "Education Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Academic Year",
+   "link_count": 0,
+   "link_to": "Academic Year",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-07 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Student Lifecycle",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [
+  {
+   "role": "Education Manager"
+  },
+  {
+   "role": "Academics User"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 9.5,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "label": "Program Enrollment Tool",
+   "link_to": "Program Enrollment Tool",
+   "type": "DocType",
+   "doc_view": ""
+  },
+  {
+   "color": "Blue",
+   "label": "Student User Creation Tool",
+   "link_to": "Student User Creation Tool",
+   "type": "DocType",
+   "doc_view": ""
+  },
+  {
+   "color": "Orange",
+   "label": "Enrollment Diagnostics",
+   "link_to": "Enrollment Diagnostics",
+   "type": "Report",
+   "report_ref_doctype": "Program Enrollment",
+   "doc_view": ""
+  },
+  {
+   "color": "Green",
+   "label": "Enrollment Statistics",
+   "link_to": "Enrollment Statistics",
+   "type": "Report",
+   "report_ref_doctype": "Program Enrollment",
+   "doc_view": ""
+  },
+  {
+   "color": "Grey",
+   "label": "Student Applicant",
+   "link_to": "Student Applicant",
+   "type": "DocType",
+   "format": "{} Applied",
+   "stats_filter": "{\"application_status\": \"Applied\"}",
+   "doc_view": ""
+  },
+  {
+   "color": "Grey",
+   "label": "Student Exit",
+   "link_to": "Student Exit",
+   "type": "DocType",
+   "format": "{} Exited",
+   "stats_filter": "{\"status\": \"Exited\", \"docstatus\": 1}",
+   "doc_view": ""
+  },
+  {
+   "color": "Grey",
+   "label": "Not Promoted Student",
+   "link_to": "Not Promoted Student",
+   "type": "DocType",
+   "doc_view": ""
+  },
+  {
+   "color": "Grey",
+   "label": "External Exam Result",
+   "link_to": "External Exam Result",
+   "type": "DocType",
+   "doc_view": ""
+  }
+ ],
+ "title": "Student Lifecycle"
+}

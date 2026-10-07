@@ -1,0 +1,109 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-07 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "include",
+  "student",
+  "student_name",
+  "login",
+  "password_from",
+  "state",
+  "program",
+  "student_group",
+  "school_id",
+  "result"
+ ],
+ "fields": [
+  {
+   "fieldname": "include",
+   "fieldtype": "Check",
+   "label": "Create",
+   "default": "1",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "label": "Student Name",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "login",
+   "fieldtype": "Data",
+   "label": "Login",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "password_from",
+   "fieldtype": "Data",
+   "label": "Password From",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Phone number the initial password is built from."
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Data",
+   "label": "Current State",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "program",
+   "fieldtype": "Link",
+   "label": "Program",
+   "options": "Program",
+   "read_only": 1
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Section",
+   "options": "Student Group",
+   "read_only": 1
+  },
+  {
+   "fieldname": "school_id",
+   "fieldtype": "Data",
+   "label": "School ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Small Text",
+   "label": "Result",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-07 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Student User Creation Tool Student",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "permissions": [],
+ "istable": 1
+}

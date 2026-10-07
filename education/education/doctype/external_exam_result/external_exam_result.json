@@ -1,0 +1,297 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-07 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "exam_type",
+  "student",
+  "student_name",
+  "school_id",
+  "gender",
+  "column_break_main",
+  "academic_year",
+  "program",
+  "student_group",
+  "exam_registration_number",
+  "stream",
+  "section_subjects",
+  "subjects",
+  "section_total",
+  "total_score",
+  "total_max_score",
+  "average_percentage",
+  "column_break_total",
+  "pass_mark",
+  "result_status",
+  "section_certificate",
+  "certificate_number",
+  "result_date",
+  "column_break_certificate",
+  "result_document",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "EXR-.YYYY.-",
+   "default": "EXR-.YYYY.-",
+   "reqd": 1,
+   "hidden": 1,
+   "print_hide": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "exam_type",
+   "fieldtype": "Select",
+   "label": "Exam",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "options": "\nGrade 6 Regional Exam\nGrade 8 Regional Exam\nGrade 12 National Exam"
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "label": "Student Name",
+   "fetch_from": "student.student_name",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_global_search": 1
+  },
+  {
+   "fieldname": "school_id",
+   "fieldtype": "Data",
+   "label": "School ID",
+   "fetch_from": "student.custom_school_id",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gender",
+   "fieldtype": "Link",
+   "label": "Gender",
+   "options": "Gender",
+   "fetch_from": "student.gender",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Academic Year Sat",
+   "options": "Academic Year",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "program",
+   "fieldtype": "Link",
+   "label": "Program",
+   "options": "Program",
+   "in_standard_filter": 1,
+   "description": "Filled from the student's enrollment for that year when left empty."
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Section",
+   "options": "Student Group"
+  },
+  {
+   "fieldname": "exam_registration_number",
+   "fieldtype": "Data",
+   "label": "Exam Registration No.",
+   "description": "Admission / registration number issued by the exam board."
+  },
+  {
+   "fieldname": "stream",
+   "fieldtype": "Select",
+   "label": "Stream",
+   "options": "\nNatural Science\nSocial Science",
+   "depends_on": "eval:doc.exam_type=='Grade 12 National Exam'"
+  },
+  {
+   "fieldname": "section_subjects",
+   "fieldtype": "Section Break",
+   "label": "Subject Results"
+  },
+  {
+   "fieldname": "subjects",
+   "fieldtype": "Table",
+   "label": "Subjects",
+   "options": "External Exam Subject"
+  },
+  {
+   "fieldname": "section_total",
+   "fieldtype": "Section Break",
+   "label": "Result"
+  },
+  {
+   "fieldname": "total_score",
+   "fieldtype": "Float",
+   "label": "Total Score",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "total_max_score",
+   "fieldtype": "Float",
+   "label": "Total Out Of",
+   "read_only": 1
+  },
+  {
+   "fieldname": "average_percentage",
+   "fieldtype": "Percent",
+   "label": "Average",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_total",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pass_mark",
+   "fieldtype": "Percent",
+   "label": "Pass Mark",
+   "description": "Average needed to pass. Defaults from Education Settings; clear it to set the result by hand."
+  },
+  {
+   "fieldname": "result_status",
+   "fieldtype": "Select",
+   "label": "Result",
+   "options": "Pending\nPass\nFail\nAbsent\nWithheld",
+   "default": "Pending",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Worked out from the average and pass mark, except Absent and Withheld which are kept as entered."
+  },
+  {
+   "fieldname": "section_certificate",
+   "fieldtype": "Section Break",
+   "label": "Certificate",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "certificate_number",
+   "fieldtype": "Data",
+   "label": "Certificate No."
+  },
+  {
+   "fieldname": "result_date",
+   "fieldtype": "Date",
+   "label": "Results Released On"
+  },
+  {
+   "fieldname": "column_break_certificate",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "result_document",
+   "fieldtype": "Attach",
+   "label": "Result Slip / Certificate Scan"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "External Exam Result",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-07 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "External Exam Result",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Education Manager",
+   "share": 1,
+   "write": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Academics User",
+   "share": 1,
+   "write": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "print": 1,
+   "role": "Instructor"
+  }
+ ],
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "is_submittable": 1,
+ "track_changes": 1,
+ "title_field": "student_name",
+ "show_title_field_in_link": 1,
+ "search_fields": "student_name,school_id,exam_type"
+}

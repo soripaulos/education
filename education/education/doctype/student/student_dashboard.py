@@ -8,6 +8,8 @@ def get_data():
 		"fieldname": "student",
 		"non_standard_fieldnames": {"Bank Account": "party"},
 		"transactions": [
+			{"label": _("Leaving"), "items": ["Student Exit"]},
+			{"label": _("Exams"), "items": ["External Exam Result"]},
 			{"label": _("Fee"), "items": ["Sales Invoice", "Bank Account"]},
 		],
 	}

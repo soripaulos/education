@@ -1,0 +1,182 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-07 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_filters",
+  "academic_year",
+  "program",
+  "student_group",
+  "column_break_filters",
+  "branch",
+  "include_with_login",
+  "section_options",
+  "set_password",
+  "column_break_options",
+  "overwrite_password",
+  "section_students",
+  "get_students",
+  "summary",
+  "students",
+  "section_create",
+  "create_users",
+  "column_break_create",
+  "credentials_file",
+  "section_log",
+  "last_run",
+  "last_run_log"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_filters",
+   "fieldtype": "Section Break",
+   "label": "Which Students"
+  },
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Academic Year",
+   "options": "Academic Year",
+   "description": "Students enrolled in this year. Leave empty for all enabled students."
+  },
+  {
+   "fieldname": "program",
+   "fieldtype": "Link",
+   "label": "Program",
+   "options": "Program"
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Section",
+   "options": "Student Group"
+  },
+  {
+   "fieldname": "column_break_filters",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Select",
+   "label": "Branch",
+   "options": "\nMain\nMBS #2\nMBS Dembi Dollo"
+  },
+  {
+   "fieldname": "include_with_login",
+   "fieldtype": "Check",
+   "label": "Include Students Who Already Have a Login",
+   "description": "Normally only students without a working login are listed."
+  },
+  {
+   "fieldname": "section_options",
+   "fieldtype": "Section Break",
+   "label": "Options"
+  },
+  {
+   "fieldname": "set_password",
+   "fieldtype": "Check",
+   "label": "Set Initial Password From Phone Number",
+   "default": "1",
+   "description": "Password is the family phone number written locally, e.g. 0912345678. If the password policy rejects it, 251912345678 is used. Existing logins only get a password if they never had one."
+  },
+  {
+   "fieldname": "column_break_options",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "overwrite_password",
+   "fieldtype": "Check",
+   "label": "Reset Password of Existing Logins Too",
+   "depends_on": "eval:doc.include_with_login",
+   "description": "Replaces the password of listed students who already have a login. Use with care: they will no longer be able to sign in with their old password."
+  },
+  {
+   "fieldname": "section_students",
+   "fieldtype": "Section Break",
+   "label": "Students"
+  },
+  {
+   "fieldname": "get_students",
+   "fieldtype": "Button",
+   "label": "Load Students"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "HTML",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "students",
+   "fieldtype": "Table",
+   "label": "Students",
+   "options": "Student User Creation Tool Student"
+  },
+  {
+   "fieldname": "section_create",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "create_users",
+   "fieldtype": "Button",
+   "label": "Create Logins",
+   "description": "Runs in the background with Frappe's hourly limit on new users lifted for the job, so any number can be created at once."
+  },
+  {
+   "fieldname": "column_break_create",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "credentials_file",
+   "fieldtype": "Attach",
+   "label": "Credentials From Last Run",
+   "read_only": 1,
+   "description": "Private CSV of the logins and initial passwords set in the last run, for handing out."
+  },
+  {
+   "fieldname": "section_log",
+   "fieldtype": "Section Break",
+   "label": "Last Run",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "last_run",
+   "fieldtype": "HTML",
+   "label": "Last Run Details"
+  },
+  {
+   "fieldname": "last_run_log",
+   "fieldtype": "Long Text",
+   "label": "Last Run Log",
+   "hidden": 1,
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-07 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Student User Creation Tool",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "permissions": [
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Education Manager",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "hide_toolbar": 1,
+ "issingle": 1
+}

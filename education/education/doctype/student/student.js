@@ -18,6 +18,7 @@ frappe.ui.form.on('Student', {
           party: frm.doc.customer,
         })
       })
+      show_exit_status(frm)
     }
 
     frappe.db
@@ -39,6 +40,46 @@ frappe.ui.form.on('Student', {
     frm.refresh_field('age')
   },
 })
+
+function show_exit_status(frm) {
+  // Leaving is recorded on a Student Exit; the exit fields on this form are
+  // filled from it. Show where the student stands and how to change it.
+  frappe.db
+    .get_list('Student Exit', {
+      filters: { student: frm.doc.name, docstatus: 1, status: 'Exited' },
+      fields: ['name', 'exit_type', 'exit_date'],
+      order_by: 'exit_date desc',
+      limit: 1,
+    })
+    .then((rows) => {
+      if (rows && rows.length) {
+        const exit = rows[0]
+        frm.dashboard.set_headline_alert(
+          __('Left the school on {0} ({1}). See {2}.', [
+            frappe.datetime.str_to_user(exit.exit_date),
+            __(exit.exit_type),
+            `<a href="/app/student-exit/${encodeURIComponent(exit.name)}">${exit.name}</a>`,
+          ]),
+          'orange'
+        )
+        frm.add_custom_button(__('Open Exit Record'), () =>
+          frappe.set_route('Form', 'Student Exit', exit.name)
+        )
+      } else if (frm.doc.enabled) {
+        frm.add_custom_button(__('Record Exit'), () =>
+          frappe.new_doc('Student Exit', { student: frm.doc.name })
+        )
+      } else {
+        frm.dashboard.set_headline_alert(
+          __('This student is disabled but has no exit record. Record one so the reason for leaving is kept.'),
+          'yellow'
+        )
+        frm.add_custom_button(__('Record Exit'), () =>
+          frappe.new_doc('Student Exit', { student: frm.doc.name })
+        )
+      }
+    })
+}
 
 function get_age_from_dob(dob) {
   if (!dob) return null

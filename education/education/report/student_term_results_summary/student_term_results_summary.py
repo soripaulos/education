@@ -69,12 +69,17 @@ def get_data(filters):
 		frappe.msgprint(_("No subjects found for the selected student group"))
 		return []
 	
-	# Get all students in the student group
+	# Get all students in the student group *for the selected year*: once a
+	# section is rolled over, last year's class comes from the enrollments.
+	from education.education.lifecycle.groups import get_group_members
+
+	members = get_group_members(filters.get("student_group"), filters.get("academic_year"))
 	students = frappe.get_all(
-		"Student Group Student",
-		filters={"parent": filters.get("student_group")},
-		fields=["student", "student_name"],
-		order_by="student_name"
+		"Student",
+		filters={"name": ["in", list(members) or [""]]},
+		fields=["name as student", "student_name"],
+		order_by="student_name",
+		limit_page_length=0,
 	)
 	
 	if not students:

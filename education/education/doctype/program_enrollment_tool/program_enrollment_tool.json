@@ -1,78 +1,147 @@
 {
  "actions": [],
- "allow_copy": 1,
+ "allow_rename": 0,
  "creation": "2016-06-10 03:01:05.178956",
  "doctype": "DocType",
+ "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "get_students_from",
-  "program",
-  "student_batch",
-  "column_break_3",
+  "section_years",
   "academic_year",
-  "academic_term",
-  "enrollment_date",
-  "section_break_5",
-  "get_students",
-  "students",
-  "section_break_7",
-  "new_program",
-  "new_student_batch",
-  "enroll_students",
-  "column_break_12",
+  "column_break_years",
   "new_academic_year",
-  "new_academic_term"
+  "enrollment_date",
+  "section_filters",
+  "program",
+  "branch",
+  "column_break_filters",
+  "include_not_returning",
+  "include_already_enrolled",
+  "section_roster_break",
+  "section_roster",
+  "column_break_roster",
+  "create_missing_sections",
+  "section_students",
+  "get_students",
+  "summary",
+  "students",
+  "section_process",
+  "exit_type_for_not_returning",
+  "exit_date",
+  "disable_logins_on_exit",
+  "column_break_process",
+  "enroll_students",
+  "section_groups",
+  "groups_help",
+  "disable_unused_groups",
+  "column_break_groups",
+  "sync_groups",
+  "section_log",
+  "last_run",
+  "last_run_log"
  ],
  "fields": [
   {
-   "fieldname": "get_students_from",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Get Students From",
-   "options": "\nStudent Applicant\nProgram Enrollment",
-   "reqd": 1
-  },
-  {
-   "fieldname": "program",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Program",
-   "options": "Program",
-   "reqd": 1
-  },
-  {
-   "depends_on": "eval:doc.get_students_from==\"Program Enrollment\"",
-   "fieldname": "student_batch",
-   "fieldtype": "Link",
-   "label": "Student Batch",
-   "options": "Student Batch Name"
-  },
-  {
-   "fieldname": "column_break_3",
-   "fieldtype": "Column Break"
+   "fieldname": "section_years",
+   "fieldtype": "Section Break",
+   "label": "Academic Years"
   },
   {
    "fieldname": "academic_year",
    "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Academic Year",
+   "label": "From (Last) Academic Year",
    "options": "Academic Year",
-   "reqd": 1
+   "reqd": 1,
+   "description": "The year students are coming from. Their enrollments in this year are compared with the applications for the new year."
   },
   {
-   "fieldname": "academic_term",
+   "fieldname": "column_break_years",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "new_academic_year",
    "fieldtype": "Link",
-   "label": "Academic Term",
-   "options": "Academic Term"
+   "label": "To (New) Academic Year",
+   "options": "Academic Year",
+   "reqd": 1,
+   "description": "The year being enrolled into. Applications for this year decide who is enrolled and in which grade."
   },
   {
-   "fieldname": "section_break_5",
-   "fieldtype": "Section Break"
+   "fieldname": "enrollment_date",
+   "fieldtype": "Date",
+   "label": "Enrollment Date",
+   "description": "Defaults to the new year's start date."
+  },
+  {
+   "fieldname": "section_filters",
+   "fieldtype": "Section Break",
+   "label": "Which Students"
+  },
+  {
+   "fieldname": "program",
+   "fieldtype": "Link",
+   "label": "Program",
+   "options": "Program",
+   "description": "Only students enrolling into this program (and, for students not returning, those who were in it or would have moved into it)."
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Select",
+   "label": "Branch",
+   "options": "\nMain\nMBS #2\nMBS Dembi Dollo"
+  },
+  {
+   "fieldname": "column_break_filters",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "include_not_returning",
+   "fieldtype": "Check",
+   "label": "Include Students Not Returning",
+   "default": "1",
+   "description": "Students enrolled last year who have no application this year, including Grade 12 graduates."
+  },
+  {
+   "fieldname": "include_already_enrolled",
+   "fieldtype": "Check",
+   "label": "Include Students Already Enrolled"
+  },
+  {
+   "fieldname": "section_roster_break",
+   "fieldtype": "Section Break",
+   "label": "Sections"
+  },
+  {
+   "fieldname": "section_roster",
+   "fieldtype": "Attach",
+   "label": "Section Roster (.xlsx / .csv)",
+   "description": "Class lists for the new year: a sheet with School ID and Section columns, or one sheet per section named after it. Students on the roster are placed in its section."
+  },
+  {
+   "fieldname": "column_break_roster",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "create_missing_sections",
+   "fieldtype": "Check",
+   "label": "Create Missing Sections",
+   "default": "1",
+   "description": "Create a Student Group for any section named on the roster that does not exist yet."
+  },
+  {
+   "fieldname": "section_students",
+   "fieldtype": "Section Break",
+   "label": "Students"
   },
   {
    "fieldname": "get_students",
    "fieldtype": "Button",
-   "label": "Get Students"
+   "label": "Load Students"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "HTML",
+   "label": "Summary"
   },
   {
    "fieldname": "students",
@@ -81,74 +150,107 @@
    "options": "Program Enrollment Tool Student"
   },
   {
-   "fieldname": "section_break_7",
+   "fieldname": "section_process",
    "fieldtype": "Section Break",
-   "label": "Enrollment Details"
+   "label": "Process"
   },
   {
-   "depends_on": "eval:doc.get_students_from==\"Program Enrollment\"",
-   "fieldname": "new_program",
-   "fieldtype": "Link",
-   "label": "New Program",
-   "mandatory_depends_on": "eval:doc.get_students_from==\"Program Enrollment\"",
-   "options": "Program"
+   "fieldname": "exit_type_for_not_returning",
+   "fieldtype": "Select",
+   "label": "Exit Type for Students Not Returning",
+   "options": "Did Not Re-register\nWithdrawn\nTransferred\nOther",
+   "default": "Did Not Re-register",
+   "description": "Used for rows set to Record Exit. Grade 12 students are always recorded as Graduated."
   },
   {
-   "fieldname": "new_student_batch",
-   "fieldtype": "Link",
-   "label": "New Student Batch",
-   "mandatory_depends_on": "eval:doc.student_batch",
-   "options": "Student Batch Name"
+   "fieldname": "exit_date",
+   "fieldtype": "Date",
+   "label": "Exit Date",
+   "description": "Defaults to the last day of the From academic year."
+  },
+  {
+   "fieldname": "disable_logins_on_exit",
+   "fieldtype": "Check",
+   "label": "Disable Logins of Students Who Leave",
+   "default": "1"
+  },
+  {
+   "fieldname": "column_break_process",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "enroll_students",
    "fieldtype": "Button",
-   "label": "Enroll Students"
+   "label": "Process Rows",
+   "description": "Runs in the background: rows set to Enroll are enrolled (Student records are created for new students, without logins), rows set to Record Exit get a Student Exit. Logins are created separately with the Student User Creation Tool."
   },
   {
-   "fieldname": "column_break_12",
+   "fieldname": "section_groups",
+   "fieldtype": "Section Break",
+   "label": "Sections (Student Groups)"
+  },
+  {
+   "fieldname": "groups_help",
+   "fieldtype": "HTML",
+   "label": "Groups Help"
+  },
+  {
+   "fieldname": "disable_unused_groups",
+   "fieldtype": "Check",
+   "label": "Disable Last Year's Sections Nobody Was Placed In"
+  },
+  {
+   "fieldname": "column_break_groups",
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.get_students_from==\"Program Enrollment\"",
-   "fieldname": "new_academic_year",
-   "fieldtype": "Link",
-   "label": "New Academic Year",
-   "mandatory_depends_on": "eval:doc.get_students_from==\"Program Enrollment\";",
-   "options": "Academic Year"
+   "fieldname": "sync_groups",
+   "fieldtype": "Button",
+   "label": "Roll Over Student Groups"
   },
   {
-   "depends_on": "eval:doc.get_students_from==\"Program Enrollment\"",
-   "fieldname": "new_academic_term",
-   "fieldtype": "Link",
-   "label": "New Academic Term",
-   "mandatory_depends_on": "eval:doc.academic_term",
-   "options": "Academic Term"
+   "fieldname": "section_log",
+   "fieldtype": "Section Break",
+   "label": "Last Run",
+   "collapsible": 1
   },
   {
-   "depends_on": "eval:doc.get_students_from==\"Program Enrollment\"",
-   "fieldname": "enrollment_date",
-   "fieldtype": "Date",
-   "label": "Enrollment Date"
+   "fieldname": "last_run",
+   "fieldtype": "HTML",
+   "label": "Last Run Details"
+  },
+  {
+   "fieldname": "last_run_log",
+   "fieldtype": "Long Text",
+   "label": "Last Run Log",
+   "hidden": 1,
+   "read_only": 1
   }
  ],
- "hide_toolbar": 1,
- "issingle": 1,
  "links": [],
- "modified": "2023-11-16 14:35:38.467928",
+ "modified": "2026-10-07 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Education",
  "name": "Program Enrollment Tool",
  "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
  "permissions": [
   {
    "create": 1,
    "read": 1,
    "role": "Education Manager",
    "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
   }
  ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+ "allow_copy": 1,
+ "hide_toolbar": 1,
+ "issingle": 1
 }

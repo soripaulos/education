@@ -19,6 +19,14 @@ frappe.ui.form.on('Program Enrollment', {
       }
     })
 
+    if (frm.fields_dict.student_group) {
+      frm.set_query('student_group', function () {
+        const filters = {}
+        if (frm.doc.program) filters.program = frm.doc.program
+        return { filters }
+      })
+    }
+
     frm.fields_dict['fees'].grid.get_field('fee_schedule').get_query =
       function (doc, cdt, cdn) {
         var d = locals[cdt][cdn]

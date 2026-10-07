@@ -7,7 +7,7 @@ from frappe import _, msgprint
 from frappe.desk.reportview import get_match_cond
 from frappe.model.document import Document
 from frappe.query_builder.functions import Min
-from frappe.utils import comma_and, get_link_to_form, getdate
+from frappe.utils import cint, comma_and, get_link_to_form, getdate
 from education.education.doctype.fee_schedule.fee_schedule import (
 	create_sales_invoice,
 	create_sales_order,
@@ -18,6 +18,9 @@ class ProgramEnrollment(Document):
 	def validate(self):
 		self.set_student_name()
 		self.validate_duplication()
+		self.validate_one_program_per_year()
+		self.validate_student_active()
+		self.validate_section()
 
 		if not self.courses:
 			self.extend("courses", self.get_courses())
@@ -49,6 +52,55 @@ class ProgramEnrollment(Document):
 		)
 		if enrollment:
 			frappe.throw(_("Student is already enrolled."))
+
+	def validate_one_program_per_year(self):
+		"""A student is in one grade per academic year."""
+		other = frappe.db.get_value(
+			"Program Enrollment",
+			{
+				"student": self.student,
+				"academic_year": self.academic_year,
+				"docstatus": ("<", 2),
+				"name": ("!=", self.name),
+				"program": ("!=", self.program),
+			},
+			["name", "program"],
+			as_dict=True,
+		)
+		if other:
+			frappe.throw(
+				_("{0} is already enrolled in {1} for {2} ({3}). Cancel that enrollment first.").format(
+					self.student_name or self.student, other.program, self.academic_year, other.name
+				)
+			)
+
+	def validate_student_active(self):
+		"""Students who have left must be readmitted before they are enrolled."""
+		if self.docstatus == 2:
+			return
+		enabled = frappe.db.get_value("Student", self.student, "enabled")
+		if not cint(enabled):
+			frappe.throw(
+				_(
+					"{0} is disabled (they have left the school). Enroll them through the Program Enrollment Tool, which readmits them, or enable the Student first."
+				).format(self.student_name or self.student)
+			)
+
+	def validate_section(self):
+		section = self.get("student_group")
+		if not section:
+			return
+		program, academic_year = frappe.db.get_value(
+			"Student Group", section, ["program", "academic_year"]
+		) or (None, None)
+		if academic_year == self.academic_year and program and program != self.program:
+			frappe.msgprint(
+				_("Section {0} is set up for {1}, but this enrollment is for {2}.").format(
+					section, program, self.program
+				),
+				indicator="orange",
+				alert=True,
+			)
 
 	def update_student_joining_date(self):
 		table = frappe.qb.DocType("Program Enrollment")
