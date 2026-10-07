@@ -28,7 +28,14 @@
   "recipients_section",
   "student_groups",
   "section_break_12",
-  "students"
+  "students",
+  "delivery_section",
+  "delivery_summary",
+  "column_break_delivery",
+  "recipient_count",
+  "sent_count",
+  "failed_count",
+  "no_device_count"
  ],
  "fields": [
   {
@@ -60,14 +67,16 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nSent\nFailed",
-   "read_only": 1
+   "options": "Draft\nSent\nPartially Sent\nFailed",
+   "read_only": 1,
+   "allow_on_submit": 1
   },
   {
    "fieldname": "sent_date",
    "fieldtype": "Datetime",
    "label": "Sent Date",
-   "read_only": 1
+   "read_only": 1,
+   "allow_on_submit": 1
   },
   {
    "fieldname": "notification_details_section",
@@ -122,6 +131,51 @@
    "fieldtype": "Table",
    "label": "Individual Students",
    "options": "App Notification Student"
+  },
+  {
+   "fieldname": "delivery_section",
+   "fieldtype": "Section Break",
+   "label": "Delivery Report",
+   "depends_on": "eval:doc.docstatus==1"
+  },
+  {
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "fieldname": "delivery_summary",
+   "fieldtype": "Small Text",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "column_break_delivery",
+   "fieldtype": "Column Break"
+  },
+  {
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "fieldname": "recipient_count",
+   "fieldtype": "Int",
+   "label": "Students Addressed"
+  },
+  {
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "fieldname": "sent_count",
+   "fieldtype": "Int",
+   "label": "Devices Sent"
+  },
+  {
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "fieldname": "failed_count",
+   "fieldtype": "Int",
+   "label": "Devices Failed"
+  },
+  {
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "fieldname": "no_device_count",
+   "fieldtype": "Int",
+   "label": "Students Without a Device"
   }
  ],
  "has_web_view": 0,
@@ -134,7 +188,7 @@
  "issingle": 0,
  "istable": 0,
  "max_attachments": 0,
- "modified": "2025-01-23 00:00:00.000000",
+ "modified": "2026-10-07 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Education",
  "name": "App Notification",
@@ -181,5 +235,12 @@
  "title_field": "title",
  "track_changes": 1,
  "track_seen": 0,
- "track_views": 0
-} 
+ "track_views": 0,
+ "links": [
+  {
+   "link_doctype": "App Notification Delivery",
+   "link_fieldname": "notification",
+   "group": "Delivery"
+  }
+ ]
+}

@@ -15,44 +15,11 @@ def register_device_token(push_token, device_type="android", app_version=None, d
         if user_id == "Guest":
             frappe.throw(_("Authentication required"))
         
-        # Check if token already exists
-        existing = frappe.db.get_value("Push Token", {"push_token": push_token}, "name")
-        
-        if existing:
-            # Update existing token
-            doc = frappe.get_doc("Push Token", existing)
-            doc.user = user_id
-            doc.device_type = device_type
-            doc.is_active = 1
-            doc.app_version = app_version
-            doc.device_model = device_model
-            doc.last_used = now()
-            doc.save(ignore_permissions=True)
-        else:
-            # Deactivate old tokens for this user and device type
-            frappe.db.set_value(
-                "Push Token",
-                {
-                    "user": user_id,
-                    "device_type": device_type
-                },
-                "is_active",
-                0
-            )
-            
-            # Create new token
-            doc = frappe.get_doc({
-                "doctype": "Push Token",
-                "push_token": push_token,
-                "user": user_id,
-                "device_type": device_type,
-                "is_active": 1,
-                "app_version": app_version,
-                "device_model": device_model,
-                "last_used": now(),
-                "created_date": now()
-            })
-            doc.insert(ignore_permissions=True)
+        from education.education.doctype.push_token.push_token import claim_push_token
+
+        # Only the account signed in last on a device keeps its token active,
+        # so one phone never receives pushes meant for other accounts.
+        claim_push_token(push_token, user_id, device_type, app_version, device_model)
         
         return {
             "status": "success",
@@ -69,116 +36,75 @@ def register_device_token(push_token, device_type="android", app_version=None, d
 
 @frappe.whitelist()
 def get_notifications_for_user(limit=20, offset=0):
-    """Get notifications for the current user"""
+    """Get the notifications addressed to the current user's student record.
+
+    Only notifications sent to everyone, to a group the student is active in,
+    or to the student directly are returned.
+    """
     try:
         user_id = frappe.session.user
-        
+
         if user_id == "Guest":
             frappe.throw(_("Authentication required"))
-        
-        # Get student record for current user
+
+        limit = frappe.utils.cint(limit) or 20
+        offset = frappe.utils.cint(offset)
+
         student = frappe.db.get_value("Student", {"user": user_id, "enabled": 1}, "name")
-        
+
         if not student:
             return {
                 "status": "success",
                 "notifications": [],
                 "total": 0
             }
-        
-        # Get notifications sent to this student
-        notifications = []
-        
-        # Get notifications sent to all students
-        all_student_notifications = frappe.get_all(
-            "App Notification",
-            filters={
-                "status": "Sent",
-                "send_to_all_students": 1
-            },
-            fields=["name", "title", "message", "notification_category", "priority", "sent_date"],
-            order_by="sent_date desc",
-            limit=limit,
-            start=offset
-        )
-        
-        notifications.extend(all_student_notifications)
-        
-        # Get notifications sent to student groups this student belongs to
-        student_groups = frappe.get_all(
-            "Student Group Student",
-            filters={"student": student, "active": 1},
-            pluck="parent"
-        )
-        
-        if student_groups:
-            group_notifications = frappe.db.sql("""
-                SELECT DISTINCT an.name, an.title, an.message, an.notification_category, 
-                       an.priority, an.sent_date
-                FROM `tabApp Notification` an
-                INNER JOIN `tabApp Notification Student Group` ansg ON an.name = ansg.parent
-                WHERE an.status = 'Sent' 
-                AND an.send_to_all_students = 0
-                AND ansg.student_group IN %(groups)s
-                ORDER BY an.sent_date DESC
-                LIMIT %(limit)s OFFSET %(offset)s
-            """, {
-                "groups": student_groups,
-                "limit": limit,
-                "offset": offset
-            }, as_dict=True)
-            
-            notifications.extend(group_notifications)
-        
-        # Get notifications sent directly to this student
-        direct_notifications = frappe.db.sql("""
-            SELECT DISTINCT an.name, an.title, an.message, an.notification_category, 
-                   an.priority, an.sent_date
+
+        condition = """
+            an.docstatus = 1
+            AND an.status IN ('Sent', 'Partially Sent')
+            AND (
+                (an.send_to_all_students = 1
+                    AND NOT EXISTS (SELECT 1 FROM `tabApp Notification Student` x WHERE x.parent = an.name)
+                    AND NOT EXISTS (SELECT 1 FROM `tabApp Notification Student Group` y WHERE y.parent = an.name))
+                OR EXISTS (SELECT 1 FROM `tabApp Notification Student` ans
+                    WHERE ans.parent = an.name AND ans.student = %(student)s)
+                OR EXISTS (SELECT 1 FROM `tabApp Notification Student Group` ansg
+                    INNER JOIN `tabStudent Group Student` sgs ON sgs.parent = ansg.student_group
+                    WHERE ansg.parent = an.name AND sgs.student = %(student)s AND sgs.active = 1)
+            )
+        """
+        params = {"student": student, "limit": limit, "offset": offset}
+
+        notifications = frappe.db.sql(f"""
+            SELECT an.name, an.title, an.message, an.notification_category, an.sent_date
             FROM `tabApp Notification` an
-            INNER JOIN `tabApp Notification Student` ans ON an.name = ans.parent
-            WHERE an.status = 'Sent' 
-            AND an.send_to_all_students = 0
-            AND ans.student = %(student)s
+            WHERE {condition}
             ORDER BY an.sent_date DESC
             LIMIT %(limit)s OFFSET %(offset)s
-        """, {
-            "student": student,
-            "limit": limit,
-            "offset": offset
-        }, as_dict=True)
-        
-        notifications.extend(direct_notifications)
-        
-        # Remove duplicates and sort by date
-        unique_notifications = {}
-        for notif in notifications:
-            unique_notifications[notif['name']] = notif
-        
-        sorted_notifications = sorted(
-            unique_notifications.values(),
-            key=lambda x: x['sent_date'],
-            reverse=True
-        )
-        
-        # Format notifications for mobile app
+        """, params, as_dict=True)
+
+        total = frappe.db.sql(f"""
+            SELECT COUNT(*) FROM `tabApp Notification` an WHERE {condition}
+        """, params)[0][0]
+
         formatted_notifications = []
-        for notif in sorted_notifications[:limit]:
+        for notif in notifications:
             formatted_notifications.append({
                 "id": notif['name'],
                 "title": notif['title'],
                 "message": notif['message'],
                 "category": notif['notification_category'],
-                "priority": notif['priority'],
+                "priority": "Urgent" if notif['notification_category'] == "Urgent" else "Normal",
                 "sent_date": notif['sent_date'].isoformat() if notif['sent_date'] else None,
                 "read": False  # You can implement read status tracking if needed
             })
-        
+
         return {
             "status": "success",
             "notifications": formatted_notifications,
-            "total": len(unique_notifications)
+            "total": total
         }
-        
+
     except Exception as e:
         frappe.log_error(f"Get notifications error: {str(e)}")
         return {

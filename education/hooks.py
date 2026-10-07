@@ -249,7 +249,21 @@ scheduler_events = {
 		"*/30 * * * *": [
 			"education.education.api.notify_accountants_of_new_applicants"
 		]
-	}
+	},
+	# Pull Expo delivery receipts so each App Notification reports which
+	# phones actually received it, and drop tokens of uninstalled apps.
+	"hourly": [
+		"education.education.doctype.app_notification.app_notification.check_recent_receipts"
+	],
+}
+
+# Students may only read the App Notifications that were addressed to them.
+permission_query_conditions = {
+	"App Notification": "education.education.doctype.app_notification.app_notification.get_permission_query_conditions",
+}
+
+has_permission = {
+	"App Notification": "education.education.doctype.app_notification.app_notification.has_permission",
 }
 
 # Fixtures - custom fields added to core doctypes so they travel with the app.
