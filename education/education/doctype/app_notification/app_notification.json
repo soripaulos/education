@@ -23,6 +23,8 @@
   "notification_details_section",
   "notification_category",
   "message",
+  "reference_doctype",
+  "reference_name",
   "column_break_8",
   "send_to_all_students",
   "recipients_section",
@@ -35,7 +37,8 @@
   "recipient_count",
   "sent_count",
   "failed_count",
-  "no_device_count"
+  "no_device_count",
+  "read_count"
  ],
  "fields": [
   {
@@ -98,6 +101,23 @@
    "reqd": 1
   },
   {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "About (Type)",
+   "options": "DocType",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "About",
+   "options": "reference_doctype",
+   "read_only": 1,
+   "hidden": 1,
+   "search_index": 1
+  },
+  {
    "fieldname": "column_break_8",
    "fieldtype": "Column Break"
   },
@@ -154,21 +174,21 @@
    "allow_on_submit": 1,
    "fieldname": "recipient_count",
    "fieldtype": "Int",
-   "label": "Students Addressed"
+   "label": "Students (Inbox)"
   },
   {
    "read_only": 1,
    "allow_on_submit": 1,
    "fieldname": "sent_count",
    "fieldtype": "Int",
-   "label": "Devices Sent"
+   "label": "Students Alerted on Phone"
   },
   {
    "read_only": 1,
    "allow_on_submit": 1,
    "fieldname": "failed_count",
    "fieldtype": "Int",
-   "label": "Devices Failed"
+   "label": "Students Whose Alert Failed"
   },
   {
    "read_only": 1,
@@ -176,6 +196,13 @@
    "fieldname": "no_device_count",
    "fieldtype": "Int",
    "label": "Students Without a Device"
+  },
+  {
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "fieldname": "read_count",
+   "fieldtype": "Int",
+   "label": "Read by Families"
   }
  ],
  "has_web_view": 0,
@@ -238,9 +265,9 @@
  "track_views": 0,
  "links": [
   {
-   "link_doctype": "App Notification Delivery",
+   "link_doctype": "Student Notification",
    "link_fieldname": "notification",
-   "group": "Delivery"
+   "group": "Recipients"
   }
  ]
 }

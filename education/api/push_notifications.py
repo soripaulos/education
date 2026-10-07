@@ -36,75 +36,35 @@ def register_device_token(push_token, device_type="android", app_version=None, d
 
 @frappe.whitelist()
 def get_notifications_for_user(limit=20, offset=0):
-    """Get the notifications addressed to the current user's student record.
+    """Older inbox API, kept for app versions that still call it.
 
-    Only notifications sent to everyone, to a group the student is active in,
-    or to the student directly are returned.
+    Reads the signed-in student's own inbox (Student Notification).
     """
+    from education.api.student_inbox import get_inbox
+
     try:
-        user_id = frappe.session.user
-
-        if user_id == "Guest":
-            frappe.throw(_("Authentication required"))
-
-        limit = frappe.utils.cint(limit) or 20
-        offset = frappe.utils.cint(offset)
-
-        student = frappe.db.get_value("Student", {"user": user_id, "enabled": 1}, "name")
-
-        if not student:
-            return {
-                "status": "success",
-                "notifications": [],
-                "total": 0
-            }
-
-        condition = """
-            an.docstatus = 1
-            AND an.status IN ('Sent', 'Partially Sent')
-            AND (
-                (an.send_to_all_students = 1
-                    AND NOT EXISTS (SELECT 1 FROM `tabApp Notification Student` x WHERE x.parent = an.name)
-                    AND NOT EXISTS (SELECT 1 FROM `tabApp Notification Student Group` y WHERE y.parent = an.name))
-                OR EXISTS (SELECT 1 FROM `tabApp Notification Student` ans
-                    WHERE ans.parent = an.name AND ans.student = %(student)s)
-                OR EXISTS (SELECT 1 FROM `tabApp Notification Student Group` ansg
-                    INNER JOIN `tabStudent Group Student` sgs ON sgs.parent = ansg.student_group
-                    WHERE ansg.parent = an.name AND sgs.student = %(student)s AND sgs.active = 1)
-            )
-        """
-        params = {"student": student, "limit": limit, "offset": offset}
-
-        notifications = frappe.db.sql(f"""
-            SELECT an.name, an.title, an.message, an.notification_category, an.sent_date
-            FROM `tabApp Notification` an
-            WHERE {condition}
-            ORDER BY an.sent_date DESC
-            LIMIT %(limit)s OFFSET %(offset)s
-        """, params, as_dict=True)
-
-        total = frappe.db.sql(f"""
-            SELECT COUNT(*) FROM `tabApp Notification` an WHERE {condition}
-        """, params)[0][0]
-
-        formatted_notifications = []
-        for notif in notifications:
-            formatted_notifications.append({
-                "id": notif['name'],
-                "title": notif['title'],
-                "message": notif['message'],
-                "category": notif['notification_category'],
-                "priority": "Urgent" if notif['notification_category'] == "Urgent" else "Normal",
-                "sent_date": notif['sent_date'].isoformat() if notif['sent_date'] else None,
-                "read": False  # You can implement read status tracking if needed
-            })
-
+        inbox = get_inbox(limit=limit, offset=offset)
         return {
             "status": "success",
-            "notifications": formatted_notifications,
-            "total": total
+            "notifications": [
+                {
+                    "id": n.name,
+                    "inbox_id": n.name,
+                    "notification": n.notification,
+                    "title": n.title,
+                    "message": n.message,
+                    "category": n.category,
+                    "priority": "Urgent" if n.category == "Urgent" else "Normal",
+                    "sent_date": n.sent_on.isoformat() if n.sent_on else None,
+                    "read": bool(n.is_read),
+                }
+                for n in inbox["items"]
+            ],
+            "total": len(inbox["items"]),
+            "unread_count": inbox["unread_count"],
         }
-
+    except frappe.PermissionError:
+        return {"status": "success", "notifications": [], "total": 0}
     except Exception as e:
         frappe.log_error(f"Get notifications error: {str(e)}")
         return {
@@ -115,8 +75,10 @@ def get_notifications_for_user(limit=20, offset=0):
 
 @frappe.whitelist()
 def mark_notification_as_read(notification_id):
-    """Mark a notification as read (placeholder for future implementation)"""
-    # You can implement notification read status tracking here
+    """Mark one of the signed-in student's inbox entries read."""
+    from education.api.student_inbox import mark_read
+
+    mark_read([notification_id])
     return {
         "status": "success",
         "message": "Notification marked as read"

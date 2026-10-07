@@ -9,18 +9,10 @@ from frappe.utils import now
 class PushToken(Document):
     def validate(self):
         """Validate push token before saving"""
-        if self.is_active:
-            # Deactivate other tokens for the same user and device type
-            frappe.db.set_value(
-                "Push Token",
-                {
-                    "user": self.user,
-                    "device_type": self.device_type,
-                    "name": ("!=", self.name)
-                },
-                "is_active",
-                0
-            )
+        # An account may be signed in on several phones (the child's own and a
+        # parent's), and each keeps its alerts. Tokens of uninstalled apps are
+        # switched off when the push service reports them as unregistered.
+
         # Update last used timestamp
         self.last_used = now()
 

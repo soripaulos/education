@@ -265,6 +265,7 @@ permission_query_conditions = {
 	"Teacher Parent Message": "education.education.student_scope.teacher_parent_message_query",
 	"Student Hub Evaluation": "education.education.student_scope.hub_evaluation_query",
 	"Student Discipline Incident": "education.education.student_scope.discipline_incident_query",
+	"Student Notification": "education.education.student_scope.student_notification_query",
 }
 
 has_permission = {
@@ -272,6 +273,25 @@ has_permission = {
 	"Teacher Parent Message": "education.education.student_scope.teacher_parent_message_permission",
 	"Student Hub Evaluation": "education.education.student_scope.hub_evaluation_permission",
 	"Student Discipline Incident": "education.education.student_scope.discipline_incident_permission",
+	"Student Notification": "education.education.student_scope.student_notification_permission",
+}
+
+# Everything that notifies a student's family. Each one sends to exactly one
+# student's inbox and phones (see education/education/notification_triggers.py).
+doc_events = {
+	"Teacher Parent Message": {
+		"after_insert": "education.education.notification_triggers.teacher_parent_message_after_insert",
+		"on_update": "education.education.notification_triggers.teacher_parent_message_on_update",
+	},
+	"Student Hub Evaluation": {
+		"after_insert": "education.education.notification_triggers.hub_evaluation_after_insert",
+	},
+	"Student Discipline Incident": {
+		"after_insert": "education.education.notification_triggers.discipline_incident_after_insert",
+	},
+	"Appeal Result": {
+		"on_update": "education.education.notification_triggers.appeal_result_on_update",
+	},
 }
 
 # Fixtures - custom fields added to core doctypes so they travel with the app.

@@ -11,8 +11,8 @@ frappe.ui.form.on("App Notification", {
 
 		if (frm.doc.docstatus !== 1) return;
 
-		frm.add_custom_button(__("Delivery Report"), () => {
-			frappe.set_route("List", "App Notification Delivery", { notification: frm.doc.name });
+		frm.add_custom_button(__("Who Got It / Read It"), () => {
+			frappe.set_route("List", "Student Notification", { notification: frm.doc.name });
 		});
 
 		frm.add_custom_button(__("Refresh Delivery Status"), () => {
@@ -25,7 +25,7 @@ frappe.ui.form.on("App Notification", {
 		});
 
 		if (frm.doc.failed_count) {
-			frm.add_custom_button(__("Resend to Failed Devices"), () => {
+			frm.add_custom_button(__("Retry Failed Phone Alerts"), () => {
 				frappe.call({
 					method: `${APP_NOTIFICATION_MODULE}.resend_failed`,
 					args: { notification_name: frm.doc.name },

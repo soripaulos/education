@@ -1,13 +1,26 @@
 # Copyright (c) 2025, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
+"""School notifications to students and their families.
+
+Submitting an App Notification:
+  1. works out exactly which students it is for,
+  2. gives each of them their own Student Notification (their inbox entry),
+  3. alerts every phone signed in to each student's account.
+
+The student app reads only the signed-in student's inbox entries, so a
+family never sees another family's messages. A phone signed in to several
+children's accounts is registered under each of them, so it is alerted for
+all of them, whichever child is open in the app at the time.
+"""
+
 import json
 from typing import Any, Dict, List
 
 import frappe
 import requests
 from frappe.model.document import Document
-from frappe.utils import add_to_date, get_datetime, now, now_datetime
+from frappe.utils import add_to_date, cint, get_datetime, now, now_datetime
 
 EXPO_SEND_URL = "https://exp.host/--/api/v2/push/send"
 EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
@@ -32,41 +45,28 @@ class AppNotification(Document):
             frappe.throw("Please select at least one recipient (Student Groups or Individual Students) or enable 'Send to All Students'")
 
     def on_submit(self):
-        """Send push notifications when the document is submitted."""
+        """Deliver to every recipient's inbox and phones when the document is submitted."""
         self.send_push_notifications()
 
     def send_push_notifications(self, only_failed=False):
-        """Send push notifications to the selected recipients and record what happened to each.
+        """Deliver this notification and record the outcome per student.
 
-        Never raises: a failed push must not roll back the document that
+        Never raises: a failed alert must not roll back the document that
         triggered it (a teacher's parent message, an incident report, ...).
-        The outcome is recorded on the document's delivery report instead.
         """
         try:
             if only_failed:
-                deliveries = self._failed_deliveries_for_retry()
-            else:
-                deliveries = self._build_deliveries()
-                self._replace_delivery_rows(deliveries)
-
-            to_send = [d for d in deliveries if d["push_token"] and d["status"] in ("Pending", "Failed")]
-            if to_send:
-                self._send_via_expo(to_send)
-                for d in to_send:
-                    self._save_delivery_row(d)
-
-            self._update_summary()
-
-            if self.status == "Failed" and not self.sent_count:
-                frappe.msgprint(
-                    "The notification could not be delivered to any device. "
-                    "See the Delivery Report section for the reason per student."
+                entries = frappe.get_all(
+                    "Student Notification",
+                    filters={"notification": self.name, "push_status": "Failed"},
+                    fields=["name", "student", "user"],
                 )
             else:
-                frappe.msgprint(
-                    f"Push notification sent to {self.sent_count} device(s) "
-                    f"for {self.recipient_count} student(s)."
-                )
+                entries = self._create_inbox_entries()
+
+            self._alert_phones(entries)
+            self.update(update_delivery_summary(self.name))
+            frappe.msgprint(self.delivery_summary)
         except Exception:
             frappe.log_error(frappe.get_traceback(), f"App Notification {self.name} failed")
             self.db_set({
@@ -98,63 +98,54 @@ class AppNotification(Document):
         # Keep order, drop duplicates.
         return list(dict.fromkeys(recipients))
 
-    def _build_deliveries(self) -> List[Dict[str, Any]]:
-        """One entry per (student, device) that should receive this notification,
-        plus one entry for each student that cannot be reached at all."""
+    def _create_inbox_entries(self) -> List[Dict[str, Any]]:
+        """Create one Student Notification per recipient student."""
+        frappe.db.delete("Student Notification", {"notification": self.name})
+
         students = self.get_recipient_students()
         if not students:
             return []
 
-        student_rows = frappe.get_all(
-            "Student",
-            filters={"name": ("in", students)},
-            fields=["name", "student_name", "user", "enabled"],
-        )
-        by_student = {s.name: s for s in student_rows}
-        user_to_students: Dict[str, List[str]] = {}
-        for s in student_rows:
-            if s.enabled and s.user:
-                user_to_students.setdefault(s.user, []).append(s.name)
+        info = {
+            s.name: s
+            for s in frappe.get_all(
+                "Student",
+                filters={"name": ("in", students)},
+                fields=["name", "student_name", "user", "enabled"],
+            )
+        }
 
-        tokens_by_user = get_active_push_tokens(list(user_to_students))
-
-        deliveries = []
+        stamp = now()
+        owner = frappe.session.user
+        fields = [
+            "name", "creation", "modified", "owner", "modified_by", "docstatus",
+            "student", "student_name", "user", "notification", "reference_doctype", "reference_name",
+            "title", "message", "category", "sent_on", "is_read", "push_status", "push_devices", "push_error",
+        ]
+        values, entries = [], []
         for student in students:
-            s = by_student.get(student)
-            base = {
-                "student": student,
-                "student_name": s.student_name if s else None,
-                "user": s.user if s else None,
-                "push_token": None,
-                "ticket_id": None,
-                "error": None,
-            }
-            if not s or not s.enabled:
-                deliveries.append({**base, "status": "No Account", "error": "Student is disabled or missing"})
+            s = info.get(student)
+            if not s:
                 continue
-            if not s.user:
-                deliveries.append({**base, "status": "No Account", "error": "Student has no app login"})
-                continue
+            user = s.user if s.enabled else None
+            name = frappe.generate_hash(length=12)
+            values.append((
+                name, stamp, stamp, owner, owner, 0,
+                student, s.student_name, s.user, self.name, self.reference_doctype, self.reference_name,
+                self.title, self.message, self.notification_category, stamp, 0,
+                "Pending" if user else "No Account", 0,
+                None if user else "Student has no active app login",
+            ))
+            entries.append({"name": name, "student": student, "user": user})
 
-            tokens = tokens_by_user.get(s.user) or []
-            if not tokens:
-                deliveries.append({
-                    **base,
-                    "status": "No Device",
-                    "error": "No phone is currently signed in to this student's account",
-                })
-                continue
-            for token in tokens:
-                deliveries.append({**base, "push_token": token, "status": "Pending"})
-
-        return deliveries
+        frappe.db.bulk_insert("Student Notification", fields=fields, values=values)
+        return entries
 
     # ------------------------------------------------------------------
-    # sending
+    # phone alerts
     # ------------------------------------------------------------------
 
-    def _prepare_notification_data(self) -> Dict[str, Any]:
-        """Prepare the payload for the push notification."""
+    def _payload(self) -> Dict[str, Any]:
         return {
             "title": self.title,
             "body": self.message,
@@ -163,9 +154,9 @@ class AppNotification(Document):
                 "category": self.notification_category,
                 "notification_id": self.name,
                 "timestamp": get_datetime().isoformat(),
-                "screen": self.get_target_screen()
+                "screen": self.get_target_screen(),
             },
-            "sound": "default"
+            "sound": "default",
         }
 
     def get_target_screen(self) -> str:
@@ -179,133 +170,103 @@ class AppNotification(Document):
         }
         return screen_map.get(self.notification_category, "notifications")
 
-    def _send_via_expo(self, deliveries: List[Dict[str, Any]]):
-        """Send to each delivery's device and store Expo's per-message ticket on it."""
-        payload = self._prepare_notification_data()
-        for start in range(0, len(deliveries), EXPO_SEND_BATCH):
-            batch = deliveries[start:start + EXPO_SEND_BATCH]
-            messages = []
-            for d in batch:
-                message = dict(payload)
-                message["to"] = d["push_token"]
-                # Lets the app double-check the push is for the account signed in.
-                message["data"] = dict(payload["data"], user=d["user"], student=d["student"])
-                messages.append(message)
-
-            try:
-                response = requests.post(
-                    EXPO_SEND_URL,
-                    headers={
-                        "Accept": "application/json",
-                        "Accept-encoding": "gzip, deflate",
-                        "Content-Type": "application/json",
-                    },
-                    json=messages,
-                    timeout=30,
-                )
-                body = response.json() if response.content else {}
-            except Exception as e:
-                for d in batch:
-                    d["status"] = "Failed"
-                    d["error"] = f"Could not reach push service: {e}"[:140]
-                continue
-
-            tickets = body.get("data") if isinstance(body, dict) else None
-            if not isinstance(tickets, list) or len(tickets) != len(batch):
-                error = json.dumps(body.get("errors") if isinstance(body, dict) else body)[:140]
-                for d in batch:
-                    d["status"] = "Failed"
-                    d["error"] = f"Push service rejected the request: {error}"
-                continue
-
-            for d, ticket in zip(batch, tickets):
-                apply_ticket(d, ticket)
-
-    # ------------------------------------------------------------------
-    # delivery report
-    # ------------------------------------------------------------------
-
-    def _replace_delivery_rows(self, deliveries: List[Dict[str, Any]]):
-        """Store one App Notification Delivery record per entry.
-
-        Kept as a separate, staff-only doctype rather than a child table so a
-        student who can read a broadcast never sees other students' devices.
-        """
-        frappe.db.delete("App Notification Delivery", {"notification": self.name})
-        if not deliveries:
+    def _alert_phones(self, entries: List[Dict[str, Any]]):
+        """Push to every phone signed in to each recipient's account."""
+        entries = [e for e in entries if e.get("user")]
+        if not entries:
             return
-        stamp = now()
-        user = frappe.session.user
-        fields = [
-            "name", "creation", "modified", "owner", "modified_by", "docstatus",
-            "notification", "student", "student_name", "user", "push_token",
-            "status", "ticket_id", "error", "updated_on",
-        ]
-        values = []
-        for d in deliveries:
-            d["row_name"] = frappe.generate_hash(length=12)
-            values.append((
-                d["row_name"], stamp, stamp, user, user, 0,
-                self.name, d["student"], d.get("student_name"), d.get("user"), d.get("push_token"),
-                d["status"], d.get("ticket_id"), d.get("error"), stamp,
-            ))
-        frappe.db.bulk_insert("App Notification Delivery", fields=fields, values=values)
 
-    def _failed_deliveries_for_retry(self) -> List[Dict[str, Any]]:
-        """Failed rows whose device is still registered to the student's account."""
-        rows = frappe.get_all(
-            "App Notification Delivery",
-            filters={"notification": self.name, "status": "Failed", "push_token": ("is", "set"), "user": ("is", "set")},
-            fields=["name", "student", "user", "push_token"],
-        )
-        active = get_active_push_tokens(list({r.user for r in rows}))
-        retry = []
-        for r in rows:
-            if r.push_token not in (active.get(r.user) or []):
-                frappe.db.set_value(
-                    "App Notification Delivery",
-                    r.name,
-                    {"status": "No Device", "error": "Device is no longer registered to this account", "updated_on": now()},
+        tokens_by_user = get_active_push_tokens(list({e["user"] for e in entries}))
+        payload = self._payload()
+        names = {
+            r.name: r.student_name
+            for r in frappe.get_all(
+                "Student", filters={"name": ("in", [e["student"] for e in entries])}, fields=["name", "student_name"]
+            )
+        }
+
+        messages, owners = [], []
+        for e in entries:
+            e["tickets"], e["errors"] = [], []
+            tokens = tokens_by_user.get(e["user"]) or []
+            e["devices"] = len(tokens)
+            for token in tokens:
+                message = dict(payload)
+                message["to"] = token
+                # Tells the app which child this is for, so on a phone signed
+                # in to several children it can open the right account.
+                message["data"] = dict(
+                    payload["data"],
+                    student_id=e["student"],
+                    student_name=names.get(e["student"]),
+                    user_id=e["user"],
+                    inbox_id=e["name"],
                 )
-                continue
-            retry.append({
-                "row_name": r.name,
-                "student": r.student,
-                "user": r.user,
-                "push_token": r.push_token,
-                "status": "Failed",
-                "ticket_id": None,
-                "error": None,
-            })
-        return retry
+                messages.append(message)
+                owners.append((e, token))
 
-    def _save_delivery_row(self, d: Dict[str, Any]):
-        if d.get("row_name"):
+        for start in range(0, len(messages), EXPO_SEND_BATCH):
+            batch = messages[start:start + EXPO_SEND_BATCH]
+            batch_owners = owners[start:start + EXPO_SEND_BATCH]
+            tickets, error = send_to_expo(batch)
+            for i, (e, token) in enumerate(batch_owners):
+                ticket = tickets[i] if tickets else {"status": "error", "message": error}
+                if ticket.get("status") == "ok":
+                    e["tickets"].append({"id": ticket.get("id"), "token": token})
+                else:
+                    details = ticket.get("details") or {}
+                    reason = details.get("error") or ticket.get("message") or "Unknown error"
+                    e["errors"].append(reason)
+                    if reason == "DeviceNotRegistered":
+                        deactivate_token(token)
+
+        for e in entries:
+            if not e["devices"]:
+                status, reason = "No Device", "No phone is signed in to this student's account"
+            elif e["tickets"]:
+                status, reason = "Sent", None
+            else:
+                status, reason = "Failed", (e["errors"][0] if e["errors"] else "Unknown error")[:140]
             frappe.db.set_value(
-                "App Notification Delivery",
-                d["row_name"],
-                {"status": d["status"], "ticket_id": d["ticket_id"], "error": d["error"], "updated_on": now()},
+                "Student Notification",
+                e["name"],
+                {
+                    "push_status": status,
+                    "push_devices": e["devices"],
+                    "push_error": reason,
+                    "push_tickets": json.dumps(e["tickets"]) if e["tickets"] else None,
+                },
+                update_modified=False,
             )
 
-    def _update_summary(self):
-        # Copy the stored values onto this instance rather than reloading it,
-        # which is unsafe while the document is still being submitted.
-        self.update(update_delivery_summary(self.name))
+
+def send_to_expo(messages):
+    """POST a batch to Expo. Returns (tickets, None) or (None, error message)."""
+    try:
+        response = requests.post(
+            EXPO_SEND_URL,
+            headers={
+                "Accept": "application/json",
+                "Accept-encoding": "gzip, deflate",
+                "Content-Type": "application/json",
+            },
+            json=messages,
+            timeout=30,
+        )
+        body = response.json() if response.content else {}
+    except Exception as e:
+        return None, f"Could not reach push service: {e}"[:140]
+
+    tickets = body.get("data") if isinstance(body, dict) else None
+    if not isinstance(tickets, list) or len(tickets) != len(messages):
+        errors = body.get("errors") if isinstance(body, dict) else body
+        return None, f"Push service rejected the request: {json.dumps(errors)}"[:140]
+    return tickets, None
 
 
-def apply_ticket(d: Dict[str, Any], ticket: Dict[str, Any]):
-    """Record one Expo push ticket on a delivery entry."""
-    if ticket.get("status") == "ok":
-        d["status"] = "Sent"
-        d["ticket_id"] = ticket.get("id")
-        d["error"] = None
-        return
-    details = ticket.get("details") or {}
-    d["status"] = "Failed"
-    d["error"] = (details.get("error") or ticket.get("message") or "Unknown error")[:140]
-    if details.get("error") == "DeviceNotRegistered":
-        # The app was uninstalled or the token rotated; stop sending to it.
-        frappe.db.set_value("Push Token", {"push_token": d["push_token"]}, "is_active", 0)
+def deactivate_token(token):
+    """The app was uninstalled or its token rotated; stop sending to it."""
+    frappe.db.set_value("Push Token", {"push_token": token}, "is_active", 0)
 
 
 def get_active_push_tokens(users: List[str]) -> Dict[str, List[str]]:
@@ -330,45 +291,42 @@ def get_active_push_tokens(users: List[str]) -> Dict[str, List[str]]:
     return result
 
 
-def update_delivery_summary(name: str):
-    """Recount the delivery rows of a notification and set its status."""
-    rows = frappe.get_all(
-        "App Notification Delivery",
-        filters={"notification": name},
-        fields=["student", "status"],
-        limit_page_length=0,
+def update_delivery_summary(name: str) -> Dict[str, Any]:
+    """Recount a notification's inbox entries and set its status and summary."""
+    counts = dict(
+        frappe.db.sql(
+            """select push_status, count(*) from `tabStudent Notification`
+            where notification = %s group by push_status""",
+            name,
+        )
     )
-    students = {r.student for r in rows}
-    counts: Dict[str, int] = {}
-    for r in rows:
-        counts[r.status] = counts.get(r.status, 0) + 1
-
-    sent = counts.get("Sent", 0) + counts.get("Delivered", 0)
+    total = sum(counts.values())
+    read = frappe.db.count("Student Notification", {"notification": name, "is_read": 1})
+    alerted = counts.get("Sent", 0) + counts.get("Delivered", 0)
     failed = counts.get("Failed", 0)
-    unreachable = len({r.student for r in rows if r.status in ("No Device", "No Account")})
-    reached = len({r.student for r in rows if r.status in ("Sent", "Delivered")})
+    no_device = counts.get("No Device", 0) + counts.get("No Account", 0)
 
-    if sent and not failed:
-        status = "Sent"
-    elif sent:
-        status = "Partially Sent"
-    else:
+    if not total:
         status = "Failed"
-
-    summary = (
-        f"{reached} of {len(students)} student(s) reached on {sent} device(s). "
-        f"{failed} device(s) failed, {unreachable} student(s) have no signed-in device."
-    )
+        summary = "No students matched the selected recipients."
+    else:
+        status = "Partially Sent" if failed else "Sent"
+        summary = (
+            f"In the app inbox of {total} student(s). "
+            f"Phone alert reached {alerted}; {failed} failed; {no_device} have no phone signed in. "
+            f"Read by {read}."
+        )
 
     values = {
         "status": status,
-        "recipient_count": len(students),
-        "sent_count": sent,
+        "recipient_count": total,
+        "sent_count": alerted,
         "failed_count": failed,
-        "no_device_count": unreachable,
+        "no_device_count": no_device,
+        "read_count": read,
         "delivery_summary": summary,
     }
-    if sent and not frappe.db.get_value("App Notification", name, "sent_date"):
+    if total and not frappe.db.get_value("App Notification", name, "sent_date"):
         values["sent_date"] = now()
     frappe.db.set_value("App Notification", name, values, update_modified=False)
     return values
@@ -379,56 +337,67 @@ def update_delivery_summary(name: str):
 # ----------------------------------------------------------------------
 
 def check_receipts(name: str = None):
-    """Ask Expo whether pushes that were accepted actually reached the phone.
+    """Ask Expo whether alerts it accepted actually reached the phones.
 
-    Expo keeps receipts for about a day, so only recent tickets are checked.
+    Expo keeps receipts for about a day, so only recent alerts are checked.
     """
     filters = {
-        "status": "Sent",
-        "ticket_id": ("is", "set"),
-        "updated_on": (">", add_to_date(now_datetime(), days=-1)),
+        "push_status": "Sent",
+        "push_tickets": ("is", "set"),
+        "sent_on": (">", add_to_date(now_datetime(), days=-1)),
     }
     if name:
         filters["notification"] = name
     rows = frappe.get_all(
-        "App Notification Delivery",
+        "Student Notification",
         filters=filters,
-        fields=["name", "notification", "ticket_id", "push_token"],
-        limit_page_length=5000,
+        fields=["name", "notification", "push_tickets"],
+        limit_page_length=0,
     )
     if not rows:
         return 0
 
-    touched = set()
-    for start in range(0, len(rows), EXPO_RECEIPT_BATCH):
-        batch = rows[start:start + EXPO_RECEIPT_BATCH]
+    ids = []
+    for r in rows:
+        r.tickets = json.loads(r.push_tickets or "[]")
+        ids.extend(t["id"] for t in r.tickets if t.get("id"))
+
+    receipts: Dict[str, Any] = {}
+    for start in range(0, len(ids), EXPO_RECEIPT_BATCH):
         try:
             response = requests.post(
                 EXPO_RECEIPTS_URL,
                 headers={"Accept": "application/json", "Content-Type": "application/json"},
-                json={"ids": [r.ticket_id for r in batch]},
+                json={"ids": ids[start:start + EXPO_RECEIPT_BATCH]},
                 timeout=30,
             )
-            receipts = (response.json() or {}).get("data") or {}
+            receipts.update((response.json() or {}).get("data") or {})
         except Exception:
             frappe.log_error(frappe.get_traceback(), "App Notification receipt check failed")
-            continue
 
-        for r in batch:
-            receipt = receipts.get(r.ticket_id)
-            if not receipt:
-                continue  # not ready yet
+    touched = set()
+    for r in rows:
+        ready = [t for t in r.tickets if t.get("id") in receipts]
+        if not ready:
+            continue  # not ready yet
+        ok, errors = False, []
+        for t in ready:
+            receipt = receipts[t["id"]]
             if receipt.get("status") == "ok":
-                values = {"status": "Delivered", "error": None}
-            else:
-                details = receipt.get("details") or {}
-                error = details.get("error") or receipt.get("message") or "Unknown error"
-                values = {"status": "Failed", "error": error[:140]}
-                if error == "DeviceNotRegistered" and r.push_token:
-                    frappe.db.set_value("Push Token", {"push_token": r.push_token}, "is_active", 0)
-            values["updated_on"] = now()
-            frappe.db.set_value("App Notification Delivery", r.name, values)
-            touched.add(r.notification)
+                ok = True
+                continue
+            reason = (receipt.get("details") or {}).get("error") or receipt.get("message") or "Unknown error"
+            errors.append(reason)
+            if reason == "DeviceNotRegistered" and t.get("token"):
+                deactivate_token(t["token"])
+        if ok:
+            values = {"push_status": "Delivered", "push_error": None}
+        elif len(ready) == len(r.tickets):
+            values = {"push_status": "Failed", "push_error": errors[0][:140]}
+        else:
+            continue
+        frappe.db.set_value("Student Notification", r.name, values, update_modified=False)
+        touched.add(r.notification)
 
     for parent in touched:
         update_delivery_summary(parent)
@@ -495,7 +464,7 @@ def is_addressed_to(doc, student) -> bool:
 
 @frappe.whitelist()
 def send_test_notification(notification_name):
-    """API method to send a test notification"""
+    """Send a submitted notification that never went out (e.g. it errored)."""
     doc = frappe.get_doc("App Notification", notification_name)
     doc.check_permission("submit")
 
@@ -503,12 +472,12 @@ def send_test_notification(notification_name):
         frappe.throw("This notification has already been sent")
 
     doc.send_push_notifications()
-    return {"status": "success", "message": doc.delivery_summary}
+    return {"status": doc.status, "message": doc.delivery_summary}
 
 
 @frappe.whitelist()
 def resend_failed(notification_name):
-    """Retry the devices that failed, without re-notifying anyone who already got it."""
+    """Retry the phone alerts that failed, without re-alerting anyone who got it."""
     doc = frappe.get_doc("App Notification", notification_name)
     doc.check_permission("submit")
     if doc.docstatus != 1:
@@ -523,13 +492,13 @@ def refresh_delivery_status(notification_name):
     doc = frappe.get_doc("App Notification", notification_name)
     doc.check_permission("read")
     check_receipts(notification_name)
-    doc.reload()
-    return {"status": doc.status, "message": doc.delivery_summary}
+    values = update_delivery_summary(notification_name)
+    return {"status": values["status"], "message": values["delivery_summary"]}
 
 
 @frappe.whitelist()
 def get_recipient_preview(student_groups=None, students=None, send_to_all_students=0):
-    """How many students a notification would reach, and how many have a device."""
+    """How many students a notification would reach, and how many have a phone signed in."""
     frappe.has_permission("App Notification", "create", throw=True)
     if isinstance(student_groups, str):
         student_groups = json.loads(student_groups or "[]")
@@ -537,7 +506,7 @@ def get_recipient_preview(student_groups=None, students=None, send_to_all_studen
         students = json.loads(students or "[]")
 
     doc = frappe.new_doc("App Notification")
-    doc.send_to_all_students = frappe.utils.cint(send_to_all_students)
+    doc.send_to_all_students = cint(send_to_all_students)
     for g in student_groups or []:
         doc.append("student_groups", {"student_group": g})
     for s in students or []:

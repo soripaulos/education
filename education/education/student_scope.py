@@ -69,3 +69,11 @@ def discipline_incident_query(user=None):
 
 def discipline_incident_permission(doc, ptype=None, user=None):
     return _has_permission(doc, user)
+
+
+def student_notification_query(user=None):
+	return _conditions("Student Notification", user)
+
+
+def student_notification_permission(doc, ptype=None, user=None):
+	return _has_permission(doc, user)
