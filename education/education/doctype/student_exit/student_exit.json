@@ -1,0 +1,475 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-07 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "student",
+  "student_name",
+  "school_id",
+  "gender",
+  "column_break_main",
+  "exit_type",
+  "exit_date",
+  "status",
+  "section_last_year",
+  "academic_year",
+  "program",
+  "column_break_last",
+  "student_group",
+  "last_attendance_date",
+  "section_reason",
+  "reason_for_leaving",
+  "destination_school",
+  "column_break_reason",
+  "reason_details",
+  "last_exams_taken",
+  "section_clearance",
+  "fees_cleared",
+  "library_cleared",
+  "property_returned",
+  "column_break_clearance",
+  "clearance_notes",
+  "section_documents",
+  "leaving_certificate_number",
+  "column_break_certificate",
+  "leaving_certificate_issued_on",
+  "section_documents_table",
+  "documents_issued",
+  "section_national_exam",
+  "national_exam_result",
+  "national_exam_total",
+  "national_exam_average",
+  "national_exam_status",
+  "column_break_after_school",
+  "post_school_plan",
+  "institution_joined",
+  "field_of_study",
+  "section_records",
+  "disable_user_login",
+  "deactivate_group_membership",
+  "column_break_records",
+  "remarks",
+  "section_readmission",
+  "readmitted_on",
+  "column_break_readmission",
+  "readmission_enrollment",
+  "applied_changes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "STU-EXIT-.YYYY.-",
+   "default": "STU-EXIT-.YYYY.-",
+   "reqd": 1,
+   "hidden": 1,
+   "no_copy": 0,
+   "print_hide": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "label": "Student",
+   "options": "Student",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "label": "Student Name",
+   "fetch_from": "student.student_name",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_global_search": 1
+  },
+  {
+   "fieldname": "school_id",
+   "fieldtype": "Data",
+   "label": "School ID",
+   "fetch_from": "student.custom_school_id",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "gender",
+   "fieldtype": "Link",
+   "label": "Gender",
+   "options": "Gender",
+   "fetch_from": "student.gender",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "exit_type",
+   "fieldtype": "Select",
+   "label": "Exit Type",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "options": "\nGraduated\nTransferred\nWithdrawn\nDid Not Re-register\nExpelled\nDeceased\nOther",
+   "description": "Graduated: completed Grade 12. Did Not Re-register: did not apply for the next year."
+  },
+  {
+   "fieldname": "exit_date",
+   "fieldtype": "Date",
+   "label": "Exit Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "default": "Today"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Exited\nReadmitted",
+   "default": "Exited",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_last_year",
+   "fieldtype": "Section Break",
+   "label": "Last Enrollment"
+  },
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Last Academic Year Attended",
+   "options": "Academic Year",
+   "in_standard_filter": 1,
+   "description": "Filled from the student's latest enrollment when left empty."
+  },
+  {
+   "fieldname": "program",
+   "fieldtype": "Link",
+   "label": "Last Program",
+   "options": "Program",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_last",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "student_group",
+   "fieldtype": "Link",
+   "label": "Last Section",
+   "options": "Student Group"
+  },
+  {
+   "fieldname": "last_attendance_date",
+   "fieldtype": "Date",
+   "label": "Last Day Attended"
+  },
+  {
+   "fieldname": "section_reason",
+   "fieldtype": "Section Break",
+   "label": "Reason"
+  },
+  {
+   "fieldname": "reason_for_leaving",
+   "fieldtype": "Select",
+   "label": "Reason for Leaving",
+   "options": "\nFamily relocation to another city or country\nFinancial difficulties or inability to pay school fees\nAdmission to another school with better academic programs\nSeeking a curriculum not offered at the current school\nBullying or social adjustment issues\nMental or physical health concerns\nDisciplinary expulsion or suspension\nParent or guardian decision due to dissatisfaction\nReligious or cultural reasons\nLong-term travel or emigration plans\nTransportation or commute challenges\nGranted scholarship at another school"
+  },
+  {
+   "fieldname": "destination_school",
+   "fieldtype": "Data",
+   "label": "Destination School / Institution",
+   "depends_on": "eval:['Transferred','Withdrawn','Other'].includes(doc.exit_type)"
+  },
+  {
+   "fieldname": "column_break_reason",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reason_details",
+   "fieldtype": "Small Text",
+   "label": "Details"
+  },
+  {
+   "fieldname": "last_exams_taken",
+   "fieldtype": "Select",
+   "label": "Last Exams Taken",
+   "options": "\nFirst Test - SEM 1\nSecond Test- SEM 1\nMid Exam- SEM 1\nFinal Exam- SEM 1\nFirst Test - SEM 2\nSecond Test- SEM 2\nMid Exam- SEM 2\nFinal Exam- SEM 2"
+  },
+  {
+   "fieldname": "section_clearance",
+   "fieldtype": "Section Break",
+   "label": "Clearance",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "fees_cleared",
+   "fieldtype": "Check",
+   "label": "Fees Cleared",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "library_cleared",
+   "fieldtype": "Check",
+   "label": "Library Cleared",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "property_returned",
+   "fieldtype": "Check",
+   "label": "School Property Returned",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "column_break_clearance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "clearance_notes",
+   "fieldtype": "Small Text",
+   "label": "Clearance Notes",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "section_documents",
+   "fieldtype": "Section Break",
+   "label": "Leaving Certificate & Documents Issued",
+   "description": "Transcripts and certificates handed out, including any issued years after the student left."
+  },
+  {
+   "fieldname": "leaving_certificate_number",
+   "fieldtype": "Data",
+   "label": "Leaving Certificate No.",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "column_break_certificate",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "leaving_certificate_issued_on",
+   "fieldtype": "Date",
+   "label": "Leaving Certificate Issued On",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "section_documents_table",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "documents_issued",
+   "fieldtype": "Table",
+   "label": "Documents Issued",
+   "options": "Student Exit Document",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "section_national_exam",
+   "fieldtype": "Section Break",
+   "label": "Grade 12 National Exam & After School",
+   "depends_on": "eval:doc.exit_type=='Graduated'"
+  },
+  {
+   "fieldname": "national_exam_result",
+   "fieldtype": "Link",
+   "label": "National Exam Result",
+   "options": "External Exam Result",
+   "allow_on_submit": 1,
+   "description": "Linked automatically when a submitted Grade 12 National Exam result exists."
+  },
+  {
+   "fieldname": "national_exam_total",
+   "fieldtype": "Float",
+   "label": "Total Score",
+   "fetch_from": "national_exam_result.total_score",
+   "read_only": 1
+  },
+  {
+   "fieldname": "national_exam_average",
+   "fieldtype": "Percent",
+   "label": "Average",
+   "fetch_from": "national_exam_result.average_percentage",
+   "read_only": 1
+  },
+  {
+   "fieldname": "national_exam_status",
+   "fieldtype": "Data",
+   "label": "Result",
+   "fetch_from": "national_exam_result.result_status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_after_school",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "post_school_plan",
+   "fieldtype": "Select",
+   "label": "Next Step",
+   "allow_on_submit": 1,
+   "options": "\nUniversity / College\nTVET\nEmployment\nOther\nUnknown"
+  },
+  {
+   "fieldname": "institution_joined",
+   "fieldtype": "Data",
+   "label": "Institution Joined",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "field_of_study",
+   "fieldtype": "Data",
+   "label": "Field of Study",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "section_records",
+   "fieldtype": "Section Break",
+   "label": "Records & Access"
+  },
+  {
+   "fieldname": "disable_user_login",
+   "fieldtype": "Check",
+   "label": "Disable Student Login",
+   "default": "1",
+   "description": "Disables the student's portal/app login on submit; it is re-enabled if the exit is cancelled or the student is readmitted."
+  },
+  {
+   "fieldname": "deactivate_group_membership",
+   "fieldtype": "Check",
+   "label": "Remove From Active Sections",
+   "default": "1"
+  },
+  {
+   "fieldname": "column_break_records",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "section_readmission",
+   "fieldtype": "Section Break",
+   "label": "Readmission",
+   "depends_on": "eval:doc.status=='Readmitted'"
+  },
+  {
+   "fieldname": "readmitted_on",
+   "fieldtype": "Date",
+   "label": "Readmitted On",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_readmission",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "readmission_enrollment",
+   "fieldtype": "Link",
+   "label": "Readmission Enrollment",
+   "options": "Program Enrollment",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "applied_changes",
+   "fieldtype": "Long Text",
+   "label": "Applied Changes",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Student Exit",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-07 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Student Exit",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Education Manager",
+   "share": 1,
+   "write": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Academics User",
+   "share": 1,
+   "write": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  }
+ ],
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "is_submittable": 1,
+ "track_changes": 1,
+ "title_field": "student_name",
+ "show_title_field_in_link": 1,
+ "search_fields": "student_name,school_id,exit_type"
+}

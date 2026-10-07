@@ -11,6 +11,14 @@ def after_install():
 	create_invoice_permissions()
 	create_custom_fields(get_custom_fields())
 	create_permissions(get_permissions())
+	after_migrate()
+
+
+def after_migrate():
+	"""Keep the student-lifecycle fields on their host doctypes."""
+	from education.education.lifecycle.setup import make_custom_fields
+
+	make_custom_fields()
 
 
 def setup_fixtures():

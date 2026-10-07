@@ -168,6 +168,7 @@ domains = {
 
 # before_install = "education.install.before_install"
 after_install = "education.install.after_install"
+after_migrate = "education.install.after_migrate"
 
 # Uninstallation
 # ------------

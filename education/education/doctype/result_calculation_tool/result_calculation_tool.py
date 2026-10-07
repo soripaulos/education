@@ -198,14 +198,42 @@ def _get_docstatus_list(opts):
 	return [1]
 
 
-def _get_group_membership(groups):
-	"""Return {group: {student: active(0/1)}} for the given student groups."""
+def _get_group_membership(groups, academic_year=None):
+	"""Return {group: {student: active(0/1)}} for the given student groups.
+
+	Sections keep their names from year to year, so once a section has been
+	rolled over its member table describes the new class. For a section now
+	serving a different year than ``academic_year``, membership comes from
+	the enrollments that recorded the section for ``academic_year``.
+	"""
 	membership = {g: {} for g in groups}
 	if not groups:
 		return membership
+
+	current = list(groups)
+	if academic_year:
+		from education.education.lifecycle.groups import get_group_members
+
+		group_years = dict(
+			frappe.get_all(
+				"Student Group",
+				filters={"name": ["in", list(groups)]},
+				fields=["name", "academic_year"],
+				as_list=True,
+			)
+		)
+		current = []
+		for group in groups:
+			if group_years.get(group) and group_years[group] != academic_year:
+				membership[group] = get_group_members(group, academic_year)
+			else:
+				current.append(group)
+		if not current:
+			return membership
+
 	rows = frappe.get_all(
 		"Student Group Student",
-		filters={"parent": ["in", list(groups)], "parenttype": "Student Group"},
+		filters={"parent": ["in", current], "parenttype": "Student Group"},
 		fields=["parent", "student", "active"],
 	)
 	for row in rows:
@@ -262,7 +290,7 @@ def _collect_term_data(opts):
 	group_programs, group_excluded, all_excluded = _resolve_group_exclusions(opts, list(groups))
 	manual_courses = sorted(set(opts.excluded_courses or []))
 
-	membership = _get_group_membership(list(groups))
+	membership = _get_group_membership(list(groups), opts.academic_year)
 	student_names = _get_student_names(all_students)
 
 	for group_name, group in groups.items():
@@ -372,7 +400,7 @@ def _collect_year_data(opts):
 	group_programs, group_excluded, all_excluded = _resolve_group_exclusions(opts, list(groups))
 	manual_courses = sorted(set(opts.excluded_courses or []))
 
-	membership = _get_group_membership(list(groups))
+	membership = _get_group_membership(list(groups), opts.academic_year)
 
 	term_report_counts = {}
 	for term in expected_terms:

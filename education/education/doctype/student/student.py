@@ -124,8 +124,6 @@ class Student(Document):
 		the record is left as it is for a human to reconcile rather than being
 		handed a freshly minted duplicate.
 		"""
-		if frappe.db.get_single_value("Education Settings", "user_creation_skip"):
-			return
 		if not self.student_email_id:
 			return
 
@@ -134,24 +132,21 @@ class Student(Document):
 			self.user = matching_user
 			return
 
+		# Logins are normally created afterwards, in bulk, by the Student User
+		# Creation Tool: bulk enrollment sets this flag so it is never held up
+		# by Frappe's hourly limit on new users.
+		if self.flags.skip_user_creation or frappe.db.get_single_value(
+			"Education Settings", "user_creation_skip"
+		):
+			return
+
 		if self.user and frappe.db.get_value("User", self.user, "last_login"):
 			return
 
-		student_user = frappe.get_doc(
-			{
-				"doctype": "User",
-				"first_name": self.first_name,
-				"last_name": self.last_name,
-				"email": self.student_email_id,
-				"gender": self.gender,
-				"send_welcome_email": 1,
-				"user_type": "Website User",
-			}
-		)
-		student_user.add_roles("Student")
-		student_user.save(ignore_permissions=True)
+		from education.education.lifecycle.accounts import create_user, set_phone_password
 
-		self.user = student_user.name
+		self.user = create_user(self, self.student_email_id)
+		set_phone_password(self, self.user)
 
 	def check_unique(self):
 		"""Validates if the Student Applicant is Unique"""
