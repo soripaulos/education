@@ -5,8 +5,11 @@
 
 Grade 6 and Grade 8 sit regional exams that decide whether they move on;
 Grade 12 sits the national exam that closes their time at the school. The
-score per subject, the total, the average and the pass/fail outcome are kept
-here, and a Grade 12 result is linked to the student's graduation exit.
+overall total, average and Pass/Fail are written here as the exam board
+reports them - the school does not re-decide them. For grades whose
+Promotion Rule is decided by an outside exam, this Pass/Fail is what counts.
+Grade 12 results can also carry a score per subject, and are linked to the
+student's graduation exit.
 """
 
 import frappe
@@ -15,14 +18,6 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 GRADE_12 = "Grade 12 National Exam"
-MANUAL_STATUSES = ("Absent", "Withheld")
-
-
-def default_pass_mark(exam_type):
-	from education.education.lifecycle.setup import get_setting
-
-	fieldname = "national_exam_pass_mark" if exam_type == GRADE_12 else "regional_exam_pass_mark"
-	return flt(get_setting(fieldname, 50))
 
 
 class ExternalExamResult(Document):
@@ -67,30 +62,36 @@ class ExternalExamResult(Document):
 			self.student_group = self.student_group or enrollment.get("student_group")
 
 	def calculate(self):
-		total = total_max = 0.0
-		for row in self.subjects:
-			if flt(row.max_score) <= 0:
-				row.max_score = 100
-			if flt(row.score) < 0 or flt(row.score) > flt(row.max_score):
-				frappe.throw(
-					_("Row {0}: {1} must be between 0 and {2}.").format(row.idx, row.subject, row.max_score)
-				)
-			row.percentage = flt(row.score) / flt(row.max_score) * 100
-			total += flt(row.score)
-			total_max += flt(row.max_score)
+		"""Totals from the subject rows when there are any; otherwise as typed."""
+		if self.exam_type != GRADE_12 and self.subjects:
+			# Subject rows are only kept for the national exam.
+			self.set("subjects", [])
 
-		self.total_score = total
-		self.total_max_score = total_max
-		self.average_percentage = total / total_max * 100 if total_max else 0
+		if self.subjects:
+			total = total_max = 0.0
+			for row in self.subjects:
+				if flt(row.max_score) <= 0:
+					row.max_score = 100
+				if flt(row.score) < 0 or flt(row.score) > flt(row.max_score):
+					frappe.throw(
+						_("Row {0}: {1} must be between 0 and {2}.").format(row.idx, row.subject, row.max_score)
+					)
+				row.percentage = flt(row.score) / flt(row.max_score) * 100
+				total += flt(row.score)
+				total_max += flt(row.max_score)
+			self.total_score = total
+			self.total_max_score = total_max
 
-		if self.is_new() and not self.pass_mark:
-			self.pass_mark = default_pass_mark(self.exam_type)
-		if self.result_status in MANUAL_STATUSES:
-			return
-		if self.subjects and flt(self.pass_mark):
-			self.result_status = "Pass" if flt(self.average_percentage) >= flt(self.pass_mark) else "Fail"
-		elif not self.subjects:
-			self.result_status = self.result_status or "Pending"
+		if flt(self.total_max_score) > 0:
+			if flt(self.total_score) > flt(self.total_max_score):
+				frappe.throw(_("Total Score cannot be more than Out Of."))
+			self.average_percentage = flt(self.total_score) / flt(self.total_max_score) * 100
+		if flt(self.average_percentage) < 0 or flt(self.average_percentage) > 100:
+			frappe.throw(_("Average must be between 0 and 100."))
+
+	def before_submit(self):
+		if self.result_status == "Pending":
+			frappe.throw(_("Set the Result (Pass, Fail, Absent or Withheld) before submitting."))
 
 	def on_submit(self):
 		if self.exam_type == GRADE_12:
@@ -114,8 +115,3 @@ class ExternalExamResult(Document):
 			"Student Exit", filters={"national_exam_result": self.name}, pluck="name"
 		):
 			frappe.db.set_value("Student Exit", exit_name, "national_exam_result", None)
-
-
-@frappe.whitelist()
-def get_default_pass_mark(exam_type):
-	return default_pass_mark(exam_type)

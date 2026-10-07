@@ -10,7 +10,7 @@
   this is what keeps "who was in Grade 3 B in 2018" answerable afterwards.
 * Links each enrollment to the application it came from, where one exists
   for the same School ID and year.
-* Fills the new Education Settings pass marks with their defaults.
+* Fills the fallback promotion pass mark in Education Settings (60).
 
 Everything only fills blanks, so the patch is safe to re-run.
 """
@@ -49,11 +49,6 @@ def execute():
 		"""
 	)
 
-	defaults = {
-		"promotion_pass_mark": 60,
-		"regional_exam_pass_mark": 50,
-		"national_exam_pass_mark": 50,
-	}
-	for fieldname, value in defaults.items():
-		if not frappe.db.get_single_value("Education Settings", fieldname):
-			frappe.db.set_single_value("Education Settings", fieldname, value)
+	if frappe.get_meta("Education Settings").has_field("promotion_pass_mark"):
+		if not frappe.db.get_single_value("Education Settings", "promotion_pass_mark"):
+			frappe.db.set_single_value("Education Settings", "promotion_pass_mark", 60)

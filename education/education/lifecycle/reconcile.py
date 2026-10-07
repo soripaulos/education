@@ -19,7 +19,7 @@ Row statuses
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, formatdate
+from frappe.utils import cint, formatdate
 
 from education.education.lifecycle.common import (
 	BLOCKED,
@@ -44,6 +44,8 @@ from education.education.lifecycle.common import (
 	split_program,
 	worst_severity,
 )
+from education.education.lifecycle.promotion import NOT_PROMOTED, PENDING, Evaluator
+from education.education.lifecycle.promotion import PROMOTED as RULE_PROMOTED
 from education.education.lifecycle.groups import (
 	enrollment_has_section_field,
 	load_groups,
@@ -60,9 +62,6 @@ ENROLL = "Enroll"
 RECORD_EXIT = "Record Exit"
 SKIP = "Skip"
 
-REGIONAL_EXAMS = {"Grade 6": "Grade 6 Regional Exam", "Grade 8": "Grade 8 Regional Exam"}
-
-
 def get_previous_academic_year(academic_year):
 	"""The academic year that ends before ``academic_year`` starts."""
 	start = frappe.db.get_value("Academic Year", academic_year, "year_start_date")
@@ -76,12 +75,6 @@ def get_previous_academic_year(academic_year):
 		pluck="name",
 	)
 	return rows[0] if rows else None
-
-
-def get_pass_mark():
-	from education.education.lifecycle.setup import get_setting
-
-	return flt(get_setting("promotion_pass_mark")) or 60.0
 
 
 def _applicant_fields():
@@ -110,7 +103,6 @@ class Context:
 	def __init__(self, previous_year, new_year):
 		self.previous_year = previous_year
 		self.new_year = new_year
-		self.pass_mark = get_pass_mark()
 		self.programs = set(frappe.get_all("Program", pluck="name"))
 		self.groups = load_groups()
 		self.group_keys = {section_key(g): g for g in self.groups}
@@ -134,22 +126,23 @@ class Context:
 		self.students_by_sid = {}
 		self.students_by_name = {}
 		self.students_by_applicant = {}
-		for st in frappe.get_all(
-			"Student",
-			fields=[
-				"name",
-				"custom_school_id",
-				"student_name",
-				"enabled",
-				"restricted",
-				"reason_for_restriction",
-				"date_of_leaving",
-				"gender",
-				"student_applicant",
-				"student_category",
-			],
-			limit_page_length=0,
-		):
+		student_fields = [
+			"name",
+			"custom_school_id",
+			"student_name",
+			"enabled",
+			"restricted",
+			"reason_for_restriction",
+			"date_of_leaving",
+			"gender",
+			"student_applicant",
+		]
+		# The Student's category lives in a custom field on this site.
+		has_category = frappe.get_meta("Student").has_field("custom_student_category")
+		if has_category:
+			student_fields.append("custom_student_category")
+		for st in frappe.get_all("Student", fields=student_fields, limit_page_length=0):
+			st.student_category = st.get("custom_student_category") if has_category else None
 			st.sid = normalize_school_id(st.custom_school_id or st.name)
 			self.students[st.name] = st
 			self.students_by_sid[st.sid] = st
@@ -222,25 +215,8 @@ class Context:
 			if row.student:
 				self.not_promoted_by_student[row.student] = row
 
-		self.year_average = {
-			row.student: row.year_average
-			for row in frappe.get_all(
-				"Student Year Report",
-				filters={"academic_year": previous_year},
-				fields=["student", "year_average"],
-				limit_page_length=0,
-			)
-		}
-
-		self.exam_results = {}
-		if frappe.db.table_exists("External Exam Result"):
-			for row in frappe.get_all(
-				"External Exam Result",
-				filters={"academic_year": previous_year, "docstatus": 1},
-				fields=["name", "student", "exam_type", "result_status"],
-				limit_page_length=0,
-			):
-				self.exam_results[(row.student, row.exam_type)] = row
+		# Promotion Rules, judged on last year's results.
+		self.promotion = Evaluator(previous_year)
 
 		self.open_exits = {}
 		if frappe.db.table_exists("Student Exit"):
@@ -527,25 +503,30 @@ def _check_promotion(ctx, row, app, student):
 			_("Cannot compare {0} with {1}").format(row.previous_program, app.program),
 		)
 
-	if movement == PROMOTED and student and not not_promoted:
-		average = ctx.year_average.get(student.name)
-		if average and flt(average) < ctx.pass_mark:
+	# What the Promotion Rules say about last year, next to what was applied for.
+	if student and previous and row.previous_program:
+		verdict = ctx.promotion.evaluate(student.name, row.previous_program)
+		why = "; ".join(verdict.reasons)
+		if movement == PROMOTED and not not_promoted:
+			if verdict.decision == NOT_PROMOTED:
+				_issue(
+					row,
+					REVIEW,
+					"Promotion",
+					_(
+						"Not promoted under rule {0} ({1}), but applied for {2}. Add the student to the Not Promoted list, or enroll if the school promoted them."
+					).format(verdict.rule or _("pass mark"), why, app.program),
+				)
+			elif verdict.decision == PENDING and verdict.rule and why:
+				_issue(row, INFO, "Promotion", _("Promotion not yet decided: {0}").format(why))
+		elif not_promoted and verdict.decision == RULE_PROMOTED:
 			_issue(
 				row,
 				INFO,
 				"Promotion",
-				_("{0} year average {1} is below the pass mark ({2})").format(
-					ctx.previous_year, round(flt(average), 1), ctx.pass_mark
+				_("On the Not Promoted list, although rule {0} would promote them").format(
+					verdict.rule or _("pass mark")
 				),
-			)
-		exam_type = REGIONAL_EXAMS.get(split_program(row.previous_program)[0])
-		exam = ctx.exam_results.get((student.name, exam_type)) if exam_type else None
-		if exam and exam.result_status == "Fail":
-			_issue(
-				row,
-				REVIEW,
-				"Promotion",
-				_("Failed the {0} ({1}) but applied for {2}").format(exam_type, exam.name, app.program),
 			)
 
 	if stream_note:

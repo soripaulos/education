@@ -16,28 +16,22 @@ const EXTERNAL_EXAM_SUBJECTS = {
 
 frappe.ui.form.on('External Exam Result', {
   refresh(frm) {
-    if (frm.doc.docstatus === 0) {
+    if (frm.doc.docstatus === 0 && frm.doc.exam_type === 'Grade 12 National Exam') {
       frm.add_custom_button(__('Fill Usual Subjects'), () => fill_subjects(frm))
     }
     const colors = { Pass: 'green', Fail: 'red', Absent: 'orange', Withheld: 'orange' }
     if (colors[frm.doc.result_status] && !frm.is_new()) {
       frm.dashboard.set_headline_alert(
-        __('{0}: {1}% average', [__(frm.doc.result_status), format_number(frm.doc.average_percentage, null, 2)]),
+        frm.doc.average_percentage
+          ? __('{0}: {1}% average', [__(frm.doc.result_status), format_number(frm.doc.average_percentage, null, 2)])
+          : __(frm.doc.result_status),
         colors[frm.doc.result_status]
       )
     }
   },
 
-  exam_type(frm) {
-    if (!frm.doc.exam_type) return
-    frappe.call({
-      method: 'education.education.doctype.external_exam_result.external_exam_result.get_default_pass_mark',
-      args: { exam_type: frm.doc.exam_type },
-      callback(r) {
-        if (r.message) frm.set_value('pass_mark', r.message)
-      },
-    })
-  },
+  total_score: average_from_totals,
+  total_max_score: average_from_totals,
 })
 
 frappe.ui.form.on('External Exam Subject', {
@@ -59,6 +53,13 @@ function recalculate(frm) {
   frm.set_value('total_max_score', total_max)
   frm.set_value('average_percentage', total_max ? (total / total_max) * 100 : 0)
   frm.refresh_field('subjects')
+}
+
+function average_from_totals(frm) {
+  if ((frm.doc.subjects || []).length) return
+  if (flt(frm.doc.total_max_score) > 0) {
+    frm.set_value('average_percentage', (flt(frm.doc.total_score) / flt(frm.doc.total_max_score)) * 100)
+  }
 }
 
 function fill_subjects(frm) {

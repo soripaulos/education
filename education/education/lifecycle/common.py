@@ -256,3 +256,43 @@ def phone_password_candidates(phone):
 	if not local:
 		return []
 	return ["0" + local, "251" + local]
+
+
+def describe_condition(failed_subjects, mark_below):
+	""""3 or more subjects below 50" - how a failed-subject condition reads."""
+	count = int(failed_subjects or 0)
+	noun = "subject" if count == 1 else "subjects"
+	return "{0} or more {1} below {2:g}".format(count, noun, float(mark_below or 0))
+
+
+def promotion_failures(average, subjects, average_below=0, conditions=()):
+	"""Why a student fails a school-results promotion rule ([] when they pass).
+
+	``average``     the year average, or None when unknown.
+	``subjects``    {subject: year percentage} for the subjects that count.
+	``average_below`` fail when the average is below this (0 = not used).
+	``conditions``  [(failed_subjects, subject_mark_below), ...]: fail when at
+	                least ``failed_subjects`` subjects score below the mark.
+	Any one criterion is enough to fail.
+	"""
+	reasons = []
+	average_below = float(average_below or 0)
+	if average_below and average is not None and float(average) < average_below:
+		reasons.append("Year average {0:.1f} is below {1:g}".format(float(average), average_below))
+
+	for failed_subjects, mark_below in conditions or ():
+		failed_subjects = int(failed_subjects or 0)
+		mark_below = float(mark_below or 0)
+		if failed_subjects <= 0 or mark_below <= 0:
+			continue
+		low = sorted(
+			((name, float(score)) for name, score in (subjects or {}).items() if score is not None and float(score) < mark_below),
+			key=lambda item: item[1],
+		)
+		if len(low) >= failed_subjects:
+			reasons.append(
+				"{0} subjects below {1:g}: {2}".format(
+					len(low), mark_below, ", ".join("{0} ({1:.0f})".format(n, s) for n, s in low)
+				)
+			)
+	return reasons

@@ -120,14 +120,34 @@ class StudentExit(Document):
 			return
 		exits.revert_exit(self)
 
+	def before_update_after_submit(self):
+		self.link_national_exam_result()
+
 	def on_update_after_submit(self):
-		# Keep the Student's certificate number in step when it is filled in later.
-		if self.leaving_certificate_number and self.status == "Exited":
-			current = frappe.db.get_value("Student", self.student, "leaving_certificate_number")
-			if current != self.leaving_certificate_number:
-				frappe.db.set_value(
-					"Student", self.student, "leaving_certificate_number", self.leaving_certificate_number
-				)
+		"""Keep the Student's leaving details in step with later corrections."""
+		if self.status != "Exited":
+			return
+		student = frappe.get_doc("Student", self.student)
+		changed = False
+		values = {
+			"leaving_certificate_number": self.leaving_certificate_number,
+			"reason_for_leaving": self.reason_details or self.exit_type,
+		}
+		for fieldname, source in (
+			("custom_reason_for_leaving_copy", self.reason_for_leaving),
+			("custom_exams_taken", self.last_exams_taken),
+		):
+			field = student.meta.get_field(fieldname)
+			if field and source and source in (field.options or "").split("\n"):
+				values[fieldname] = source
+		for fieldname, value in values.items():
+			if value and student.meta.has_field(fieldname) and student.get(fieldname) != value:
+				student.set(fieldname, value)
+				changed = True
+		if changed:
+			student.flags.skip_user_creation = True
+			student.flags.ignore_permissions = True
+			student.save()
 
 
 @frappe.whitelist()

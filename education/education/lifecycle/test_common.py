@@ -114,6 +114,36 @@ class TestPasswords(unittest.TestCase):
 		self.assertEqual(common.phone_password_candidates(None), [])
 
 
+class TestPromotion(unittest.TestCase):
+	RULE = dict(average_below=60, conditions=[(3, 50), (2, 40)])
+
+	def test_passes(self):
+		subjects = {"Maths": 55, "English": 70, "Physics": 45, "Biology": 80}
+		self.assertEqual(common.promotion_failures(72, subjects, **self.RULE), [])
+
+	def test_average(self):
+		reasons = common.promotion_failures(58.4, {"Maths": 70}, **self.RULE)
+		self.assertEqual(reasons, ["Year average 58.4 is below 60"])
+
+	def test_failed_subjects(self):
+		three_low = {"A": 45, "B": 49, "C": 30, "D": 90}
+		reasons = common.promotion_failures(70, three_low, **self.RULE)
+		# Three subjects are below 50; only one is below 40, so only one condition trips.
+		self.assertEqual(reasons, ["3 subjects below 50: C (30), A (45), B (49)"])
+
+	def test_two_very_low(self):
+		reasons = common.promotion_failures(70, {"A": 35, "B": 39, "C": 90}, **self.RULE)
+		self.assertEqual(reasons, ["2 subjects below 40: A (35), B (39)"])
+
+	def test_unused_criteria(self):
+		self.assertEqual(common.promotion_failures(10, {"A": 1}, average_below=0, conditions=[]), [])
+		self.assertEqual(common.promotion_failures(None, {}, **self.RULE), [])
+
+	def test_describe(self):
+		self.assertEqual(common.describe_condition(3, 50), "3 or more subjects below 50")
+		self.assertEqual(common.describe_condition(1, 40.5), "1 or more subject below 40.5")
+
+
 class TestIssues(unittest.TestCase):
 	def test_worst_and_format(self):
 		issues = [

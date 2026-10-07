@@ -120,7 +120,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "options": "\nGraduated\nTransferred\nWithdrawn\nDid Not Re-register\nExpelled\nDeceased\nOther",
-   "description": "Graduated: completed Grade 12. Did Not Re-register: did not apply for the next year."
+   "description": "Graduated: completed Grade 12. Did Not Re-register: did not apply for the next year. Can be corrected after submitting (e.g. once you learn a student transferred).",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "exit_date",
@@ -175,7 +176,8 @@
   {
    "fieldname": "last_attendance_date",
    "fieldtype": "Date",
-   "label": "Last Day Attended"
+   "label": "Last Day Attended",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "section_reason",
@@ -186,13 +188,15 @@
    "fieldname": "reason_for_leaving",
    "fieldtype": "Select",
    "label": "Reason for Leaving",
-   "options": "\nFamily relocation to another city or country\nFinancial difficulties or inability to pay school fees\nAdmission to another school with better academic programs\nSeeking a curriculum not offered at the current school\nBullying or social adjustment issues\nMental or physical health concerns\nDisciplinary expulsion or suspension\nParent or guardian decision due to dissatisfaction\nReligious or cultural reasons\nLong-term travel or emigration plans\nTransportation or commute challenges\nGranted scholarship at another school"
+   "options": "\nFamily relocation to another city or country\nFinancial difficulties or inability to pay school fees\nAdmission to another school with better academic programs\nSeeking a curriculum not offered at the current school\nBullying or social adjustment issues\nMental or physical health concerns\nDisciplinary expulsion or suspension\nParent or guardian decision due to dissatisfaction\nReligious or cultural reasons\nLong-term travel or emigration plans\nTransportation or commute challenges\nGranted scholarship at another school",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "destination_school",
    "fieldtype": "Data",
    "label": "Destination School / Institution",
-   "depends_on": "eval:['Transferred','Withdrawn','Other'].includes(doc.exit_type)"
+   "depends_on": "eval:['Transferred','Withdrawn','Other'].includes(doc.exit_type)",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "column_break_reason",
@@ -201,13 +205,15 @@
   {
    "fieldname": "reason_details",
    "fieldtype": "Small Text",
-   "label": "Details"
+   "label": "Details",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "last_exams_taken",
    "fieldtype": "Select",
    "label": "Last Exams Taken",
-   "options": "\nFirst Test - SEM 1\nSecond Test- SEM 1\nMid Exam- SEM 1\nFinal Exam- SEM 1\nFirst Test - SEM 2\nSecond Test- SEM 2\nMid Exam- SEM 2\nFinal Exam- SEM 2"
+   "options": "\nFirst Test - SEM 1\nSecond Test- SEM 1\nMid Exam- SEM 1\nFinal Exam- SEM 1\nFirst Test - SEM 2\nSecond Test- SEM 2\nMid Exam- SEM 2\nFinal Exam- SEM 2",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "section_clearance",
@@ -410,7 +416,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-07 12:00:00.000000",
+ "modified": "2026-10-08 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Education",
  "name": "Student Exit",

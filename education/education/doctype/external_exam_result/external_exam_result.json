@@ -25,7 +25,6 @@
   "total_max_score",
   "average_percentage",
   "column_break_total",
-  "pass_mark",
   "result_status",
   "section_certificate",
   "certificate_number",
@@ -132,7 +131,9 @@
   {
    "fieldname": "section_subjects",
    "fieldtype": "Section Break",
-   "label": "Subject Results"
+   "label": "Subject Results (optional)",
+   "depends_on": "eval:doc.exam_type=='Grade 12 National Exam'",
+   "description": "Only if you want each subject on record. When filled, the totals below are worked out from it."
   },
   {
    "fieldname": "subjects",
@@ -143,37 +144,30 @@
   {
    "fieldname": "section_total",
    "fieldtype": "Section Break",
-   "label": "Result"
+   "label": "Overall Result"
   },
   {
    "fieldname": "total_score",
    "fieldtype": "Float",
    "label": "Total Score",
-   "read_only": 1,
-   "in_list_view": 1
+   "in_list_view": 1,
+   "description": "As printed on the result slip."
   },
   {
    "fieldname": "total_max_score",
    "fieldtype": "Float",
-   "label": "Total Out Of",
-   "read_only": 1
+   "label": "Out Of"
   },
   {
    "fieldname": "average_percentage",
    "fieldtype": "Percent",
    "label": "Average",
-   "read_only": 1,
-   "in_list_view": 1
+   "in_list_view": 1,
+   "description": "Worked out from Total / Out Of when both are given; otherwise type it."
   },
   {
    "fieldname": "column_break_total",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "pass_mark",
-   "fieldtype": "Percent",
-   "label": "Pass Mark",
-   "description": "Average needed to pass. Defaults from Education Settings; clear it to set the result by hand."
   },
   {
    "fieldname": "result_status",
@@ -183,7 +177,8 @@
    "default": "Pending",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "description": "Worked out from the average and pass mark, except Absent and Withheld which are kept as entered."
+   "description": "Pass or Fail as written on the official result. This decides promotion for grades whose Promotion Rule is decided by this exam.",
+   "reqd": 1
   },
   {
    "fieldname": "section_certificate",
@@ -226,7 +221,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-07 12:00:00.000000",
+ "modified": "2026-10-08 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Education",
  "name": "External Exam Result",

@@ -1,0 +1,174 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-08 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "rule_name",
+  "enabled",
+  "column_break_head",
+  "decided_by",
+  "exam_type",
+  "section_programs",
+  "programs",
+  "section_criteria",
+  "year_average_below",
+  "column_break_criteria",
+  "summary",
+  "section_conditions",
+  "conditions",
+  "section_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_name",
+   "fieldtype": "Data",
+   "label": "Rule Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "decided_by",
+   "fieldtype": "Select",
+   "label": "Decided By",
+   "options": "School Results\nExternal Exam",
+   "default": "School Results",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "School Results: the year report and its subjects. External Exam: the result written on the External Exam Result (Grade 6 / 8 regional exam, etc.)."
+  },
+  {
+   "fieldname": "exam_type",
+   "fieldtype": "Select",
+   "label": "Exam",
+   "options": "\nGrade 6 Regional Exam\nGrade 8 Regional Exam\nGrade 12 National Exam",
+   "depends_on": "eval:doc.decided_by=='External Exam'",
+   "mandatory_depends_on": "eval:doc.decided_by=='External Exam'"
+  },
+  {
+   "fieldname": "section_programs",
+   "fieldtype": "Section Break",
+   "label": "Applies To"
+  },
+  {
+   "fieldname": "programs",
+   "fieldtype": "Table MultiSelect",
+   "label": "Programs (Grades)",
+   "options": "Promotion Rule Program",
+   "description": "Grades this rule decides. Leave empty to make it the default rule for every grade that has no rule of its own."
+  },
+  {
+   "fieldname": "section_criteria",
+   "fieldtype": "Section Break",
+   "label": "A student is NOT promoted when any of these is true",
+   "depends_on": "eval:doc.decided_by=='School Results'"
+  },
+  {
+   "fieldname": "year_average_below",
+   "fieldtype": "Float",
+   "label": "Year Average Below",
+   "description": "e.g. 60. Leave 0 to ignore the year average."
+  },
+  {
+   "fieldname": "column_break_criteria",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Summary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_conditions",
+   "fieldtype": "Section Break",
+   "depends_on": "eval:doc.decided_by=='School Results'"
+  },
+  {
+   "fieldname": "conditions",
+   "fieldtype": "Table",
+   "label": "Failed Subject Conditions",
+   "options": "Promotion Rule Condition",
+   "description": "e.g. 3 subjects below 50, or 2 subjects below 40. Subjects excluded from the average are not counted."
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-08 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Promotion Rule",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1,
+   "role": "Education Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1,
+   "role": "Academics User"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Instructor"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "field:rule_name",
+ "naming_rule": "By fieldname",
+ "track_changes": 1,
+ "search_fields": "decided_by"
+}

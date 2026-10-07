@@ -493,27 +493,29 @@ def _exam_checks(ctx, branch):
 			)
 		)
 
-	# Regional exams: only once results for that exam and year have started
-	# being entered, otherwise every Grade 6/8 student would be listed.
-	for grade, exam_type in (("Grade 6", "Grade 6 Regional Exam"), ("Grade 8", "Grade 8 Regional Exam")):
-		if not any(key[1] == exam_type for key in ctx.exam_results):
+	# Grades whose promotion is decided by an outside exam: once results for
+	# that exam and year have started being entered, list who has none yet.
+	evaluator = ctx.promotion
+	if evaluator._exams is None:
+		evaluator._load_exams()
+	entered = {exam_type for (_student, exam_type) in evaluator._exams}
+	for student_name, rows in ctx.prev_enrollments.items():
+		program = rows[0].program
+		rule = evaluator.rule_for(program)
+		if not rule or rule.decided_by != "External Exam" or rule.exam_type not in entered:
 			continue
-		for student_name, rows in ctx.prev_enrollments.items():
-			program = rows[0].program
-			if not program.startswith(grade + " ") and program != grade:
-				continue
-			if (student_name, exam_type) in ctx.exam_results:
-				continue
-			student = ctx.students.get(student_name)
-			if not student or not _in_branch(ctx, student, branch):
-				continue
-			findings.append(
-				_finding(
-					INFO,
-					"Exam",
-					_("No {0} result recorded for {1}").format(exam_type, ctx.previous_year),
-					previous_program=program,
-					**_student_bits(student),
-				)
+		if evaluator.exam(student_name, rule.exam_type):
+			continue
+		student = ctx.students.get(student_name)
+		if not student or not _in_branch(ctx, student, branch):
+			continue
+		findings.append(
+			_finding(
+				INFO,
+				"Exam",
+				_("No {0} result recorded for {1}").format(rule.exam_type, ctx.previous_year),
+				previous_program=program,
+				**_student_bits(student),
 			)
+		)
 	return findings

@@ -2916,17 +2916,38 @@ def _get_grade(percentage, grading_scale_name="Standard Grading Scale"):
         return None
 
 
-def _get_promotion_decision(year_average, current_program):
+def _get_promotion_decision(year_average, current_program, student=None, academic_year=None):
     """
-    Auto-compute promotion decision based on year_average and current program.
+    Promotion decision for the report card: "Promoted to <next grade>",
+    "Graduated", "Detained", or "Pending: <reason>".
+
+    With ``student`` and ``academic_year`` the school's Promotion Rules decide
+    (year average and failed-subject conditions, or the outside exam for
+    exam grades). Without them, only the year average is compared with the
+    fallback pass mark.
     Sequences: Nursery -> LKG -> UKG -> Grade 1 -> ... -> Grade 12
     Suffixes (AO, NS, SS, etc.) are preserved.
     """
+    from education.education.lifecycle import promotion
     from education.education.lifecycle.setup import get_setting
 
-    pass_mark = flt(get_setting("promotion_pass_mark")) or 60
-    if year_average is None or year_average < pass_mark:
-        return "Detained"
+    if student and academic_year:
+        verdict = promotion.evaluate(student, academic_year, current_program)
+        if verdict.decision == promotion.NOT_PROMOTED:
+            return "Detained"
+        if verdict.decision == promotion.PENDING:
+            if verdict.rule and frappe.db.get_value("Promotion Rule", verdict.rule, "decided_by") == "External Exam":
+                return "Pending: " + "; ".join(verdict.reasons)
+            # No year report yet: fall back to the average we were given.
+            if year_average is None:
+                return None
+            pass_mark = flt(get_setting("promotion_pass_mark")) or 60
+            if year_average < pass_mark:
+                return "Detained"
+    else:
+        pass_mark = flt(get_setting("promotion_pass_mark")) or 60
+        if year_average is None or year_average < pass_mark:
+            return "Detained"
 
     program = current_program or ""
     suffix = ""
@@ -3013,10 +3034,15 @@ def _generate_single_student_report_card(student, academic_year, result_action="
 
     # 4. Fetch Student Group / Program
     student_group_name = first_str.student_group if first_str else None
-    program_name = None
-    if student_group_name:
-        sg = frappe.get_doc("Student Group", student_group_name)
-        program_name = sg.program
+    # The enrollment for that year is the reliable record of the grade: a
+    # section keeps its name across years, so its program moves on.
+    program_name = frappe.db.get_value(
+        "Program Enrollment",
+        {"student": student, "academic_year": academic_year, "docstatus": 1},
+        "program",
+    )
+    if not program_name and student_group_name:
+        program_name = frappe.db.get_value("Student Group", student_group_name, "program")
 
     # 5. Collect all unique subjects from all STRs
     all_subjects = {}
@@ -3076,7 +3102,9 @@ def _generate_single_student_report_card(student, academic_year, result_action="
         subject_rows.append(row)
 
     # 8. Build promotion decision
-    promotion = _get_promotion_decision(year_avg_computed, program_name) if year_avg_computed is not None else None
+    promotion = _get_promotion_decision(
+        year_avg_computed, program_name, student=student, academic_year=academic_year
+    )
 
     # 9. Check if SRC already exists (upsert)
     existing = frappe.get_all(

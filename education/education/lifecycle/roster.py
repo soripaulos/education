@@ -51,31 +51,58 @@ def _find_columns(rows):
 	return None
 
 
+def _read_csv(content):
+	"""Rows of a CSV file, whatever encoding and delimiter Excel saved it with."""
+	import csv
+
+	if isinstance(content, bytes):
+		for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+			try:
+				content = content.decode(encoding)
+				break
+			except UnicodeDecodeError:
+				continue
+	content = content.lstrip("\ufeff")
+	try:
+		dialect = csv.Sniffer().sniff(content[:4096], delimiters=",;\t")
+	except csv.Error:
+		dialect = csv.excel
+	return [row for row in csv.reader(io.StringIO(content), dialect)]
+
+
 def _sheets_from_file(file_url):
-	"""Yield (sheet_name, rows) for every sheet in an attached roster file."""
-	file_doc = frappe.get_doc("File", {"file_url": file_url})
-	content = file_doc.get_content()
+	"""Return [(sheet_name, rows)] for every sheet in an attached roster file."""
+	file_name = frappe.db.get_value("File", {"file_url": file_url}, "name")
+	if not file_name:
+		frappe.throw(_("The attached roster file could not be found. Attach it again."))
+	file_doc = frappe.get_doc("File", file_name)
 	name = (file_doc.file_name or file_url).lower()
+	if not name.endswith((".csv", ".xlsx", ".xlsm")):
+		frappe.throw(
+			_("Upload the roster as an .xlsx or .csv file (old .xls files must be saved as .xlsx first).")
+		)
+
+	try:
+		content = file_doc.get_content()
+	except Exception:
+		frappe.throw(_("The attached roster file could not be read. Attach it again."))
 
 	if name.endswith(".csv"):
-		from frappe.utils.csvutils import read_csv_content
-
-		if isinstance(content, bytes):
-			content = content.decode("utf-8-sig", errors="replace")
-		yield "", read_csv_content(content)
-		return
-
-	if not name.endswith((".xlsx", ".xlsm")):
-		frappe.throw(_("Upload the roster as an .xlsx or .csv file."))
+		return [("", _read_csv(content))]
 
 	from openpyxl import load_workbook
 
 	if isinstance(content, str):
 		content = content.encode()
-	workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
 	try:
-		for sheet in workbook.worksheets:
-			yield sheet.title, [list(row) for row in sheet.iter_rows(values_only=True)]
+		workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+	except Exception:
+		frappe.throw(_("The roster is not a valid .xlsx file. Open it in Excel and save it as .xlsx again."))
+	try:
+		return [
+			(sheet.title, [list(row) for row in sheet.iter_rows(values_only=True)])
+			for sheet in workbook.worksheets
+		]
 	finally:
 		workbook.close()
 
@@ -114,11 +141,11 @@ def read_roster(file_url):
 			if id_col >= len(row):
 				continue
 			school_id = normalize_school_id(row[id_col])
-			if not school_id:
+			if not school_id or _header_key(row[id_col]) in SCHOOL_ID_HEADERS:
 				continue
 			section = row[section_col] if section_col is not None and section_col < len(row) else sheet_name
 			section = clean_spaces(section)
-			if not section:
+			if not section or _header_key(section) in SECTION_HEADERS:
 				continue
 			rows_read += 1
 			used = True
@@ -136,6 +163,17 @@ def read_roster(file_url):
 			sections[school_id] = next(iter(values))
 		else:
 			conflicts[school_id] = sorted(values)
+
+	if not rows_read:
+		frappe.msgprint(
+			_(
+				"No students were read from the roster. It needs a <b>School ID</b> column and a <b>Section</b> column "
+				"(or one sheet per section, named after the section), with at least one filled row. "
+				"Students are listed without roster sections."
+			),
+			title=_("Roster is empty"),
+			indicator="orange",
+		)
 
 	return frappe._dict(
 		sections=sections,
